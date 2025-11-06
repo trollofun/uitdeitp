@@ -61,7 +61,6 @@ export function BrandingEditor({
                 width={128}
                 height={128}
                 className="object-contain"
-                onError={() => setLogoPreview('')}
               />
             ) : (
               <div className="text-center text-white">
@@ -149,7 +148,6 @@ export function BrandingEditor({
                   width={80}
                   height={80}
                   className="mx-auto object-contain"
-                  onError={() => setLogoPreview('')}
                 />
               ) : (
                 <div className="text-4xl font-bold">
