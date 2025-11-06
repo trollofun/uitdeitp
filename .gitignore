@@ -86,3 +86,4 @@ claude-flow
 hive-mind-prompt-*.txt
 .vercel
 .tsbuildinfo
+.next/

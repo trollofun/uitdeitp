@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { createBrowserClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/auth/card';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
@@ -21,7 +21,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
  * 3. Redirect către destinație (dashboard, reset-password, etc.)
  */
 
-export default function AuthConfirmPage() {
+function ConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export default function AuthConfirmPage() {
           throw new Error('Link invalid sau parametri lipsă');
         }
 
-        const supabase = createClient();
+        const supabase = createBrowserClient();
 
         // Verifică token-ul OTP cu metoda actualizată (2025)
         const { error: verifyError } = await supabase.auth.verifyOtp({
@@ -128,5 +128,13 @@ export default function AuthConfirmPage() {
         </CardHeader>
       </Card>
     </div>
+  );
+}
+
+export default function AuthConfirmPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <ConfirmContent />
+    </Suspense>
   );
 }
