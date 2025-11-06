@@ -1,0 +1,276 @@
+================================================================================
+KIOSK MODE - ARCHITECTURE DIAGRAM
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           KIOSK MODE FLOW                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│                         Browser Navigation                                │
+│                     /kiosk/[stationId]                                    │
+└───────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                         KioskLayout.tsx                                   │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │  IdleTimeout (60s)                                                  │ │
+│  │    └─ Monitors: touch, mouse, keyboard, scroll                     │ │
+│  │    └─ Warning at 50s                                               │ │
+│  │    └─ Reset at 60s → /kiosk/[stationId]                           │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │  KioskHeader                                                        │ │
+│  │    └─ StationBranding (logo, colors, tagline)                      │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │  KioskContent                                                       │ │
+│  │                                                                     │ │
+│  │    Step 1: WELCOME                                                 │ │
+│  │    ┌─────────────────────────────────────────────────────────────┐ │ │
+│  │    │  StationBranding                                            │ │ │
+│  │    │  BrandedButton "Începe" → Step 2                           │ │ │
+│  │    └─────────────────────────────────────────────────────────────┘ │ │
+│  │                                                                     │ │
+│  │    Step 2: PLATE NUMBER                                            │ │
+│  │    ┌─────────────────────────────────────────────────────────────┐ │ │
+│  │    │  ProgressBar (currentStep: 1)                               │ │ │
+│  │    │  Input (readonly, auto-uppercase)                           │ │ │
+│  │    │  TouchKeyboard                                              │ │ │
+│  │    │    └─ Romanian alphabet + numbers                           │ │ │
+│  │    │    └─ Validation: /^[A-Z]{1,2}[-]?\d{2,3}[-]?[A-Z]{3}$/    │ │ │
+│  │    │    └─ Clear, Backspace, Continue                            │ │ │
+│  │    └─────────────────────────────────────────────────────────────┘ │ │
+│  │                                                                     │ │
+│  │    Step 3: CONTACT (Optional)                                      │ │
+│  │    ┌─────────────────────────────────────────────────────────────┐ │ │
+│  │    │  ProgressBar (currentStep: 2)                               │ │ │
+│  │    │  Phone input (optional)                                     │ │ │
+│  │    │  Email input (optional)                                     │ │ │
+│  │    │  Back / Continue buttons                                    │ │ │
+│  │    └─────────────────────────────────────────────────────────────┘ │ │
+│  │                                                                     │ │
+│  │    Step 4: EXPIRY DATE                                             │ │
+│  │    ┌─────────────────────────────────────────────────────────────┐ │ │
+│  │    │  ProgressBar (currentStep: 3)                               │ │ │
+│  │    │  Date picker (min: today)                                   │ │ │
+│  │    │  Back / Continue buttons                                    │ │ │
+│  │    └─────────────────────────────────────────────────────────────┘ │ │
+│  │                                                                     │ │
+│  │    Step 5: CONFIRMATION                                            │ │
+│  │    ┌─────────────────────────────────────────────────────────────┐ │ │
+│  │    │  ProgressBar (currentStep: 4)                               │ │ │
+│  │    │  Review:                                                     │ │ │
+│  │    │    - Plate number                                           │ │ │
+│  │    │    - Phone (if provided)                                    │ │ │
+│  │    │    - Email (if provided)                                    │ │ │
+│  │    │    - Expiry date                                            │ │ │
+│  │    │  Back / Confirm buttons                                     │ │ │
+│  │    └─────────────────────────────────────────────────────────────┘ │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │  KioskFooter                                                        │ │
+│  │    └─ "Powered by uitdeITP.ro"                                     │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────────────────┘
+                                   │
+                         ┌─────────┴─────────┐
+                    Success               Error
+                         │                   │
+                         ▼                   ▼
+┌───────────────────────────────┐  ┌───────────────────────────────┐
+│  /success/page.tsx            │  │  /error/page.tsx              │
+│  ┌─────────────────────────┐  │  │  ┌─────────────────────────┐  │
+│  │  ✓ Success animation    │  │  │  │  ⚠ Error icon           │  │
+│  │  "Mulțumim!"            │  │  │  │  Error message          │  │
+│  │  Countdown (10s)        │  │  │  │  Retry button           │  │
+│  │  Auto-redirect          │  │  │  │  Back to start button   │  │
+│  └─────────────────────────┘  │  │  └─────────────────────────┘  │
+└───────────────────────────────┘  └───────────────────────────────┘
+         │                                    │
+         │                                    │
+         └────────────────┬───────────────────┘
+                          │
+                          ▼
+                  Reset to Step 1
+
+================================================================================
+COMPONENT HIERARCHY
+================================================================================
+
+KioskLayout
+├── IdleTimeout (wrapper)
+│   ├── KioskHeader
+│   │   └── StationBranding (logo, name)
+│   ├── KioskContent
+│   │   └── [Dynamic Step Content]
+│   │       ├── Step 1: Welcome
+│   │       │   └── StationBranding + BrandedButton
+│   │       ├── Step 2: Plate Input
+│   │       │   ├── ProgressBar
+│   │       │   ├── Input (readonly)
+│   │       │   └── TouchKeyboard
+│   │       ├── Step 3: Contact
+│   │       │   ├── ProgressBar
+│   │       │   ├── Phone Input
+│   │       │   └── Email Input
+│   │       ├── Step 4: Expiry
+│   │       │   ├── ProgressBar
+│   │       │   └── Date Picker
+│   │       └── Step 5: Confirmation
+│   │           ├── ProgressBar
+│   │           └── Review Cards
+│   └── KioskFooter
+
+================================================================================
+DATA FLOW
+================================================================================
+
+1. STATION LOADING
+   ┌──────────────┐
+   │ Browser      │
+   └──────┬───────┘
+          │ GET /api/kiosk/[stationId]
+          ▼
+   ┌──────────────┐
+   │ API Endpoint │
+   └──────┬───────┘
+          │ StationBrandingData
+          ▼
+   ┌──────────────┐
+   │ State        │ → Update UI with branding
+   └──────────────┘
+
+2. FORM SUBMISSION
+   ┌──────────────┐
+   │ Form State   │
+   │ - plate      │
+   │ - phone      │
+   │ - email      │
+   │ - expiryDate │
+   └──────┬───────┘
+          │ POST /api/kiosk/submit
+          ▼
+   ┌──────────────┐
+   │ API Endpoint │
+   └──────┬───────┘
+          │
+    ┌─────┴─────┐
+    │           │
+Success       Error
+    │           │
+    ▼           ▼
+/success    /error
+
+3. IDLE TIMEOUT
+   ┌──────────────┐
+   │ User Events  │
+   │ - touch      │
+   │ - mouse      │
+   │ - keyboard   │
+   │ - scroll     │
+   └──────┬───────┘
+          │ Reset timer
+          ▼
+   ┌──────────────┐
+   │ Timeout      │ → 60s no activity
+   │ Warning      │ → 50s warning modal
+   └──────┬───────┘
+          │ 60s elapsed
+          ▼
+   ┌──────────────┐
+   │ Reset to     │
+   │ Welcome      │
+   └──────────────┘
+
+================================================================================
+STATE MANAGEMENT
+================================================================================
+
+Local Component State (useState):
+
+currentStep: 'welcome' | 'plate' | 'contact' | 'expiry' | 'confirmation'
+plateNumber: string
+phoneNumber: string
+email: string
+expiryDate: string
+plateError: string
+submitting: boolean
+stationData: StationBrandingData | null
+loading: boolean
+error: string | null
+
+================================================================================
+API INTEGRATION
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  API Agent Responsibilities                                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  1. GET /api/kiosk/[stationId]                                         │
+│     ├─ Validate station exists                                         │
+│     ├─ Return station branding data                                    │
+│     └─ Handle not found (404)                                          │
+│                                                                         │
+│  2. POST /api/kiosk/submit                                             │
+│     ├─ Validate plate number format                                    │
+│     ├─ Validate expiry date (future)                                   │
+│     ├─ Create guest reminder record                                    │
+│     ├─ Source: 'kiosk'                                                 │
+│     ├─ Set consent_given: true                                         │
+│     ├─ Capture consent_ip                                              │
+│     └─ Return success/error                                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+VALIDATION LOGIC
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Plate Number Validation                                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Pattern: /^[A-Z]{1,2}[-]?\d{2,3}[-]?[A-Z]{3}$/                        │
+│                                                                         │
+│  Valid Examples:                                                        │
+│    ✓ B-123-ABC                                                         │
+│    ✓ B123ABC                                                           │
+│    ✓ BT-01-XYZ                                                         │
+│    ✓ AB123XYZ                                                          │
+│                                                                         │
+│  Invalid Examples:                                                      │
+│    ✗ 123-ABC    (missing county)                                       │
+│    ✗ B-12-AB    (too short)                                            │
+│    ✗ B-1234-ABC (too many digits)                                      │
+│    ✗ ABC-123-DE (too many letters in county)                           │
+│                                                                         │
+│  Auto-corrections:                                                      │
+│    → Auto-uppercase all input                                          │
+│    → Real-time validation feedback                                     │
+│    → Error message on invalid format                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+TOUCH OPTIMIZATION
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Touch Target Guidelines                                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Minimum Size: 44x44px (iOS/Android guidelines)                        │
+│  Padding: 8px around elements                                           │
+│  Active State: scale(0.95) animation                                    │
+│  Font Sizes:                                                            │
+│    - Headings: 48px - 72px                                             │
+│    - Body: 24px - 32px                                                 │
+│    - Labels: 20px - 24px                                               │
+│    - Buttons: 24px - 32px                                              │
+│  Color Contrast: Minimum 7:1 (WCAG AAA)                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
