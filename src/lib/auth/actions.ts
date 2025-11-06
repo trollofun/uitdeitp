@@ -245,11 +245,11 @@ export async function logout(): Promise<ActionResult> {
 }
 
 /**
- * OAuth login (Google, GitHub)
+ * OAuth login (Google only)
  * ACTUALIZAT 2025: Scopes și queryParams pentru Google OAuth
  */
 export async function oauthLogin(
-  provider: 'google' | 'github'
+  provider: 'google'
 ): Promise<ActionResult<{ url: string }>> {
   try {
     const supabase = createClient();
@@ -259,11 +259,11 @@ export async function oauthLogin(
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
         // Google OAuth: scopes și queryParams pentru access offline și profile data
-        queryParams: provider === 'google' ? {
+        queryParams: {
           access_type: 'offline',
           prompt: 'consent',
-        } : undefined,
-        scopes: provider === 'google' ? 'email profile' : undefined,
+        },
+        scopes: 'email profile',
       },
     });
 

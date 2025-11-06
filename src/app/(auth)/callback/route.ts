@@ -5,10 +5,10 @@ import { logger } from '@/lib/logger';
 /**
  * OAuth Callback Route Handler
  *
- * Gestionează callback-ul după autentificare OAuth (Google, GitHub)
+ * Gestionează callback-ul după autentificare OAuth (Google)
  *
  * Flow:
- * 1. User se autentifică cu Google/GitHub
+ * 1. User se autentifică cu Google
  * 2. Provider redirect către /auth/callback?code=xxx
  * 3. Această rută schimbă code-ul pentru sesiune
  * 4. Redirect către destinație (dashboard)
