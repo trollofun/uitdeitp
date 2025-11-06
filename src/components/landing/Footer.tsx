@@ -14,27 +14,24 @@ interface FooterSection {
 
 const footerSections: FooterSection[] = [
   {
-    title: 'Produs',
+    title: 'Navigare',
     links: [
-      { label: 'Features', href: '/features' },
-      { label: 'Pricing', href: '/pricing' },
-      { label: 'Blog', href: '/blog' },
+      { label: 'Acasă', href: '/' },
+      { label: 'FAQ', href: '/#faq' },
+      { label: 'Autentificare', href: '/auth/login' },
     ],
   },
   {
-    title: 'Suport',
+    title: 'Cont',
     links: [
-      { label: 'Contact', href: '/contact' },
-      { label: 'FAQ', href: '/#faq' },
-      { label: 'Ghid ITP', href: '/blog/ce-inseamna-itp' },
+      { label: 'Înregistrare', href: '/auth/register' },
+      { label: 'Parolă uitată', href: '/auth/forgot-password' },
     ],
   },
   {
     title: 'Legal',
     links: [
-      { label: 'Termeni', href: '/terms' },
-      { label: 'Privacy', href: '/privacy' },
-      { label: 'Cookies', href: '/privacy#cookies' },
+      { label: 'În curând', href: '#' },
     ],
   },
 ];
