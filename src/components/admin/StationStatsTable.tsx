@@ -39,7 +39,7 @@ export function StationStatsTable({ data }: StationStatsTableProps) {
             <TableBody>
               {data.map((station) => {
                 const total = data.reduce((sum, s) => sum + s.count, 0);
-                const percentage = ((station.count / total) * 100).toFixed(1);
+                const percentage = total > 0 ? ((station.count / total) * 100).toFixed(1) : '0.0';
 
                 return (
                   <TableRow key={station.id}>

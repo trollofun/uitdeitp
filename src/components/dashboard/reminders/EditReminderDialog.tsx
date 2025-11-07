@@ -84,7 +84,9 @@ export function EditReminderDialog({
       reset({
         plate_number: reminder.plate_number,
         reminder_type: reminder.reminder_type,
-        expiry_date: reminder.expiry_date.split('T')[0], // Format date for input
+        expiry_date: reminder.expiry_date && reminder.expiry_date.includes('T')
+          ? reminder.expiry_date.split('T')[0]
+          : reminder.expiry_date || '', // Format date for input
         station_id: reminder.station_id,
         guest_phone: reminder.guest_phone || '',
         guest_name: reminder.guest_name || '',

@@ -1,7 +1,7 @@
 'use client';
 
 import { Progress } from './progress';
-import { cn } from '@/components/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface PasswordStrengthMeterProps {
   password: string;

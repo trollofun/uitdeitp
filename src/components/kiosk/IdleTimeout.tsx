@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { cn } from '@/components/lib/utils';
+import { cn } from '@/lib/utils';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 

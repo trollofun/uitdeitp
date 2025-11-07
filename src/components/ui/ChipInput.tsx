@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Badge } from './Badge';
-import { cn } from '@/components/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface ChipInputProps {
   values: string[];

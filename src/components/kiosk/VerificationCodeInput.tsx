@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState, KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
-import { cn } from '@/components/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface VerificationCodeInputProps {
   length?: number;

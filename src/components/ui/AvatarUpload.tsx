@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from './avatar';
 import { Button } from './Button';
 import { Upload, Loader2, User } from 'lucide-react';
-import { cn } from '@/components/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface AvatarUploadProps {
   currentUrl?: string | null;

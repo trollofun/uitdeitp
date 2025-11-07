@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './Select';
-import { cn } from '@/components/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface TimeRangePickerProps {
   startTime: string;
