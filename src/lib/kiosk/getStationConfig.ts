@@ -30,10 +30,10 @@ export async function getStationConfig(
   const supabase = createClient();
 
   const { data, error } = await supabase
-    .from('stations')
+    .from('kiosk_stations')
     .select('*')
-    .eq('station_slug', stationSlug)
-    .eq('kiosk_enabled', true)
+    .eq('slug', stationSlug)
+    .eq('is_active', true)
     .single();
 
   if (error || !data) {
@@ -43,15 +43,15 @@ export async function getStationConfig(
 
   return {
     id: data.id,
-    station_name: data.station_name,
-    station_slug: data.station_slug,
+    station_name: data.name,
+    station_slug: data.slug,
     station_phone: data.station_phone,
-    station_email: data.station_email,
+    station_email: null, // Not in schema
     logo_url: data.logo_url,
     primary_color: data.primary_color || '#2563eb', // Default blue
-    address: data.address,
-    city: data.city,
-    kiosk_enabled: data.kiosk_enabled,
+    address: data.station_address,
+    city: null, // Not in schema
+    kiosk_enabled: data.is_active,
     owner_id: data.owner_id
   };
 }
