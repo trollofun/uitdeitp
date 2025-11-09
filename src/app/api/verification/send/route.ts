@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
     );
 
     if (!rateLimitCheck) {
+      // Generic error to prevent enumeration
       return NextResponse.json(
-        { error: 'Prea multe încercări. Te rugăm să încerci din nou peste o oră.' },
-        { status: 429 }
+        { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
+        { status: 400 }
       );
     }
 
@@ -59,9 +60,10 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error('Database error:', insertError);
+      // Generic error to prevent enumeration
       return NextResponse.json(
-        { error: 'Eroare la generarea codului' },
-        { status: 500 }
+        { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
+        { status: 400 }
       );
     }
 
@@ -101,9 +103,10 @@ export async function POST(req: NextRequest) {
 
       // Don't fail the request if SMS fails in development
       if (process.env.NODE_ENV === 'production') {
+        // Generic error to prevent enumeration
         return NextResponse.json(
-          { error: 'Eroare la trimiterea SMS-ului' },
-          { status: 500 }
+          { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
+          { status: 400 }
         );
       }
     }

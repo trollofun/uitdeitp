@@ -15,7 +15,17 @@ const verifySchema = z.object({
  * Body: { phone: string, code: string }
  * Returns: { success: true, verified: true }
  */
+/**
+ * Add consistent delay to prevent timing attacks
+ */
+async function addTimingProtection(minDelayMs: number = 100): Promise<void> {
+  const delay = minDelayMs + Math.random() * 50; // 100-150ms random delay
+  await new Promise(resolve => setTimeout(resolve, delay));
+}
+
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+
   try {
     const body = await req.json();
     const { phone, code } = verifySchema.parse(body);
@@ -23,8 +33,11 @@ export async function POST(req: NextRequest) {
     // Format phone to E.164
     const formattedPhone = formatPhoneNumber(phone);
     if (!formattedPhone) {
+      // Add timing protection
+      await addTimingProtection();
+
       return NextResponse.json(
-        { error: 'Număr de telefon invalid' },
+        { error: 'Cod invalid. Te rugăm să verifici codul sau să soliciți unul nou.' },
         { status: 400 }
       );
     }
@@ -40,6 +53,9 @@ export async function POST(req: NextRequest) {
       }
     );
 
+    // Generic error message for all verification failures to prevent enumeration
+    const GENERIC_ERROR = 'Cod invalid. Te rugăm să verifici codul sau să soliciți unul nou.';
+
     if (!verification || verification.length === 0) {
       // Increment attempts on failed verification
       await supabase
@@ -52,10 +68,13 @@ export async function POST(req: NextRequest) {
         .is('verified', false)
         .gt('expires_at', new Date().toISOString());
 
+      // Add timing protection
+      await addTimingProtection();
+
       return NextResponse.json(
         {
           success: false,
-          error: 'Cod invalid sau expirat'
+          error: GENERIC_ERROR
         },
         { status: 400 }
       );
@@ -63,25 +82,17 @@ export async function POST(req: NextRequest) {
 
     const record = verification[0];
 
-    // Check if expired
-    if (new Date(record.expires_at) < new Date()) {
+    // Check if expired or too many attempts (use same generic error)
+    if (new Date(record.expires_at) < new Date() || record.attempts >= 3) {
+      // Add timing protection
+      await addTimingProtection();
+
       return NextResponse.json(
         {
           success: false,
-          error: 'Codul a expirat'
+          error: GENERIC_ERROR
         },
         { status: 400 }
-      );
-    }
-
-    // Check attempts
-    if (record.attempts >= 3) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Prea multe încercări. Te rugăm să soliciți un cod nou.'
-        },
-        { status: 429 }
       );
     }
 
@@ -96,11 +107,19 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error('Database error:', updateError);
+
+      // Add timing protection
+      await addTimingProtection();
+
+      // Generic error to prevent enumeration
       return NextResponse.json(
-        { error: 'Eroare la verificare' },
-        { status: 500 }
+        { error: GENERIC_ERROR },
+        { status: 400 }
       );
     }
+
+    // Add timing protection for success path too
+    await addTimingProtection();
 
     return NextResponse.json({
       success: true,
@@ -110,16 +129,19 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Verification verify error:', error);
 
+    // Add timing protection
+    await addTimingProtection();
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Date invalide' },
+        { error: 'Cod invalid. Te rugăm să verifici codul sau să soliciți unul nou.' },
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { error: 'Eroare internă' },
-      { status: 500 }
+      { error: 'Cod invalid. Te rugăm să verifici codul sau să soliciți unul nou.' },
+      { status: 400 }
     );
   }
 }
