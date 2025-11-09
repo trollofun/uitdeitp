@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { PhoneVerificationStep } from '@/components/kiosk/PhoneVerificationStep';
-import { PlateNumberStep } from '@/components/kiosk/PlateNumberStep';
-import { ExpiryDateStep } from '@/components/kiosk/ExpiryDateStep';
-import { ConsentStep } from '@/components/kiosk/ConsentStep';
-import { ConfirmationStep } from '@/components/kiosk/ConfirmationStep';
+import IdleState from '@/components/kiosk/IdleState';
+import VehicleDataStep from '@/components/kiosk/VehicleDataStep';
+import PhoneVerifyStep from '@/components/kiosk/PhoneVerifyStep';
+import SuccessStep from '@/components/kiosk/SuccessStep';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 
-type Step = 'phone' | 'plate' | 'expiry' | 'consent' | 'confirmation';
+type Step = 'idle' | 'data' | 'verify' | 'success';
 
 interface KioskStation {
   id: string;
@@ -20,24 +19,69 @@ interface KioskStation {
   active: boolean;
 }
 
+interface FormData {
+  plateNumber: string;
+  expiryDate: string;
+  phone: string;
+  smsConsent: boolean;
+  gdprConsent: boolean;
+}
+
+const INACTIVITY_TIMEOUT = 45000; // 45 seconds
+
 export default function KioskPage({
   params,
 }: {
   params: { companySlug: string };
 }) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('phone');
+  const [step, setStep] = useState<Step>('idle');
   const [loading, setLoading] = useState(true);
   const [station, setStation] = useState<KioskStation | null>(null);
   const [error, setError] = useState<string>('');
-
-  // Form data
-  const [phone, setPhone] = useState('');
-  const [plateNumber, setPlateNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState<Date | null>(null);
+  const [formData, setFormData] = useState<FormData | null>(null);
   const [confirmationCode, setConfirmationCode] = useState('');
+  const [lastActivity, setLastActivity] = useState(Date.now());
 
   const supabase = createBrowserClient();
+
+  // Auto-reset on inactivity
+  useEffect(() => {
+    if (step === 'idle' || step === 'success') return;
+
+    const checkInactivity = setInterval(() => {
+      if (Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
+        resetToIdle();
+      }
+    }, 1000);
+
+    return () => clearInterval(checkInactivity);
+  }, [step, lastActivity]);
+
+  // Track user activity
+  useEffect(() => {
+    const updateActivity = () => setLastActivity(Date.now());
+
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('mousedown', updateActivity);
+    window.addEventListener('keypress', updateActivity);
+    window.addEventListener('touchstart', updateActivity);
+
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('mousedown', updateActivity);
+      window.removeEventListener('keypress', updateActivity);
+      window.removeEventListener('touchstart', updateActivity);
+    };
+  }, []);
+
+  const resetToIdle = useCallback(() => {
+    setStep('idle');
+    setFormData(null);
+    setConfirmationCode('');
+    setError('');
+    setLastActivity(Date.now());
+  }, []);
 
   useEffect(() => {
     async function fetchStation() {
@@ -55,7 +99,7 @@ export default function KioskPage({
         }
 
         if (!data.active) {
-          setError('Această stație nu este activă momentan');
+          setError('Modul kiosk nu este activat pentru această stație');
           setLoading(false);
           return;
         }
@@ -71,78 +115,113 @@ export default function KioskPage({
     fetchStation();
   }, [params.companySlug, supabase]);
 
-  const handlePhoneVerified = (verifiedPhone: string) => {
-    setPhone(verifiedPhone);
-    setStep('plate');
+  const handleStart = () => {
+    setStep('data');
+    setLastActivity(Date.now());
   };
 
-  const handlePlateSubmit = (plate: string) => {
-    setPlateNumber(plate);
-    setStep('expiry');
+  const handleDataSubmit = async (data: FormData) => {
+    setFormData(data);
+    setLastActivity(Date.now());
+
+    // Send SMS verification code
+    try {
+      const response = await fetch('/api/verification/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: data.phone,
+          stationSlug: params.companySlug,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send verification code');
+      }
+
+      setStep('verify');
+    } catch (err) {
+      console.error('Error sending verification:', err);
+      setError('Eroare la trimiterea codului de verificare');
+    }
   };
 
-  const handleExpirySubmit = (date: Date) => {
-    setExpiryDate(date);
-    setStep('consent');
-  };
-
-  const handleConsentAccepted = async () => {
-    if (!expiryDate) return;
+  const handleVerify = async (code: string): Promise<boolean> => {
+    setLastActivity(Date.now());
 
     try {
-      // Generate confirmation code
-      const code = 'ITP' + Math.random().toString(36).substring(2, 8).toUpperCase();
-      setConfirmationCode(code);
+      const response = await fetch('/api/verification/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: formData!.phone,
+          code,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.verified) {
+        return false;
+      }
 
       // Save to database
+      const confirmCode = 'ITP' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      setConfirmationCode(confirmCode);
+
       const { error: insertError } = await supabase.from('reminders').insert({
-        phone_number: phone,
-        plate_number: plateNumber,
-        itp_expiry_date: expiryDate.toISOString(),
+        phone_number: formData!.phone,
+        plate_number: formData!.plateNumber,
+        itp_expiry_date: formData!.expiryDate,
         station_slug: params.companySlug,
         reminder_type: 'itp',
-        consent_given: true,
+        consent_given: formData!.gdprConsent,
+        sms_notifications_enabled: formData!.smsConsent,
         source: 'kiosk',
-        confirmation_code: code,
+        confirmation_code: confirmCode,
         status: 'active',
       });
 
       if (insertError) {
         console.error('Error saving reminder:', insertError);
-        setError('Eroare la salvarea datelor. Te rugăm să încerci din nou.');
-        return;
+        return false;
       }
 
-      // Success - move to confirmation
-      setStep('confirmation');
+      setStep('success');
+      return true;
     } catch (err) {
-      console.error('Error in consent handler:', err);
-      setError('Eroare la procesarea datelor. Te rugăm să încerci din nou.');
+      console.error('Verification error:', err);
+      return false;
     }
   };
 
-  const handleBack = () => {
-    switch (step) {
-      case 'plate':
-        setStep('phone');
-        break;
-      case 'expiry':
-        setStep('plate');
-        break;
-      case 'consent':
-        setStep('expiry');
-        break;
-      default:
-        router.back();
+  const handleResendCode = async () => {
+    setLastActivity(Date.now());
+
+    try {
+      const response = await fetch('/api/verification/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: formData!.phone,
+          stationSlug: params.companySlug,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to resend verification code');
+      }
+    } catch (err) {
+      console.error('Error resending code:', err);
+      throw err;
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
         <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground">Se încarcă...</p>
+          <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-600" />
+          <p className="text-gray-600">Se încarcă...</p>
         </div>
       </div>
     );
@@ -150,18 +229,18 @@ export default function KioskPage({
 
   if (error || !station) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
-        <div className="max-w-md w-full bg-card border rounded-lg p-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center space-y-4">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
             <span className="text-3xl">❌</span>
           </div>
-          <h2 className="text-2xl font-bold">Stație Indisponibilă</h2>
-          <p className="text-muted-foreground">
-            {error || 'Această stație nu a fost găsită sau nu este activă.'}
+          <h2 className="text-2xl font-bold text-gray-900">Stație ITP Indisponibilă</h2>
+          <p className="text-gray-600">
+            {error || 'Modul kiosk nu este activat pentru această stație.'}
           </p>
           <button
             onClick={() => router.push('/kiosk')}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Înapoi la Lista de Stații
           </button>
@@ -171,87 +250,31 @@ export default function KioskPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold">uitdeITP</h1>
-              <p className="text-sm text-muted-foreground">{station.name}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Kiosk Mode</p>
-              <div className="flex items-center gap-1 mt-1">
-                {(['phone', 'plate', 'expiry', 'consent', 'confirmation'] as Step[]).map(
-                  (s, index) => (
-                    <div
-                      key={s}
-                      className={`h-1 w-8 rounded-full transition-all ${
-                        ['phone', 'plate', 'expiry', 'consent', 'confirmation'].indexOf(
-                          step
-                        ) >= index
-                          ? 'bg-primary'
-                          : 'bg-muted'
-                      }`}
-                    />
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <>
+      {step === 'idle' && <IdleState onStart={handleStart} stationName={station.name} />}
 
-      {/* Main Content */}
-      <div className="flex items-center justify-center p-4 py-12">
-        <div className="max-w-md w-full bg-card border rounded-xl shadow-lg p-6">
-          {step === 'phone' && (
-            <PhoneVerificationStep
-              stationSlug={params.companySlug}
-              onVerified={handlePhoneVerified}
-              onBack={handleBack}
-            />
-          )}
+      {step === 'data' && (
+        <VehicleDataStep onNext={handleDataSubmit} onBack={resetToIdle} />
+      )}
 
-          {step === 'plate' && (
-            <PlateNumberStep onNext={handlePlateSubmit} onBack={handleBack} />
-          )}
+      {step === 'verify' && formData && (
+        <PhoneVerifyStep
+          phone={formData.phone}
+          onVerify={handleVerify}
+          onBack={() => setStep('data')}
+          onResend={handleResendCode}
+        />
+      )}
 
-          {step === 'expiry' && (
-            <ExpiryDateStep onNext={handleExpirySubmit} onBack={handleBack} />
-          )}
-
-          {step === 'consent' && (
-            <ConsentStep onNext={handleConsentAccepted} onBack={handleBack} />
-          )}
-
-          {step === 'confirmation' && expiryDate && (
-            <ConfirmationStep
-              phone={phone}
-              plateNumber={plateNumber}
-              expiryDate={expiryDate}
-              stationName={station.name}
-              confirmationCode={confirmationCode}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="fixed bottom-0 left-0 right-0 border-t bg-card/80 backdrop-blur-sm py-3">
-        <div className="max-w-4xl mx-auto px-4">
-          <p className="text-center text-xs text-muted-foreground">
-            © 2025 uitdeITP - Reminder-e ITP Inteligente
-            {station.address && (
-              <>
-                {' '}
-                | <span className="font-medium">{station.address}</span>
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-    </div>
+      {step === 'success' && formData && (
+        <SuccessStep
+          confirmationCode={confirmationCode}
+          plateNumber={formData.plateNumber}
+          expiryDate={formData.expiryDate}
+          phone={formData.phone}
+          onAddAnother={resetToIdle}
+        />
+      )}
+    </>
   );
 }
