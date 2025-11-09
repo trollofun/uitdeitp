@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { phoneSchema } from '@/lib/validation';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import {
   handleApiError,
   createSuccessResponse,
@@ -15,6 +15,7 @@ import {
   getRateLimitIdentifier,
   addRateLimitHeaders,
 } from '@/lib/api/middleware';
+import { logger } from '@/lib/logger';
 
 const confirmPhoneSchema = z.object({
   phone: phoneSchema,
@@ -47,27 +48,48 @@ export async function POST(req: NextRequest) {
 
     const { phone, code } = await validateRequestBody(req, confirmPhoneSchema);
 
-    // TODO: Verify code from Redis or database
-    // const storedCode = await redis.get(`verify:${phone}`);
-    // if (!storedCode || storedCode !== code) {
-    //   throw new ApiError(
-    //     ApiErrorCode.VALIDATION_ERROR,
-    //     'Cod invalid sau expirat',
-    //     400
-    //   );
-    // }
+    const supabase = createServerClient();
 
-    // For development, accept any 6-digit code
-    if (process.env.NODE_ENV === 'production') {
-      // In production, implement actual verification
+    // Get active verification from database
+    const { data: verification, error: verifyError } = await supabase
+      .rpc('get_active_verification', {
+        p_phone: phone,
+        p_code: code
+      })
+      .single();
+
+    if (verifyError || !verification) {
+      logger.warn(`Failed verification attempt for ${phone}`, verifyError);
+
+      // Increment attempts counter
+      await supabase
+        .from('phone_verifications')
+        .update({
+          attempts: supabase.rpc('increment', { column: 'attempts' })
+        })
+        .eq('phone_number', phone)
+        .eq('verification_code', code)
+        .gt('expires_at', new Date().toISOString());
+
       throw new ApiError(
-        ApiErrorCode.EXTERNAL_SERVICE_ERROR,
-        'Verificarea telefonului nu este încă implementată',
-        501
+        ApiErrorCode.VALIDATION_ERROR,
+        'Cod invalid, expirat sau prea multe încercări',
+        400
       );
     }
 
-    const supabase = createClient();
+    // Mark verification as completed
+    const { error: updateError } = await supabase
+      .from('phone_verifications')
+      .update({
+        verified: true,
+        verified_at: new Date().toISOString(),
+      })
+      .eq('id', verification.id);
+
+    if (updateError) {
+      logger.error('Failed to mark verification as complete:', updateError);
+    }
 
     // Update user profile with verified phone
     const { data, error } = await supabase
@@ -80,10 +102,16 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      logger.error('Failed to update user profile:', error);
+      throw new ApiError(
+        ApiErrorCode.EXTERNAL_SERVICE_ERROR,
+        'Eroare la actualizarea profilului',
+        500
+      );
+    }
 
-    // Delete verification code
-    // await redis.del(`verify:${phone}`);
+    logger.info(`Phone ${phone} verified for user ${user.id}`);
 
     const response = createSuccessResponse({
       message: 'Telefon verificat cu succes',
