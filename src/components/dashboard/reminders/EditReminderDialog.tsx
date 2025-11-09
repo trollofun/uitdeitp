@@ -24,29 +24,17 @@ import {
 } from '@/components/ui/Select';
 import { useUpdateReminder } from '@/hooks/reminders/useUpdateReminder';
 import { Database } from '@/types';
+import { phoneSchema, plateNumberSchema, reminderTypeSchema } from '@/lib/validation';
 
 type Reminder = Database['public']['Tables']['reminders']['Row'];
 
-// Validation schema for edit reminder form
+// Validation schema for edit reminder form - using centralized schemas
 const editReminderSchema = z.object({
-  plate_number: z
-    .string()
-    .min(1, 'Plate number is required')
-    .regex(
-      /^[A-Z]{1,2}-\d{2,3}-[A-Z]{3}$/i,
-      'Invalid plate format (e.g., B-123-ABC)'
-    )
-    .transform((val) => val.toUpperCase()),
-  reminder_type: z.enum(['itp', 'rca', 'rovinieta'], {
-    required_error: 'Please select a reminder type',
-  }),
+  plate_number: plateNumberSchema,
+  reminder_type: reminderTypeSchema,
   expiry_date: z.string().min(1, 'Expiry date is required'),
   station_id: z.string().optional().nullable(),
-  guest_phone: z
-    .string()
-    .regex(/^\+40\d{9}$/, 'Phone must be in format +40XXXXXXXXX')
-    .optional()
-    .or(z.literal('')),
+  guest_phone: phoneSchema.optional().or(z.literal('')),
   guest_name: z.string().min(3, 'Name must be at least 3 characters').optional().or(z.literal('')),
 });
 

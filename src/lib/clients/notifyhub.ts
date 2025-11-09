@@ -3,6 +3,8 @@
  * Integration with NotifyHub standalone SMS service
  */
 
+import { isValidPhoneNumber } from '@/lib/services/phone';
+
 interface SendSmsRequest {
   to: string;
   message: string;
@@ -52,6 +54,11 @@ export class NotifyHubClient {
    * Uses /api/send-direct endpoint (no queue, direct send)
    */
   async sendSms(request: SendSmsRequest): Promise<SendSmsResponse> {
+    // Validate phone number before sending
+    if (!isValidPhoneNumber(request.to)) {
+      throw new Error(`Invalid phone number format: ${request.to}. Expected Romanian E.164 format (+40XXXXXXXXX)`);
+    }
+
     const url = `${this.baseUrl}/api/send-direct`;
     let lastError: Error | null = null;
 
@@ -127,33 +134,6 @@ export class NotifyHubClient {
     return this.sendSms({ to, message, priority });
   }
 
-  /**
-   * Validate phone number format
-   */
-  static isValidPhoneNumber(phone: string): boolean {
-    return /^\+40\d{9}$/.test(phone);
-  }
-
-  /**
-   * Format phone number to E.164 format
-   * Converts 0740123456 -> +40740123456
-   */
-  static formatPhoneNumber(phone: string): string {
-    // Remove all non-digits
-    const digits = phone.replace(/\D/g, '');
-
-    // Handle different formats
-    if (digits.startsWith('40') && digits.length === 11) {
-      return `+${digits}`;
-    }
-
-    if (digits.startsWith('0') && digits.length === 10) {
-      return `+40${digits.substring(1)}`;  // Remove leading 0, then add +40
-    }
-
-    // Already in correct format or invalid
-    return phone;
-  }
 
   /**
    * Sleep utility for retries

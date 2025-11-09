@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServerClient } from '@/lib/supabase/server';
 import { formatPhoneNumber } from '@/lib/services/phone';
+import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
 
 const verifySchema = z.object({
   phone: z.string().min(9).max(15),
@@ -27,6 +28,23 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
   try {
+    // IP-based rate limiting (20 verification attempts per hour per IP)
+    const clientIp = getClientIp(req);
+    const ipRateLimit = checkRateLimit(`verification:verify:ip:${clientIp}`, {
+      maxRequests: 20,
+      windowMs: 60 * 60 * 1000, // 1 hour
+    });
+
+    if (!ipRateLimit.allowed) {
+      await addTimingProtection();
+      const response = NextResponse.json(
+        { error: 'Cod invalid. Te rugăm să verifici codul sau să soliciți unul nou.' },
+        { status: 400 }
+      );
+      addRateLimitHeaders(response.headers, 20, ipRateLimit.remaining, ipRateLimit.resetTime);
+      return response;
+    }
+
     const body = await req.json();
     const { phone, code } = verifySchema.parse(body);
 
@@ -121,10 +139,15 @@ export async function POST(req: NextRequest) {
     // Add timing protection for success path too
     await addTimingProtection();
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       verified: true,
     });
+
+    // Add rate limit headers to success response
+    addRateLimitHeaders(response.headers, 20, ipRateLimit.remaining, ipRateLimit.resetTime);
+
+    return response;
 
   } catch (error) {
     console.error('Verification verify error:', error);
