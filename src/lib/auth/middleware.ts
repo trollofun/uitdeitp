@@ -81,14 +81,14 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith(path)
   );
 
-  // Auth routes (route group (auth) doesn't appear in URL)
-  const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/callback'];
+  // Auth routes
+  const authPaths = ['/auth/login', '/auth/register', '/auth/forgot-password'];
   const isAuthRoute = authPaths.some((path) => request.nextUrl.pathname.startsWith(path));
 
   // Redirect logic
   if (isProtectedRoute && !user) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = '/login';
+    redirectUrl.pathname = '/auth/login';
     redirectUrl.searchParams.set('redirectTo', request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }

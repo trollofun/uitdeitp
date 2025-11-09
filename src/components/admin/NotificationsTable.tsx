@@ -1,235 +1,259 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { format } from 'date-fns';
-import { ro } from 'date-fns/locale';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/Table';
-import { Filter, RotateCw, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/useToast';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, Mail, MessageSquare, Check, X, Clock, AlertCircle, Bell } from 'lucide-react';
 
 interface Notification {
   id: string;
-  reminder_id: string | null;
-  provider: string;
-  provider_message_id: string | null;
+  channel: string;
   recipient: string;
-  message_content: string;
+  message_body: string;
   status: string;
-  error_code: string | null;
-  error_message: string | null;
   sent_at: string | null;
   delivered_at: string | null;
+  provider: string | null;
+  provider_message_id: string | null;
+  error_message: string | null;
+  retry_count: number | null;
+  estimated_cost: number | null;
   created_at: string;
-  reminders?: { plate_number: string } | null;
+  reminders?: {
+    plate_number: string;
+  } | null;
 }
 
 interface NotificationsTableProps {
   notifications: Notification[];
+  currentPage: number;
+  totalPages: number;
+  currentFilters: {
+    status: string;
+    channel: string;
+  };
 }
 
-const statusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'warning'> = {
-  scheduled: 'secondary',
-  sent: 'default',
-  delivered: 'default',
-  failed: 'destructive',
-  undelivered: 'destructive',
-};
-
-const statusLabels: Record<string, string> = {
-  scheduled: 'Programat',
-  sent: 'Trimis',
-  delivered: 'Livrat',
-  failed: 'Eșuat',
-  undelivered: 'Nelivrat',
-};
-
-export function NotificationsTable({ notifications }: NotificationsTableProps) {
+export function NotificationsTable({
+  notifications,
+  currentPage,
+  totalPages,
+  currentFilters,
+}: NotificationsTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [resendingId, setResendingId] = useState<string | null>(null);
-  const currentStatus = searchParams.get('status') || 'all';
 
-  // Filter notifications by search term
-  const filteredNotifications = notifications.filter((notification) =>
-    notification.recipient.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleStatusChange = (status: string) => {
+  const handleFilterChange = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (status === 'all') {
-      params.delete('status');
+    if (value === 'all') {
+      params.delete(key);
     } else {
-      params.set('status', status);
+      params.set(key, value);
     }
+    params.delete('page'); // Reset to page 1 when filtering
     router.push(`/admin/notifications?${params.toString()}`);
   };
 
-  const handleResend = async (notificationId: string) => {
-    setResendingId(notificationId);
-    try {
-      const response = await fetch('/api/notifications/resend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notification_id: notificationId }),
-      });
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('page', page.toString());
+    router.push(`/admin/notifications?${params.toString()}`);
+  };
 
-      const result = await response.json();
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'sent':
+      case 'delivered':
+        return (
+          <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300">
+            <Check className="w-3 h-3" />
+            {status === 'delivered' ? 'Livrat' : 'Trimis'}
+          </span>
+        );
+      case 'failed':
+        return (
+          <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300">
+            <X className="w-3 h-3" />
+            Eșuat
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-300">
+            <Clock className="w-3 h-3" />
+            În așteptare
+          </span>
+        );
+      default:
+        return (
+          <span className="px-3 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+            {status}
+          </span>
+        );
+    }
+  };
 
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Eroare la retrimitere');
-      }
-
-      toast({
-        title: 'Notificare retrimisă',
-        description: 'Notificarea a fost retrimisă cu succes',
-        variant: 'success',
-      });
-
-      router.refresh();
-    } catch (error) {
-      toast({
-        title: 'Eroare',
-        description: error instanceof Error ? error.message : 'A apărut o eroare',
-        variant: 'destructive',
-      });
-    } finally {
-      setResendingId(null);
+  const getChannelIcon = (channel: string) => {
+    switch (channel) {
+      case 'sms':
+        return <MessageSquare className="w-4 h-4" />;
+      case 'email':
+        return <Mail className="w-4 h-4" />;
+      default:
+        return <AlertCircle className="w-4 h-4" />;
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* Filters and Search */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Filter className="h-5 w-5 text-muted-foreground" />
-          <Button
-            variant={currentStatus === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleStatusChange('all')}
-          >
-            Toate
-          </Button>
-          <Button
-            variant={currentStatus === 'sent' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleStatusChange('sent')}
-          >
-            Trimise
-          </Button>
-          <Button
-            variant={currentStatus === 'delivered' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleStatusChange('delivered')}
-          >
-            Livrate
-          </Button>
-          <Button
-            variant={currentStatus === 'failed' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleStatusChange('failed')}
-          >
-            Eșuate
-          </Button>
-        </div>
+    <div className="bg-card border rounded-lg">
+      {/* Filters */}
+      <div className="border-b p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Status</label>
+            <select
+              value={currentFilters.status}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              className="px-3 py-2 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="all">Toate</option>
+              <option value="pending">În așteptare</option>
+              <option value="sent">Trimis</option>
+              <option value="delivered">Livrat</option>
+              <option value="failed">Eșuat</option>
+            </select>
+          </div>
 
-        <Input
-          placeholder="Caută după număr telefon..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-md"
-        />
+          <div>
+            <label className="block text-sm font-medium mb-1">Canal</label>
+            <select
+              value={currentFilters.channel}
+              onChange={(e) => handleFilterChange('channel', e.target.value)}
+              className="px-3 py-2 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="all">Toate</option>
+              <option value="sms">SMS</option>
+              <option value="email">Email</option>
+            </select>
+          </div>
+
+          <div className="ml-auto">
+            <p className="text-sm text-muted-foreground">
+              Total: <span className="font-semibold">{notifications.length}</span> notificări
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Destinatar</TableHead>
-              <TableHead>Număr Auto</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Provider</TableHead>
-              <TableHead>Trimis La</TableHead>
-              <TableHead>Eroare</TableHead>
-              <TableHead className="text-right">Acțiuni</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredNotifications.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  {searchTerm ? 'Nu s-au găsit notificări' : 'Nu există notificări'}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredNotifications.map((notification) => (
-                <TableRow key={notification.id}>
-                  <TableCell className="font-medium">{notification.recipient}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {notification.reminders?.plate_number || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusColors[notification.status] || 'secondary'}>
-                      {statusLabels[notification.status] || notification.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">{notification.provider}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {notification.sent_at
-                      ? format(new Date(notification.sent_at), 'dd MMM yyyy HH:mm', {
-                          locale: ro,
-                        })
-                      : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {notification.error_message ? (
-                      <div className="flex items-center gap-2 text-error text-sm">
-                        <AlertCircle className="h-4 w-4" />
-                        <span className="truncate max-w-[200px]" title={notification.error_message}>
-                          {notification.error_message}
-                        </span>
-                      </div>
+      <div className="overflow-x-auto">
+        {notifications.length === 0 ? (
+          <div className="p-12 text-center">
+            <Bell className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-20" />
+            <p className="text-muted-foreground">Nu există notificări pentru acest filtru</p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left p-4 font-semibold text-sm">Canal</th>
+                <th className="text-left p-4 font-semibold text-sm">Destinatar</th>
+                <th className="text-left p-4 font-semibold text-sm">Vehicul</th>
+                <th className="text-left p-4 font-semibold text-sm">Mesaj</th>
+                <th className="text-left p-4 font-semibold text-sm">Status</th>
+                <th className="text-left p-4 font-semibold text-sm">Trimis</th>
+                <th className="text-left p-4 font-semibold text-sm">Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {notifications.map((notification) => (
+                <tr key={notification.id} className="border-t hover:bg-muted/20">
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      {getChannelIcon(notification.channel)}
+                      <span className="text-sm font-medium capitalize">{notification.channel}</span>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span className="text-sm font-mono">{notification.recipient}</span>
+                  </td>
+                  <td className="p-4">
+                    {notification.reminders?.plate_number ? (
+                      <span className="text-sm font-mono font-medium">
+                        {notification.reminders.plate_number}
+                      </span>
                     ) : (
-                      '-'
+                      <span className="text-sm text-muted-foreground">N/A</span>
                     )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {(notification.status === 'failed' || notification.status === 'undelivered') && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleResend(notification.id)}
-                        disabled={resendingId === notification.id}
-                      >
-                        <RotateCw
-                          className={`h-4 w-4 mr-2 ${
-                            resendingId === notification.id ? 'animate-spin' : ''
-                          }`}
-                        />
-                        Retrimite
-                      </Button>
+                  </td>
+                  <td className="p-4 max-w-xs">
+                    <p className="text-sm text-muted-foreground truncate" title={notification.message_body}>
+                      {notification.message_body}
+                    </p>
+                    {notification.error_message && (
+                      <p className="text-xs text-red-600 mt-1" title={notification.error_message}>
+                        Error: {notification.error_message}
+                      </p>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                  </td>
+                  <td className="p-4">{getStatusBadge(notification.status)}</td>
+                  <td className="p-4">
+                    <div className="text-sm">
+                      {notification.sent_at ? (
+                        <>
+                          <div>{new Date(notification.sent_at).toLocaleDateString('ro-RO')}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(notification.sent_at).toLocaleTimeString('ro-RO')}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    {notification.estimated_cost ? (
+                      <span className="text-sm font-medium">
+                        {Number(notification.estimated_cost).toFixed(4)} RON
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="border-t p-4 flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Pagina {currentPage} din {totalPages}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Înapoi
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Înainte
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
