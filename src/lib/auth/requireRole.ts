@@ -1,9 +1,8 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import type { UserRole } from '@/lib/supabase/database.types';
 
-// Re-export UserRole for convenience
-export type { UserRole };
+// UserRole type
+export type UserRole = 'user' | 'station_manager' | 'admin';
 
 /**
  * Retrieves the role for a given user ID
@@ -11,7 +10,7 @@ export type { UserRole };
  * @returns The user's role or null if not found
  */
 export async function getUserRole(userId: string): Promise<UserRole | null> {
-  const supabase = createClient();
+  const supabase = createServerClient();
   const { data, error } = await supabase
     .from('user_profiles')
     .select('role')
@@ -33,7 +32,7 @@ export async function getUserRole(userId: string): Promise<UserRole | null> {
  * @returns Object containing authenticated user and their role
  */
 export async function requireRole(allowedRoles: UserRole[]) {
-  const supabase = createClient();
+  const supabase = createServerClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {

@@ -1,25 +1,44 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { logger } from '@/lib/logger';
-import {
-  loginSchema,
-  registerSchema,
-  resetPasswordRequestSchema,
-  resetPasswordSchema,
-  type LoginInput,
-  type RegisterInput,
-  type ResetPasswordRequestInput,
-  type ResetPasswordInput,
-} from '@/lib/validation/auth';
+import { z } from 'zod';
 
 type ActionResult<T = void> = {
   success: boolean;
   error?: string;
   data?: T;
 };
+
+// Validation schemas
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  fullName: z.string().optional(),
+  phone: z.string().optional(),
+  city: z.string().optional(),
+  country: z.string().optional(),
+  smsNotifications: z.boolean().optional(),
+});
+
+const resetPasswordRequestSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  password: z.string().min(8),
+});
+
+type LoginInput = z.infer<typeof loginSchema>;
+type RegisterInput = z.infer<typeof registerSchema>;
+type ResetPasswordRequestInput = z.infer<typeof resetPasswordRequestSchema>;
+type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 // Rate limiting store (in production, use Redis or similar)
 const rateLimitStore = new Map<string, { attempts: number; resetAt: number }>();
@@ -57,7 +76,7 @@ export async function login(data: LoginInput): Promise<ActionResult> {
       };
     }
 
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     // Sign in
     const { error } = await supabase.auth.signInWithPassword({
@@ -75,7 +94,7 @@ export async function login(data: LoginInput): Promise<ActionResult> {
     revalidatePath('/', 'layout');
     redirect('/dashboard');
   } catch (error) {
-    logger.error('Login error', error);
+    console.error('Login error:', error);
     return {
       success: false,
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
@@ -99,7 +118,7 @@ export async function register(data: RegisterInput): Promise<ActionResult> {
       };
     }
 
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     // Sign up with additional metadata
     const { data: authData, error } = await supabase.auth.signUp({
@@ -136,7 +155,7 @@ export async function register(data: RegisterInput): Promise<ActionResult> {
     revalidatePath('/', 'layout');
     redirect('/dashboard');
   } catch (error) {
-    logger.error('Register error', error);
+    console.error('Register error', error);
     return {
       success: false,
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
@@ -162,14 +181,14 @@ export async function requestPasswordReset(
       };
     }
 
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     const { error } = await supabase.auth.resetPasswordForEmail(validated.email, {
       redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
     });
 
     if (error) {
-      logger.error('Password reset email error', error);
+      console.error('Password reset email error:', error);
       // Don't reveal if email exists
     }
 
@@ -177,7 +196,7 @@ export async function requestPasswordReset(
       success: true,
     };
   } catch (error) {
-    logger.error('Reset password request error', error);
+    console.error('Reset password request error', error);
     return {
       success: false,
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
@@ -193,7 +212,7 @@ export async function resetPassword(data: ResetPasswordInput): Promise<ActionRes
     // Validate input
     const validated = resetPasswordSchema.parse(data);
 
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     const { error } = await supabase.auth.updateUser({
       password: validated.password,
@@ -209,7 +228,7 @@ export async function resetPassword(data: ResetPasswordInput): Promise<ActionRes
     revalidatePath('/', 'layout');
     redirect('/login');
   } catch (error) {
-    logger.error('Password update error', error);
+    console.error('Password update error', error);
     return {
       success: false,
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
@@ -222,7 +241,7 @@ export async function resetPassword(data: ResetPasswordInput): Promise<ActionRes
  */
 export async function logout(): Promise<ActionResult> {
   try {
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     const { error } = await supabase.auth.signOut();
 
@@ -236,7 +255,7 @@ export async function logout(): Promise<ActionResult> {
     revalidatePath('/', 'layout');
     redirect('/login');
   } catch (error) {
-    logger.error('Logout error', error);
+    console.error('Logout error', error);
     return {
       success: false,
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
@@ -251,7 +270,7 @@ export async function oauthLogin(
   provider: 'google' | 'github'
 ): Promise<ActionResult<{ url: string }>> {
   try {
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -272,7 +291,7 @@ export async function oauthLogin(
       data: { url: data.url },
     };
   } catch (error) {
-    logger.error('OAuth login error', error);
+    console.error('OAuth login error', error);
     return {
       success: false,
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
