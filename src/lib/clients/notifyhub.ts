@@ -148,7 +148,7 @@ export class NotifyHubClient {
     }
 
     if (digits.startsWith('0') && digits.length === 10) {
-      return `+4${digits}`;
+      return `+40${digits.substring(1)}`;  // Remove leading 0, then add +40
     }
 
     // Already in correct format or invalid
