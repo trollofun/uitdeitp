@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import {
   handleApiError,
   createSuccessResponse,
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const user = await requireAuth(req);
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     // Get total active reminders for this user
     const { count: totalReminders } = await supabase

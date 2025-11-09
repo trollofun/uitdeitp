@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { NextResponse, NextRequest } from 'next/server';
 import { z } from 'zod';
 
@@ -13,7 +13,7 @@ const ResendNotificationSchema = z.object({
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = createServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {

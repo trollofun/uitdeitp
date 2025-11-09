@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const result = await sendSms(
       phone,
       testMessage,
-      { test: true, userId: user.id }
+      'test_sms'
     );
 
     const response = createSuccessResponse({

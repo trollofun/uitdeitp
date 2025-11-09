@@ -56,10 +56,10 @@ export async function POST(req: NextRequest) {
         p_phone: phone,
         p_code: code
       })
-      .single();
+      .single<{ id: string; phone_number: string; verification_code: string }>();
 
     if (verifyError || !verification) {
-      logger.warn(`Failed verification attempt for ${phone}`, verifyError);
+      logger.warn(`Failed verification attempt for ${phone}`);
 
       // Increment attempts counter
       await supabase

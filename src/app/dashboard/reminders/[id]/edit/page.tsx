@@ -1,11 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { Header } from '@/components/dashboard/Header';
 import { ReminderForm } from '@/components/dashboard/ReminderForm';
 import { type CreateReminder } from '@/lib/validation';
 
 async function getReminder(id: string) {
-  const supabase = createClient();
+  const supabase = createServerClient();
 
   const { data: reminder } = await supabase
     .from('reminders')
@@ -23,7 +23,7 @@ async function getReminder(id: string) {
 async function updateReminder(id: string, data: CreateReminder) {
   'use server';
 
-  const supabase = createClient();
+  const supabase = createServerClient();
 
   const { error } = await supabase
     .from('reminders')

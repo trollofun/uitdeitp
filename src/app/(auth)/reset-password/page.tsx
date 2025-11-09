@@ -58,7 +58,7 @@ function ResetPasswordForm() {
       return;
     }
 
-    const result = await resetPassword({ password, confirmPassword });
+    const result = await resetPassword({ password });
 
     if (!result.success) {
       toast({

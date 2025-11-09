@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { createStationSchema } from '@/lib/validation';
 import {
   handleApiError,
@@ -31,7 +31,7 @@ import {
  */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = createServerClient();
     const { searchParams } = new URL(req.url);
 
     // Pagination
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     // Validation
     const validated = await validateRequestBody(req, createStationSchema);
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     // Check if slug is unique
     const { data: existingSlug } = await supabase

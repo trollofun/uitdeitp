@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { Header } from '@/components/dashboard/Header';
 import { ReminderForm } from '@/components/dashboard/ReminderForm';
 import { type CreateReminder } from '@/lib/validation';
@@ -7,7 +7,7 @@ import { type CreateReminder } from '@/lib/validation';
 async function createReminder(data: CreateReminder) {
   'use server';
 
-  const supabase = createClient();
+  const supabase = createServerClient();
 
   const {
     data: { user },

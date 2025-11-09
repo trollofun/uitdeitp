@@ -16,7 +16,7 @@ import {
   addRateLimitHeaders,
 } from '@/lib/api/middleware';
 import { logger } from '@/lib/logger';
-import { notifyHubService } from '@/lib/services/notifyhub';
+import { notifyHub } from '@/lib/services/notifyhub';
 
 const verifyPhoneSchema = z.object({
   phone: phoneSchema,
@@ -103,7 +103,13 @@ export async function POST(req: NextRequest) {
 
     // Send SMS via NotifyHub
     try {
-      await notifyHubService.sendVerificationCode(phone, code);
+      const message = `Codul tău de verificare: ${code}\n\nCodul expiră în 10 minute.\n\nuitdeitp.ro`;
+      await notifyHub.sendSms({
+        to: phone,
+        message: message,
+        templateId: 'phone_verification',
+        data: { code }
+      });
       logger.info(`Verification code sent to ${phone} (ID: ${verification.id})`);
     } catch (smsError) {
       logger.error('Failed to send SMS:', smsError);

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { ApiError, ApiErrorCode } from './errors';
 
 /**
@@ -141,7 +141,7 @@ export function addRateLimitHeaders(
  * Requires authentication - validates user session
  */
 export async function requireAuth(req: NextRequest) {
-  const supabase = createClient();
+  const supabase = createServerClient();
   const {
     data: { user },
     error,

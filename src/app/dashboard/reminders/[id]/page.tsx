@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { Header } from '@/components/dashboard/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Edit, Trash2, ArrowLeft } from 'lucide-react';
 
 async function getReminder(id: string) {
-  const supabase = createClient();
+  const supabase = createServerClient();
 
   const { data: reminder } = await supabase
     .from('reminders')

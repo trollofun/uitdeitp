@@ -1,11 +1,11 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 
 export async function POST(request: Request) {
   try {
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     const { error } = await supabase.auth.signOut();
 

@@ -1,5 +1,6 @@
 import { NotificationData } from '@/types';
 import { formatDate } from './date';
+import { notifyHub } from './notifyhub';
 
 /**
  * Render SMS template with data
@@ -77,4 +78,21 @@ export function getTemplateForDays(daysUntil: number): keyof typeof DEFAULT_SMS_
   if (daysUntil <= 1) return '1d';
   if (daysUntil <= 3) return '3d';
   return '7d';
+}
+
+/**
+ * Format reminder notification message
+ */
+export function formatReminderNotification(data: NotificationData): string {
+  const daysUntil = Math.ceil((new Date(data.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const templateKey = getTemplateForDays(daysUntil);
+  const template = DEFAULT_SMS_TEMPLATES[templateKey];
+  return renderSmsTemplate(template, data);
+}
+
+/**
+ * Send SMS via NotifyHub
+ */
+export async function sendSms(to: string, message: string, templateId?: string, data?: Record<string, any>) {
+  return await notifyHub.sendSms({ to, message, templateId, data });
 }

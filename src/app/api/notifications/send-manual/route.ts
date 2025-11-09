@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { manualNotificationSchema } from '@/app/api/types';
 import {
   handleApiError,
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     // Validation
     const validated = await validateRequestBody(req, manualNotificationSchema);
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     // Get reminder details
     const { data: reminder, error: reminderError } = await supabase

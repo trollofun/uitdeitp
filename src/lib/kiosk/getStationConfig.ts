@@ -4,7 +4,7 @@
  * Retrieves station branding and contact info for kiosk mode
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 
 export interface StationConfig {
   id: string;
@@ -27,7 +27,7 @@ export interface StationConfig {
 export async function getStationConfig(
   stationSlug: string
 ): Promise<StationConfig | null> {
-  const supabase = createClient();
+  const supabase = createServerClient();
 
   const { data, error } = await supabase
     .from('kiosk_stations')

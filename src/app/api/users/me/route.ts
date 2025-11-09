@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { userProfileUpdateSchema } from '@/lib/validation';
 import {
   handleApiError,
@@ -22,7 +22,7 @@ import {
 export async function GET(req: NextRequest) {
   try {
     const user = await requireAuth(req);
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     // Get user profile
     const { data: profile, error } = await supabase
@@ -88,7 +88,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const validated = await validateRequestBody(req, userProfileUpdateSchema);
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     // Check if phone is being changed and is already in use
     if (validated.phone) {

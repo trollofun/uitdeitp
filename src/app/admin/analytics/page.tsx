@@ -5,7 +5,7 @@ import { RemindersChart } from '@/components/admin/RemindersChart';
 import { DeliveryPieChart } from '@/components/admin/DeliveryPieChart';
 import { StationStatsTable } from '@/components/admin/StationStatsTable';
 import { Button } from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
   title: 'Analytics Dashboard',
@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 async function getAnalyticsData() {
   try {
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     // Get total active reminders
     const { count: totalReminders } = await supabase

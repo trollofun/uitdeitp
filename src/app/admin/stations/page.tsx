@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { StationsTable } from '@/components/admin/StationsTable';
 import { StationsTableSkeleton } from '@/components/admin/StationsTableSkeleton';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 async function StationsData() {
-  const supabase = createClient();
+  const supabase = createServerClient();
 
   // Fetch all stations with reminder counts
   const { data: stations, error } = await supabase

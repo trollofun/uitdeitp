@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { StationForm } from '@/components/admin/StationForm';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -11,7 +11,7 @@ export const metadata = {
 };
 
 async function getStation(id: string) {
-  const supabase = createClient();
+  const supabase = createServerClient();
 
   const { data: station, error } = await supabase
     .from('kiosk_stations')

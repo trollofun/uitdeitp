@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { RemindersTable } from '@/components/admin/RemindersTable';
 import { RemindersTableSkeleton } from '@/components/admin/RemindersTableSkeleton';
 import { Button } from '@/components/ui/Button';
@@ -11,7 +11,7 @@ export const metadata = {
 };
 
 async function RemindersData({ filter }: { filter: string }) {
-  const supabase = createClient();
+  const supabase = createServerClient();
 
   // Build query based on filter
   let query = supabase
