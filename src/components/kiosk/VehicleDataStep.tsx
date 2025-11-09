@@ -19,10 +19,8 @@ interface VehicleDataStepProps {
 }
 
 const formatPlateNumber = (value: string): string => {
-  const clean = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (clean.length <= 2) return clean;
-  if (clean.length <= 5) return `${clean.slice(0, 2)}-${clean.slice(2)}`;
-  return `${clean.slice(0, 2)}-${clean.slice(2, 5)}-${clean.slice(5, 8)}`;
+  // Accept both formats: with dashes (B-123-ABC) or without (CT90BTC)
+  return value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 10);
 };
 
 const formatDate = (value: string): string => {
@@ -38,8 +36,12 @@ const formatPhone = (value: string): string => {
 };
 
 const validatePlate = (plate: string): boolean => {
-  const plateRegex = /^[A-Z]{1,2}-\d{2,3}-[A-Z]{3}$/;
-  return plateRegex.test(plate);
+  // Format with dashes: B-123-ABC, CT-90-BTC
+  const plateWithDashes = /^[A-Z]{1,2}-\d{2,3}-[A-Z]{2,3}$/;
+  // Format without dashes: CT90BTC, B123ABC
+  const plateWithoutDashes = /^[A-Z]{1,2}\d{2,3}[A-Z]{2,3}$/;
+
+  return plateWithDashes.test(plate) || plateWithoutDashes.test(plate);
 };
 
 const validateDate = (date: string): { valid: boolean; error?: string } => {
@@ -90,8 +92,8 @@ export default function VehicleDataStep({ onNext, onBack }: VehicleDataStepProps
     setPlateNumber(formatted);
 
     if (formatted.length > 0) {
-      if (!validatePlate(formatted) && formatted.length >= 8) {
-        setPlateError('Format invalid (ex: B-123-ABC)');
+      if (!validatePlate(formatted) && formatted.length >= 5) {
+        setPlateError('Format invalid (ex: B-123-ABC sau CT90BTC)');
       } else {
         setPlateError('');
       }
@@ -187,7 +189,7 @@ export default function VehicleDataStep({ onNext, onBack }: VehicleDataStepProps
               type="text"
               value={plateNumber}
               onChange={(e) => handlePlateChange(e.target.value)}
-              placeholder="B-123-ABC"
+              placeholder="B-123-ABC sau CT90BTC"
               className={`text-xl py-6 text-center tracking-wider ${
                 plateError ? 'border-red-500' : ''
               }`}
