@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export interface StationBrandingData {
@@ -23,9 +24,11 @@ export function StationBranding({ station, className, showTagline = true }: Stat
     <div className={cn('flex flex-col items-center text-center', className)}>
       {station.logo && (
         <div className="mb-6">
-          <img
+          <Image
             src={station.logo}
             alt={station.name}
+            width={200}
+            height={128}
             className="h-32 w-auto object-contain drop-shadow-lg"
           />
         </div>

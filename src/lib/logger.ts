@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Logging utility that conditionally logs based on environment
  * In production, should integrate with Sentry, LogRocket, or similar

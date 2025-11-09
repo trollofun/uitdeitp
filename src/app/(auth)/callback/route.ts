@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { NextResponse, type NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
 
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     try {
-      const supabase = createClient();
+      const supabase = createServerClient();
 
       // Exchange authorization code for session
       const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
