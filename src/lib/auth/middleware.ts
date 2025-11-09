@@ -95,7 +95,9 @@ export async function updateSession(request: NextRequest) {
 
   if (isAuthRoute && user) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = '/dashboard';
+    const redirectTo = request.nextUrl.searchParams.get('redirectTo') || '/dashboard';
+    redirectUrl.pathname = redirectTo;
+    redirectUrl.search = ''; // Clear query params
     return NextResponse.redirect(redirectUrl);
   }
 

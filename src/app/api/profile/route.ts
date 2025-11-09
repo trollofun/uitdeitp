@@ -21,9 +21,17 @@ export async function GET(req: NextRequest) {
 
   const data = await response.json();
 
+  // Filter out compression headers to avoid ERR_CONTENT_DECODING_FAILED
+  const cleanHeaders = new Headers();
+  for (const [key, value] of response.headers.entries()) {
+    if (!['content-encoding', 'transfer-encoding', 'content-length'].includes(key.toLowerCase())) {
+      cleanHeaders.set(key, value);
+    }
+  }
+
   return NextResponse.json(data, {
     status: response.status,
-    headers: response.headers,
+    headers: cleanHeaders,
   });
 }
 
@@ -43,8 +51,16 @@ export async function PATCH(req: NextRequest) {
 
   const data = await response.json();
 
+  // Filter out compression headers to avoid ERR_CONTENT_DECODING_FAILED
+  const cleanHeaders = new Headers();
+  for (const [key, value] of response.headers.entries()) {
+    if (!['content-encoding', 'transfer-encoding', 'content-length'].includes(key.toLowerCase())) {
+      cleanHeaders.set(key, value);
+    }
+  }
+
   return NextResponse.json(data, {
     status: response.status,
-    headers: response.headers,
+    headers: cleanHeaders,
   });
 }

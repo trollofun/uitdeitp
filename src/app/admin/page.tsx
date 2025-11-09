@@ -52,7 +52,7 @@ export default async function AdminPage() {
   const { count: activeStations } = await supabase
     .from('kiosk_stations')
     .select('*', { count: 'exact', head: true })
-    .eq('active', true);
+    .eq('is_active', true);
 
   // Fetch recent users
   const { data: recentUsers } = await supabase

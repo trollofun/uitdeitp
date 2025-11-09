@@ -13,7 +13,7 @@ export default async function KioskSelectionPage() {
   const { data: stations, error } = await supabase
     .from('kiosk_stations')
     .select('*')
-    .eq('active', true)
+    .eq('is_active', true)
     .order('name');
 
   if (error) {

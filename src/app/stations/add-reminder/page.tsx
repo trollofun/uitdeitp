@@ -36,7 +36,7 @@ export default async function AddReminderPage() {
   const stationsQuery = supabase
     .from('kiosk_stations')
     .select('*')
-    .eq('active', true)
+    .eq('is_active', true)
     .order('name');
 
   if (profile.role === 'station_manager') {

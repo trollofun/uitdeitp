@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     const offset = parseInt(searchParams.get('offset') || '0');
 
     let query = supabase
-      .from('parking_reminders')
+      .from('reminders')
       .select(`
         *,
         kiosk_stations (

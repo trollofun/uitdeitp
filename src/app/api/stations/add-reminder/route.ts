@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       .from('kiosk_stations')
       .select('id')
       .eq('slug', station_slug)
-      .eq('active', true)
+      .eq('is_active', true)
       .single();
 
     if (stationError || !station) {

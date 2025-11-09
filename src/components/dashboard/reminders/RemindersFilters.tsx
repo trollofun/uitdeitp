@@ -207,9 +207,9 @@ export function RemindersFilters({ stations = [], className }: RemindersFiltersP
               <SelectContent>
                 <SelectItem value="all">Toate</SelectItem>
                 {stations.length === 0 ? (
-                  <SelectLabel className="text-muted-foreground">
+                  <SelectItem value="none" disabled>
                     Nu există stații
-                  </SelectLabel>
+                  </SelectItem>
                 ) : (
                   stations.map((station) => (
                     <SelectItem key={station.id} value={station.id}>
