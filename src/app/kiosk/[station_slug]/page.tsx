@@ -317,7 +317,7 @@ export default function KioskPage() {
                     const value = e.target.value.replace(/\D/g, '');
                     setFormData(prev => ({
                       ...prev,
-                      phone: value.startsWith('7') ? value : `7${value}`
+                      phone: value.startsWith('7') ? `+40${value}` : value ? `+407${value}` : ''
                     }));
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && handleNext('phone')}
