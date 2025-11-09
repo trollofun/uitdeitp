@@ -8,6 +8,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select'
@@ -206,9 +207,9 @@ export function RemindersFilters({ stations = [], className }: RemindersFiltersP
               <SelectContent>
                 <SelectItem value="all">Toate</SelectItem>
                 {stations.length === 0 ? (
-                  <SelectItem value="" disabled>
+                  <SelectLabel className="text-muted-foreground">
                     Nu există stații
-                  </SelectItem>
+                  </SelectLabel>
                 ) : (
                   stations.map((station) => (
                     <SelectItem key={station.id} value={station.id}>
