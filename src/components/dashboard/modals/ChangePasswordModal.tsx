@@ -1,8 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog } from '@/components/ui/Dialog';
-import { Card } from '@/components/ui/Card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -87,12 +91,13 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-        <Card className="w-full max-w-md p-6">
-          <div className="flex items-center gap-2 mb-6">
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
             <Key className="h-6 w-6" />
-            <h2 className="text-2xl font-bold">Schimbă parola</h2>
+            <DialogTitle>Schimbă parola</DialogTitle>
           </div>
+        </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Current Password */}
@@ -215,8 +220,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
               </Button>
             </div>
           </form>
-        </Card>
-      </div>
+      </DialogContent>
     </Dialog>
   );
 }

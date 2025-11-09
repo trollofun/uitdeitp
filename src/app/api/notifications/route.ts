@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 
     // Get notification logs for user's reminders
     const { data: notifications, error, count } = await supabase
-      .from('notification_logs')
+      .from('notification_log')
       .select(`
         *,
         reminders!inner(

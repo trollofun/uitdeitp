@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
     headers,
   });
 
-  const data = await response.json();
+  // Get raw text to avoid double JSON parsing
+  const text = await response.text();
 
   // Filter out compression headers to avoid ERR_CONTENT_DECODING_FAILED
   const cleanHeaders = new Headers();
@@ -28,8 +29,9 @@ export async function GET(req: NextRequest) {
       cleanHeaders.set(key, value);
     }
   }
+  cleanHeaders.set('Content-Type', 'application/json');
 
-  return NextResponse.json(data, {
+  return new NextResponse(text, {
     status: response.status,
     headers: cleanHeaders,
   });
@@ -49,7 +51,8 @@ export async function PATCH(req: NextRequest) {
     body: JSON.stringify(body),
   });
 
-  const data = await response.json();
+  // Get raw text to avoid double JSON parsing
+  const text = await response.text();
 
   // Filter out compression headers to avoid ERR_CONTENT_DECODING_FAILED
   const cleanHeaders = new Headers();
@@ -58,8 +61,9 @@ export async function PATCH(req: NextRequest) {
       cleanHeaders.set(key, value);
     }
   }
+  cleanHeaders.set('Content-Type', 'application/json');
 
-  return NextResponse.json(data, {
+  return new NextResponse(text, {
     status: response.status,
     headers: cleanHeaders,
   });

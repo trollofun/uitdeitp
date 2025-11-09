@@ -1,8 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog } from '@/components/ui/Dialog';
-import { Card } from '@/components/ui/Card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -118,15 +122,16 @@ export function ChangeEmailModal({ isOpen, onClose }: ChangeEmailModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-        <Card className="w-full max-w-md p-6">
-          {/* Step 1: Input new email */}
-          {step === 'input' && (
-            <>
-              <div className="flex items-center gap-2 mb-6">
+      <DialogContent className="max-w-md">
+        {/* Step 1: Input new email */}
+        {step === 'input' && (
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
                 <Mail className="h-6 w-6" />
-                <h2 className="text-2xl font-bold">Schimbă email-ul</h2>
+                <DialogTitle>Schimbă email-ul</DialogTitle>
               </div>
+            </DialogHeader>
 
               <form onSubmit={handleSendVerification} className="space-y-4">
                 <div>
@@ -195,14 +200,14 @@ export function ChangeEmailModal({ isOpen, onClose }: ChangeEmailModalProps) {
           {/* Step 2: Verify code */}
           {step === 'verify' && (
             <>
-              <div className="text-center mb-6">
+              <DialogHeader className="text-center">
                 <Mail className="h-12 w-12 mx-auto mb-4 text-primary" />
-                <h2 className="text-2xl font-bold mb-2">Verifică email-ul</h2>
+                <DialogTitle className="text-center">Verifică email-ul</DialogTitle>
                 <p className="text-sm text-muted-foreground">
                   Am trimis un cod de 6 cifre la <br />
                   <span className="font-semibold">{newEmail}</span>
                 </p>
-              </div>
+              </DialogHeader>
 
               <form onSubmit={handleVerifyCode} className="space-y-4">
                 <div>
@@ -258,16 +263,17 @@ export function ChangeEmailModal({ isOpen, onClose }: ChangeEmailModalProps) {
 
           {/* Step 3: Success */}
           {step === 'success' && (
-            <div className="text-center py-8">
-              <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-green-600" />
-              <h2 className="text-2xl font-bold mb-2">Email schimbat!</h2>
-              <p className="text-muted-foreground">
+            <>
+              <DialogHeader className="text-center">
+                <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                <DialogTitle className="text-center">Email schimbat!</DialogTitle>
+              </DialogHeader>
+              <p className="text-muted-foreground text-center">
                 Email-ul tău a fost actualizat cu succes
               </p>
-            </div>
+            </>
           )}
-        </Card>
-      </div>
+      </DialogContent>
     </Dialog>
   );
 }

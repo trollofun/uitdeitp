@@ -1,8 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog } from '@/components/ui/Dialog';
-import { Card } from '@/components/ui/Card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -83,12 +87,13 @@ export function DeleteAccountModal({ isOpen, onClose }: DeleteAccountModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-        <Card className="w-full max-w-md p-6">
-          <div className="flex items-center gap-2 mb-6 text-destructive">
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-6 w-6" />
-            <h2 className="text-2xl font-bold">Șterge contul</h2>
+            <DialogTitle>Șterge contul</DialogTitle>
           </div>
+        </DialogHeader>
 
           <Alert variant="destructive" className="mb-4">
             <AlertTriangle className="h-4 w-4" />
@@ -189,8 +194,7 @@ export function DeleteAccountModal({ isOpen, onClose }: DeleteAccountModalProps)
               </Button>
             </div>
           </div>
-        </Card>
-      </div>
+      </DialogContent>
     </Dialog>
   );
 }
