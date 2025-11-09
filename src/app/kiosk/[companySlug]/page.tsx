@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { AnimatePresence } from 'framer-motion';
 import IdleState from '@/components/kiosk/IdleState';
-import VehicleDataStep from '@/components/kiosk/VehicleDataStep';
-import PhoneVerifyStep from '@/components/kiosk/PhoneVerifyStep';
-import SuccessStep from '@/components/kiosk/SuccessStep';
+import VehiclePage from '@/components/kiosk/VehiclePage';
+import ContactPage from '@/components/kiosk/ContactPage';
+import VerifyPage from '@/components/kiosk/VerifyPage';
+import SuccessPage from '@/components/kiosk/SuccessPage';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 
-type Step = 'idle' | 'data' | 'verify' | 'success';
+type FlowStep = 'idle' | 'vehicle' | 'contact' | 'verify' | 'success';
 
 interface KioskStation {
   id: string;
@@ -21,10 +23,9 @@ interface KioskStation {
 
 interface FormData {
   plateNumber: string;
-  expiryDate: string;
+  expiryDate: { day: string; month: string; year: string };
+  name: string;
   phone: string;
-  smsConsent: boolean;
-  gdprConsent: boolean;
 }
 
 const INACTIVITY_TIMEOUT = 45000; // 45 seconds
@@ -35,12 +36,11 @@ export default function KioskPage({
   params: { companySlug: string };
 }) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('idle');
+  const [step, setStep] = useState<FlowStep>('idle');
   const [loading, setLoading] = useState(true);
   const [station, setStation] = useState<KioskStation | null>(null);
   const [error, setError] = useState<string>('');
-  const [formData, setFormData] = useState<FormData | null>(null);
-  const [confirmationCode, setConfirmationCode] = useState('');
+  const [formData, setFormData] = useState<Partial<FormData>>({});
   const [lastActivity, setLastActivity] = useState(Date.now());
 
   const supabase = createBrowserClient();
@@ -77,8 +77,7 @@ export default function KioskPage({
 
   const resetToIdle = useCallback(() => {
     setStep('idle');
-    setFormData(null);
-    setConfirmationCode('');
+    setFormData({});
     setError('');
     setLastActivity(Date.now());
   }, []);
@@ -116,12 +115,18 @@ export default function KioskPage({
   }, [params.companySlug, supabase]);
 
   const handleStart = () => {
-    setStep('data');
+    setStep('vehicle');
     setLastActivity(Date.now());
   };
 
-  const handleDataSubmit = async (data: FormData) => {
-    setFormData(data);
+  const handleVehicleNext = (data: { plateNumber: string; expiryDate: { day: string; month: string; year: string } }) => {
+    setFormData((prev) => ({ ...prev, ...data }));
+    setStep('contact');
+    setLastActivity(Date.now());
+  };
+
+  const handleContactNext = async (data: { name: string; phone: string }) => {
+    setFormData((prev) => ({ ...prev, ...data }));
     setLastActivity(Date.now());
 
     // Send SMS verification code
@@ -149,12 +154,14 @@ export default function KioskPage({
   const handleVerify = async (code: string): Promise<boolean> => {
     setLastActivity(Date.now());
 
+    if (!formData.phone) return false;
+
     try {
       const response = await fetch('/api/verification/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: formData!.phone,
+          phone: formData.phone,
           code,
         }),
       });
@@ -166,19 +173,22 @@ export default function KioskPage({
 
       // Save to database
       const confirmCode = 'ITP' + Math.random().toString(36).substring(2, 8).toUpperCase();
-      setConfirmationCode(confirmCode);
+
+      // Format expiry date for database
+      const expiryDateStr = `${formData.expiryDate!.year}-${formData.expiryDate!.month.padStart(2, '0')}-${formData.expiryDate!.day.padStart(2, '0')}`;
 
       const { error: insertError } = await supabase.from('reminders').insert({
-        phone_number: formData!.phone,
-        plate_number: formData!.plateNumber,
-        itp_expiry_date: formData!.expiryDate,
+        phone_number: formData.phone,
+        plate_number: formData.plateNumber,
+        itp_expiry_date: expiryDateStr,
         station_slug: params.companySlug,
         reminder_type: 'itp',
-        consent_given: formData!.gdprConsent,
-        sms_notifications_enabled: formData!.smsConsent,
+        consent_given: true,
+        sms_notifications_enabled: true,
         source: 'kiosk',
         confirmation_code: confirmCode,
         status: 'active',
+        user_name: formData.name,
       });
 
       if (insertError) {
@@ -197,12 +207,14 @@ export default function KioskPage({
   const handleResendCode = async () => {
     setLastActivity(Date.now());
 
+    if (!formData.phone) return;
+
     try {
       const response = await fetch('/api/verification/resend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: formData!.phone,
+          phone: formData.phone,
           stationSlug: params.companySlug,
         }),
       });
@@ -250,31 +262,47 @@ export default function KioskPage({
   }
 
   return (
-    <>
-      {step === 'idle' && <IdleState onStart={handleStart} stationName={station.name} />}
-
-      {step === 'data' && (
-        <VehicleDataStep onNext={handleDataSubmit} onBack={resetToIdle} />
+    <AnimatePresence mode="wait">
+      {step === 'idle' && (
+        <IdleState
+          key="idle"
+          onStart={handleStart}
+          stationName={station.name}
+        />
       )}
 
-      {step === 'verify' && formData && (
-        <PhoneVerifyStep
+      {step === 'vehicle' && (
+        <VehiclePage
+          key="vehicle"
+          onNext={handleVehicleNext}
+        />
+      )}
+
+      {step === 'contact' && (
+        <ContactPage
+          key="contact"
+          onNext={handleContactNext}
+          onBack={() => setStep('vehicle')}
+        />
+      )}
+
+      {step === 'verify' && formData.phone && (
+        <VerifyPage
+          key="verify"
           phone={formData.phone}
           onVerify={handleVerify}
-          onBack={() => setStep('data')}
           onResend={handleResendCode}
         />
       )}
 
-      {step === 'success' && formData && (
-        <SuccessStep
-          confirmationCode={confirmationCode}
+      {step === 'success' && formData.plateNumber && formData.expiryDate && (
+        <SuccessPage
+          key="success"
           plateNumber={formData.plateNumber}
           expiryDate={formData.expiryDate}
-          phone={formData.phone}
-          onAddAnother={resetToIdle}
+          onComplete={resetToIdle}
         />
       )}
-    </>
+    </AnimatePresence>
   );
 }
