@@ -1,6 +1,5 @@
 import { NotificationData } from '@/types';
 import { formatDate } from './date';
-import { notifyHub } from './notifyhub';
 
 /**
  * Render SMS template with data
@@ -78,40 +77,4 @@ export function getTemplateForDays(daysUntil: number): keyof typeof DEFAULT_SMS_
   if (daysUntil <= 1) return '1d';
   if (daysUntil <= 3) return '3d';
   return '7d';
-}
-
-/**
- * Format a reminder notification using default template
- */
-export function formatReminderNotification(data: NotificationData): string {
-  // Use a generic template for previews
-  const template = 'Bună {name}! Reminder pentru vehiculul {plate}. Data scadentă: {date}.';
-  return renderSmsTemplate(template, data);
-}
-
-/**
- * Send SMS using NotifyHub service
- */
-export async function sendSms(
-  phone: string,
-  message: string,
-  metadata?: Record<string, unknown>
-): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    const result = await notifyHub.sendSms({
-      to: phone,
-      message,
-    });
-
-    return {
-      success: result.success,
-      messageId: result.messageId,
-      error: result.error,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
 }

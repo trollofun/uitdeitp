@@ -1,251 +1,182 @@
-import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { updateReminderSchema } from '@/lib/validation';
-import {
-  handleApiError,
-  createSuccessResponse,
-  createErrorResponse,
-  ApiError,
-  ApiErrorCode,
-} from '@/lib/api/errors';
-import {
-  requireAuth,
-  validateRequestBody,
-  checkRateLimit,
-  getRateLimitIdentifier,
-  addRateLimitHeaders,
-} from '@/lib/api/middleware';
+import { createServerClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/reminders/[id]
- * Get a single reminder by ID with computed status
+ * Get a specific reminder
  */
 export async function GET(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth(req);
-    const supabase = createClient();
+    const supabase = createServerClient();
 
-    const { data, error } = await supabase
+    // Check authentication
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get reminder
+    const { data: reminder, error } = await supabase
       .from('reminders')
-      .select('*, station:kiosk_stations(id, slug, name, logo_url)')
+      .select('*')
       .eq('id', params.id)
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
       .single();
 
-    if (error || !data) {
-      return createErrorResponse(
-        ApiErrorCode.NOT_FOUND,
-        'Reminder-ul nu a fost găsit',
-        404
-      );
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
     }
 
-    // Compute status
-    const expiryDate = new Date(data.expiry_date);
-    const now = new Date();
-    const daysUntilExpiry = Math.floor(
-      (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    let status: 'urgent' | 'warning' | 'ok';
-    if (daysUntilExpiry < 0 || daysUntilExpiry <= 7) {
-      status = 'urgent';
-    } else if (daysUntilExpiry <= 30) {
-      status = 'warning';
-    } else {
-      status = 'ok';
+    // Check if user owns this reminder
+    if (reminder.phone_number !== user.phone && reminder.phone_number !== user.email) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    return createSuccessResponse({ ...data, status, daysUntilExpiry });
+    return NextResponse.json({ reminder });
   } catch (error) {
-    return handleApiError(error);
+    console.error('Get reminder error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 /**
- * PATCH /api/reminders/[id]
+ * PUT /api/reminders/[id]
  * Update a reminder
- *
- * Body: UpdateReminder schema (partial)
  */
-export async function PATCH(
-  req: NextRequest,
+export async function PUT(
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth(req);
+    const supabase = createServerClient();
 
-    // Rate limiting
-    const rateLimitId = getRateLimitIdentifier(req, user.id);
-    const rateLimit = checkRateLimit(rateLimitId, {
-      maxRequests: 50,
-      windowMs: 15 * 60 * 1000,
-    });
-    if (!rateLimit.allowed) {
-      throw new ApiError(
-        ApiErrorCode.RATE_LIMIT_EXCEEDED,
-        'Prea multe cereri. Încearcă din nou mai târziu.',
-        429
-      );
+    // Check authentication
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const validated = await validateRequestBody(req, updateReminderSchema);
-    const supabase = createClient();
-
-    // Check ownership (also support station admins)
-    const { data: existing } = await supabase
+    // Get current reminder
+    const { data: existingReminder, error: fetchError } = await supabase
       .from('reminders')
-      .select('id, user_id, station_id')
+      .select('*')
       .eq('id', params.id)
-      .is('deleted_at', null)
       .single();
 
-    if (!existing) {
-      return createErrorResponse(
-        ApiErrorCode.NOT_FOUND,
-        'Reminder-ul nu a fost găsit',
-        404
-      );
+    if (fetchError) {
+      return NextResponse.json({ error: 'Reminder not found' }, { status: 404 });
     }
 
-    // Check if user owns the reminder or is the station owner
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('station_id')
-      .eq('id', user.id)
-      .single();
-
-    const isOwner = existing.user_id === user.id;
-    const isStationAdmin = existing.station_id && existing.station_id === userProfile?.station_id;
-
-    if (!isOwner && !isStationAdmin) {
-      throw new ApiError(
-        ApiErrorCode.AUTHORIZATION_ERROR,
-        'Nu ai permisiunea să modifici acest reminder',
-        403
-      );
+    // Check ownership
+    if (existingReminder.phone_number !== user.phone && existingReminder.phone_number !== user.email) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Prepare update data
-    const updateData: any = {
-      ...validated,
-      updated_at: new Date().toISOString(),
-    };
+    // Parse request body
+    const body = await request.json();
+    const { itp_expiry_date, sms_notifications_enabled } = body;
 
-    if (validated.expiry_date) {
-      updateData.expiry_date = validated.expiry_date.toISOString();
+    // Validate data
+    if (itp_expiry_date) {
+      const expiryDate = new Date(itp_expiry_date);
+      if (isNaN(expiryDate.getTime())) {
+        return NextResponse.json(
+          { error: 'Invalid expiry date' },
+          { status: 400 }
+        );
+      }
     }
 
     // Update reminder
-    const { data, error } = await supabase
+    const updateData: any = {};
+    if (itp_expiry_date !== undefined) updateData.itp_expiry_date = itp_expiry_date;
+    if (sms_notifications_enabled !== undefined) updateData.sms_notifications_enabled = sms_notifications_enabled;
+    updateData.updated_at = new Date().toISOString();
+
+    const { data: reminder, error } = await supabase
       .from('reminders')
       .update(updateData)
       .eq('id', params.id)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
-    const response = createSuccessResponse(data);
-    addRateLimitHeaders(
-      response.headers,
-      50,
-      rateLimit.remaining,
-      rateLimit.resetTime
-    );
-
-    return response;
+    return NextResponse.json({ reminder });
   } catch (error) {
-    return handleApiError(error);
+    console.error('Update reminder error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 /**
  * DELETE /api/reminders/[id]
- * Soft delete a reminder
+ * Delete a reminder (soft delete by setting status to 'deleted')
  */
 export async function DELETE(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth(req);
+    const supabase = createServerClient();
 
-    // Rate limiting
-    const rateLimitId = getRateLimitIdentifier(req, user.id);
-    const rateLimit = checkRateLimit(rateLimitId, {
-      maxRequests: 50,
-      windowMs: 15 * 60 * 1000,
-    });
-    if (!rateLimit.allowed) {
-      throw new ApiError(
-        ApiErrorCode.RATE_LIMIT_EXCEEDED,
-        'Prea multe cereri. Încearcă din nou mai târziu.',
-        429
-      );
+    // Check authentication
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
-
-    // Check ownership (also support station admins)
-    const { data: existing } = await supabase
+    // Get current reminder
+    const { data: existingReminder, error: fetchError } = await supabase
       .from('reminders')
-      .select('id, user_id, station_id')
+      .select('*')
       .eq('id', params.id)
-      .is('deleted_at', null)
       .single();
 
-    if (!existing) {
-      return createErrorResponse(
-        ApiErrorCode.NOT_FOUND,
-        'Reminder-ul nu a fost găsit',
-        404
-      );
+    if (fetchError) {
+      return NextResponse.json({ error: 'Reminder not found' }, { status: 404 });
     }
 
-    // Check if user owns the reminder or is the station owner
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('station_id')
-      .eq('id', user.id)
-      .single();
-
-    const isOwner = existing.user_id === user.id;
-    const isStationAdmin = existing.station_id && existing.station_id === userProfile?.station_id;
-
-    if (!isOwner && !isStationAdmin) {
-      throw new ApiError(
-        ApiErrorCode.AUTHORIZATION_ERROR,
-        'Nu ai permisiunea să ștergi acest reminder',
-        403
-      );
+    // Check ownership
+    if (existingReminder.phone_number !== user.phone && existingReminder.phone_number !== user.email) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Soft delete
+    // Soft delete - set status to 'deleted'
     const { error } = await supabase
       .from('reminders')
-      .update({
-        deleted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: 'deleted', updated_at: new Date().toISOString() })
       .eq('id', params.id);
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
-    const response = createSuccessResponse({ success: true }, 204);
-    addRateLimitHeaders(
-      response.headers,
-      50,
-      rateLimit.remaining,
-      rateLimit.resetTime
-    );
-
-    return response;
+    return NextResponse.json({ success: true });
   } catch (error) {
-    return handleApiError(error);
+    console.error('Delete reminder error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

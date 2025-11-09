@@ -1,170 +1,58 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { formatDate } from '@/lib/services/date';
-import { UrgencyBadge } from './UrgencyBadge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui';
+import { ReminderCard } from './ReminderCard';
+import { Car, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui';
-import { Badge } from '@/components/ui';
-import { Edit, Trash2, Eye } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Reminder {
   id: string;
   plate_number: string;
-  reminder_type: 'itp' | 'rca' | 'rovinieta';
-  expiry_date: string;
-  created_at: string;
-  notification_channels: {
-    sms: boolean;
-    email: boolean;
-  };
+  itp_expiry_date: string;
+  sms_notifications_enabled: boolean;
+  station_slug?: string;
+  status: string;
 }
 
 interface RemindersListProps {
   reminders: Reminder[];
-  onDelete?: (ids: string[]) => void;
 }
 
-const reminderTypeLabels = {
-  itp: 'ITP',
-  rca: 'RCA',
-  rovinieta: 'Rovinieta',
-};
+export function RemindersList({ reminders }: RemindersListProps) {
+  const router = useRouter();
 
-export function RemindersList({ reminders, onDelete }: RemindersListProps) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const toggleSelection = (id: string) => {
-    const newSelection = new Set(selectedIds);
-    if (newSelection.has(id)) {
-      newSelection.delete(id);
-    } else {
-      newSelection.add(id);
-    }
-    setSelectedIds(newSelection);
+  const handleUpdate = () => {
+    router.refresh();
   };
 
-  const toggleAll = () => {
-    if (selectedIds.size === reminders.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(reminders.map((r) => r.id)));
-    }
-  };
-
-  const handleBulkDelete = () => {
-    if (onDelete && selectedIds.size > 0) {
-      onDelete(Array.from(selectedIds));
-      setSelectedIds(new Set());
-    }
-  };
+  if (reminders.length === 0) {
+    return (
+      <div className="bg-card border rounded-lg p-12 text-center">
+        <Car className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-20" />
+        <h3 className="text-xl font-semibold mb-2">Nu ai vehicule înregistrate</h3>
+        <p className="text-muted-foreground mb-6">
+          Începe prin a adăuga primul tău vehicul pentru a primi reminder-e ITP
+        </p>
+        <Link href="/dashboard/add-vehicle">
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Adaugă Primul Vehicul
+          </Button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Bulk Actions */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between rounded-lg bg-muted p-4">
-          <span className="text-sm font-medium">
-            {selectedIds.size} reminder{selectedIds.size > 1 ? '-uri' : ''} selectat{selectedIds.size > 1 ? 'e' : ''}
-          </span>
-          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Șterge
-          </Button>
-        </div>
-      )}
-
-      {/* Table */}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[50px]">
-              <Checkbox
-                checked={selectedIds.size === reminders.length && reminders.length > 0}
-                onCheckedChange={toggleAll}
-              />
-            </TableHead>
-            <TableHead>Număr înmatriculare</TableHead>
-            <TableHead>Tip</TableHead>
-            <TableHead>Data expirării</TableHead>
-            <TableHead>Urgență</TableHead>
-            <TableHead>Notificări</TableHead>
-            <TableHead className="text-right">Acțiuni</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {reminders.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground">
-                Nu există reminder-uri
-              </TableCell>
-            </TableRow>
-          ) : (
-            reminders.map((reminder) => (
-              <TableRow key={reminder.id}>
-                <TableCell>
-                  <Checkbox
-                    checked={selectedIds.has(reminder.id)}
-                    onCheckedChange={() => toggleSelection(reminder.id)}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">{reminder.plate_number}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{reminderTypeLabels[reminder.reminder_type]}</Badge>
-                </TableCell>
-                <TableCell>{formatDate(reminder.expiry_date)}</TableCell>
-                <TableCell>
-                  <UrgencyBadge expiryDate={reminder.expiry_date} />
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {reminder.notification_channels.sms && (
-                      <Badge variant="secondary" className="text-xs">
-                        SMS
-                      </Badge>
-                    )}
-                    {reminder.notification_channels.email && (
-                      <Badge variant="secondary" className="text-xs">
-                        Email
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" asChild>
-                      <Link href={`/dashboard/reminders/${reminder.id}`}>
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="icon" asChild>
-                      <Link href={`/dashboard/reminders/${reminder.id}/edit`}>
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDelete?.([reminder.id])}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {reminders.map((reminder) => (
+        <ReminderCard
+          key={reminder.id}
+          reminder={reminder}
+          onUpdate={handleUpdate}
+        />
+      ))}
     </div>
   );
 }

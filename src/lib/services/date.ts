@@ -8,7 +8,6 @@ import { ro } from 'date-fns/locale';
  */
 export function formatDate(date: Date | string, formatStr: string = 'dd.MM.yyyy'): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(dateObj.getTime())) return 'N/A';
   return format(dateObj, formatStr, { locale: ro });
 }
 
@@ -18,7 +17,6 @@ export function formatDate(date: Date | string, formatStr: string = 'dd.MM.yyyy'
  */
 export function getRelativeTime(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(dateObj.getTime())) return 'N/A';
   return formatDistanceToNow(dateObj, { addSuffix: true, locale: ro });
 }
 
@@ -28,7 +26,6 @@ export function getRelativeTime(date: Date | string): string {
  */
 export function getDaysUntilExpiry(expiryDate: Date | string): number {
   const dateObj = typeof expiryDate === 'string' ? new Date(expiryDate) : expiryDate;
-  if (isNaN(dateObj.getTime())) return -1;
   return differenceInDays(dateObj, new Date());
 }
 
@@ -37,7 +34,6 @@ export function getDaysUntilExpiry(expiryDate: Date | string): number {
  */
 export function isFutureDate(date: Date | string): boolean {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(dateObj.getTime())) return false;
   return isAfter(dateObj, new Date());
 }
 
@@ -46,7 +42,6 @@ export function isFutureDate(date: Date | string): boolean {
  */
 export function isExpired(date: Date | string): boolean {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(dateObj.getTime())) return false;
   return isBefore(dateObj, new Date());
 }
 
