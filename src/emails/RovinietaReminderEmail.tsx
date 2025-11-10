@@ -39,7 +39,7 @@ export function RovinietaReminderEmail({
     <Html>
       <Head />
       <Preview>
-        Rovinieta pentru {plate} expiră în {daysUntilExpiry} {daysUntilExpiry === 1 ? 'zi' : 'zile'}
+        {`Rovinieta pentru ${plate} expiră în ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'zi' : 'zile'}`}
       </Preview>
       <Body style={main}>
         <Container style={container}>

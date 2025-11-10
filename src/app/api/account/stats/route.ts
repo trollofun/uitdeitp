@@ -43,17 +43,22 @@ export async function GET(req: NextRequest) {
     if (activeError) throw activeError;
 
     // Get notifications count
+    // First get reminder IDs
+    const { data: userReminders, error: reminderIdsError } = await supabase
+      .from('reminders')
+      .select('id')
+      .eq('user_id', user.id);
+
+    if (reminderIdsError) throw reminderIdsError;
+
+    const reminderIds = userReminders?.map((r) => r.id) || [];
+
+    // Then count notifications for these reminders
     const { count: totalNotifications, error: notificationsError } =
       await supabase
         .from('notification_log')
         .select('id', { count: 'exact', head: true })
-        .in(
-          'reminder_id',
-          supabase
-            .from('reminders')
-            .select('id')
-            .eq('user_id', user.id)
-        );
+        .in('reminder_id', reminderIds);
 
     if (notificationsError) throw notificationsError;
 

@@ -3,6 +3,8 @@ import { createServerClient } from '@/lib/supabase/server';
 import {
   handleApiError,
   createSuccessResponse,
+  createErrorResponse,
+  ApiErrorCode,
 } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
 import { z } from 'zod';
@@ -80,12 +82,11 @@ export async function PATCH(req: NextRequest) {
     const validation = NotificationSettingsSchema.safeParse(body);
 
     if (!validation.success) {
-      return createSuccessResponse(
-        {
-          error: 'Date invalide',
-          details: validation.error.errors,
-        },
-        { status: 400 }
+      return createErrorResponse(
+        ApiErrorCode.VALIDATION_ERROR,
+        'Date invalide',
+        400,
+        validation.error.errors
       );
     }
 

@@ -39,7 +39,7 @@ export function ITPReminderEmail({
     <Html>
       <Head />
       <Preview>
-        ITP pentru {plate} expiră în {daysUntilExpiry} {daysUntilExpiry === 1 ? 'zi' : 'zile'}
+        {`ITP pentru ${plate} expiră în ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'zi' : 'zile'}`}
       </Preview>
       <Body style={main}>
         <Container style={container}>

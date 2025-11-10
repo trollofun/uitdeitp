@@ -5,7 +5,8 @@
  * Triggered daily by pg_cron at 9:00 AM Romanian time
  *
  * Notification Strategy:
- * - Registered users: Email (7 days), Email+SMS (3/1 days before expiry)
+ * - Respects user's custom notification_intervals (e.g., [7, 3, 1])
+ * - Respects user's notification_channels preferences (email/sms)
  * - Guest users: SMS only (no email available)
  *
  * Cost Optimization:
@@ -26,10 +27,13 @@ interface Reminder {
   guest_email: string | null;
   type: 'ITP' | 'RCA' | 'Rovinieta';
   plate_number: string;
-  itp_expiry_date: string;
+  expiry_date: string;
   next_notification_date: string;
-  email_notifications: boolean;
-  sms_notifications: boolean;
+  notification_intervals: number[]; // e.g., [7, 3, 1]
+  notification_channels: {
+    email: boolean;
+    sms: boolean;
+  };
   source: 'user' | 'kiosk';
 }
 
@@ -238,20 +242,37 @@ async function processReminder(
   reminder: Reminder,
   supabase: any
 ): Promise<NotificationResult> {
-  const daysUntilExpiry = calculateDaysUntilExpiry(reminder.itp_expiry_date);
+  const daysUntilExpiry = calculateDaysUntilExpiry(reminder.expiry_date);
 
   console.log(`Processing reminder ${reminder.id} for ${reminder.plate_number} (${daysUntilExpiry} days until expiry)`);
+  console.log(`User intervals: ${JSON.stringify(reminder.notification_intervals)}, channels: ${JSON.stringify(reminder.notification_channels)}`);
+
+  // Check if current daysUntilExpiry matches any of the user's notification intervals
+  const shouldNotifyToday = reminder.notification_intervals?.includes(daysUntilExpiry) || false;
+
+  if (!shouldNotifyToday) {
+    console.log(`Skipping notification - ${daysUntilExpiry} days is not in user's intervals [${reminder.notification_intervals}]`);
+    return {
+      reminderId: reminder.id,
+      plate: reminder.plate_number,
+      type: reminder.type,
+      success: false,
+      channel: 'email',
+      error: 'Not a scheduled notification day',
+    };
+  }
 
   // Check if user opted out
-  if (reminder.guest_phone) {
+  const phoneToCheck = reminder.guest_phone || null;
+  if (phoneToCheck) {
     const { data: optOut } = await supabase
       .from('global_opt_outs')
       .select('phone')
-      .eq('phone', reminder.guest_phone)
+      .eq('phone', phoneToCheck)
       .single();
 
     if (optOut) {
-      console.log(`User opted out: ${reminder.guest_phone}`);
+      console.log(`User opted out: ${phoneToCheck}`);
       return {
         reminderId: reminder.id,
         plate: reminder.plate_number,
@@ -263,17 +284,21 @@ async function processReminder(
     }
   }
 
-  // Determine notification strategy
+  // Determine notification channels based on user preferences
   const isRegisteredUser = !!reminder.user_id;
-  const shouldSendEmail = isRegisteredUser && reminder.email_notifications;
-  const shouldSendSMS = reminder.sms_notifications || !isRegisteredUser;
-  const isCritical = daysUntilExpiry <= 3;
+  const channels = reminder.notification_channels || { email: true, sms: false };
+
+  // For guest users, only SMS is available
+  const shouldSendEmail = isRegisteredUser && (channels.email === true);
+  const shouldSendSMS = channels.sms === true || !isRegisteredUser;
+
+  console.log(`Notification plan: email=${shouldSendEmail}, sms=${shouldSendSMS}, registered=${isRegisteredUser}`);
 
   let emailResult;
   let smsResult;
   let channel: 'email' | 'sms' | 'email+sms' = 'email';
 
-  // Send email (for registered users)
+  // Send email (for registered users who opted in)
   if (shouldSendEmail) {
     // Get user email from user_profiles
     const { data: profile } = await supabase
@@ -283,10 +308,11 @@ async function processReminder(
       .single();
 
     if (profile?.email) {
+      console.log(`Sending email to ${profile.email}`);
       emailResult = await sendEmailNotification({
         to: profile.email,
         plate: reminder.plate_number,
-        expiryDate: reminder.itp_expiry_date,
+        expiryDate: reminder.expiry_date,
         daysUntilExpiry,
         type: reminder.type,
         reminderId: reminder.id,
@@ -301,19 +327,46 @@ async function processReminder(
           provider_message_id: emailResult.messageId,
           metadata: { days_until_expiry: daysUntilExpiry },
         });
+        console.log(`Email sent successfully: ${emailResult.messageId}`);
+      } else {
+        console.error(`Email failed: ${emailResult.error}`);
+        await supabase.from('notification_log').insert({
+          reminder_id: reminder.id,
+          type: 'email',
+          status: 'failed',
+          sent_at: new Date().toISOString(),
+          metadata: {
+            days_until_expiry: daysUntilExpiry,
+            error: emailResult.error
+          },
+        });
       }
+    } else {
+      console.log(`No email found for user ${reminder.user_id}`);
     }
   }
 
-  // Send SMS (critical reminders or guest users)
-  if (shouldSendSMS && isCritical) {
-    const phoneNumber = reminder.guest_phone || ''; // TODO: Get from user_profiles if registered
+  // Send SMS (if user opted in or is a guest user)
+  if (shouldSendSMS) {
+    // Get phone number - from user_profiles for registered users, guest_phone for guests
+    let phoneNumber = reminder.guest_phone;
+
+    if (isRegisteredUser) {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('phone')
+        .eq('id', reminder.user_id)
+        .single();
+
+      phoneNumber = profile?.phone || null;
+    }
 
     if (phoneNumber) {
+      console.log(`Sending SMS to ${phoneNumber}`);
       smsResult = await sendSMSNotification({
         to: phoneNumber,
         plate: reminder.plate_number,
-        expiryDate: reminder.itp_expiry_date,
+        expiryDate: reminder.expiry_date,
         daysUntilExpiry,
         type: reminder.type,
         reminderId: reminder.id,
@@ -328,28 +381,55 @@ async function processReminder(
           provider_message_id: smsResult.messageId,
           metadata: { days_until_expiry: daysUntilExpiry },
         });
+        console.log(`SMS sent successfully: ${smsResult.messageId}`);
 
         channel = emailResult?.success ? 'email+sms' : 'sms';
+      } else {
+        console.error(`SMS failed: ${smsResult.error}`);
+        await supabase.from('notification_log').insert({
+          reminder_id: reminder.id,
+          type: 'sms',
+          status: 'failed',
+          sent_at: new Date().toISOString(),
+          metadata: {
+            days_until_expiry: daysUntilExpiry,
+            error: smsResult.error
+          },
+        });
       }
+    } else {
+      console.log(`No phone number found for ${isRegisteredUser ? 'user' : 'guest'}`);
     }
   }
 
-  // Update next notification date
-  let nextNotificationDate;
-  if (daysUntilExpiry > 3) {
-    nextNotificationDate = new Date(reminder.itp_expiry_date);
-    nextNotificationDate.setDate(nextNotificationDate.getDate() - 3);
-  } else if (daysUntilExpiry > 1) {
-    nextNotificationDate = new Date(reminder.itp_expiry_date);
-    nextNotificationDate.setDate(nextNotificationDate.getDate() - 1);
-  } else {
-    nextNotificationDate = null; // Last notification sent
+  // Calculate next notification date based on user's custom intervals
+  let nextNotificationDate = null;
+
+  if (reminder.notification_intervals && reminder.notification_intervals.length > 0) {
+    // Sort intervals in descending order
+    const sortedIntervals = [...reminder.notification_intervals].sort((a, b) => b - a);
+
+    // Find the next interval that is smaller than current daysUntilExpiry
+    const nextInterval = sortedIntervals.find(interval => interval < daysUntilExpiry);
+
+    if (nextInterval !== undefined) {
+      // Calculate the date for the next notification
+      const expiryDate = new Date(reminder.expiry_date);
+      const nextDate = new Date(expiryDate);
+      nextDate.setDate(expiryDate.getDate() - nextInterval);
+      nextNotificationDate = nextDate.toISOString().split('T')[0];
+
+      console.log(`Next notification scheduled for ${nextNotificationDate} (${nextInterval} days before expiry)`);
+    } else {
+      console.log(`No more notifications scheduled - this was the last interval`);
+    }
   }
 
+  // Update reminder with next notification date
   await supabase
     .from('reminders')
     .update({
-      next_notification_date: nextNotificationDate ? nextNotificationDate.toISOString().split('T')[0] : null,
+      next_notification_date: nextNotificationDate,
     })
     .eq('id', reminder.id);
 

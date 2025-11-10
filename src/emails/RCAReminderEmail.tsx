@@ -39,7 +39,7 @@ export function RCAReminderEmail({
     <Html>
       <Head />
       <Preview>
-        RCA pentru {plate} expiră în {daysUntilExpiry} {daysUntilExpiry === 1 ? 'zi' : 'zile'}
+        {`RCA pentru ${plate} expiră în ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'zi' : 'zile'}`}
       </Preview>
       <Body style={main}>
         <Container style={container}>
