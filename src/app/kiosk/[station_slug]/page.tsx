@@ -13,7 +13,7 @@
  * 7. Success Screen
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -52,6 +52,12 @@ export default function KioskPage() {
   });
   const [errors, setErrors] = useState<Partial<Record<keyof KioskFormData, string>>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [lastActivity, setLastActivity] = useState(Date.now());
+
+  // Activity tracking callback
+  const updateActivity = useCallback(() => {
+    setLastActivity(Date.now());
+  }, []);
 
   // Fetch station config
   useEffect(() => {
@@ -92,6 +98,34 @@ export default function KioskPage() {
       return () => clearTimeout(timer);
     }
   }, [step]);
+
+  // Inactivity timeout - auto-reset to idle if no activity
+  useEffect(() => {
+    // Only monitor steps 2-6 (not idle state or success screen)
+    if (step >= 2 && step <= 6) {
+      const checkInactivity = setInterval(() => {
+        const timeSinceLastActivity = Date.now() - lastActivity;
+
+        // Different timeouts for different step types
+        const timeout = (step === 5 || step === 6) ? 30000 : 20000; // 30s for calendar/consent, 20s for inputs
+
+        if (timeSinceLastActivity >= timeout) {
+          // Reset to idle state
+          setStep(1);
+          setFormData({
+            name: '',
+            phone: '',
+            plateNumber: '',
+            expiryDate: null,
+            consent: false
+          });
+          setErrors({});
+        }
+      }, 1000); // Check every second
+
+      return () => clearInterval(checkInactivity);
+    }
+  }, [step, lastActivity]);
 
   const handleNext = (field: keyof KioskFormData) => {
     // Validate current field
@@ -246,8 +280,15 @@ export default function KioskPage() {
                 <motion.input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  onKeyDown={(e) => e.key === 'Enter' && handleNext('name')}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, name: e.target.value }));
+                    updateActivity();
+                  }}
+                  onKeyDown={(e) => {
+                    updateActivity();
+                    if (e.key === 'Enter') handleNext('name');
+                  }}
+                  onFocus={updateActivity}
                   placeholder="Numele tău complet"
                   className="w-full px-6 py-6 text-2xl border-2 rounded-xl focus:outline-none transition-all"
                   style={{
@@ -285,7 +326,10 @@ export default function KioskPage() {
               )}
 
               <motion.button
-                onClick={() => handleNext('name')}
+                onClick={() => {
+                  updateActivity();
+                  handleNext('name');
+                }}
                 disabled={!formData.name.trim()}
                 className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 style={{ backgroundColor: primaryColor }}
@@ -331,8 +375,13 @@ export default function KioskPage() {
                       ...prev,
                       phone: value.startsWith('7') ? `+40${value}` : value ? `+407${value}` : ''
                     }));
+                    updateActivity();
                   }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleNext('phone')}
+                  onKeyDown={(e) => {
+                    updateActivity();
+                    if (e.key === 'Enter') handleNext('phone');
+                  }}
+                  onFocus={updateActivity}
                   placeholder="712345678"
                   className="w-full pl-20 pr-16 py-6 text-2xl border-2 rounded-xl focus:outline-none transition-all"
                   style={{
@@ -371,7 +420,10 @@ export default function KioskPage() {
               )}
 
               <motion.button
-                onClick={() => handleNext('phone')}
+                onClick={() => {
+                  updateActivity();
+                  handleNext('phone');
+                }}
                 disabled={!formData.phone}
                 className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 style={{ backgroundColor: primaryColor }}
@@ -411,8 +463,13 @@ export default function KioskPage() {
                   onChange={(e) => {
                     const value = e.target.value.toUpperCase();
                     setFormData(prev => ({ ...prev, plateNumber: value }));
+                    updateActivity();
                   }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleNext('plateNumber')}
+                  onKeyDown={(e) => {
+                    updateActivity();
+                    if (e.key === 'Enter') handleNext('plateNumber');
+                  }}
+                  onFocus={updateActivity}
                   placeholder="B-123-ABC"
                   className="w-full px-6 py-6 text-2xl text-center font-mono border-2 rounded-xl focus:outline-none transition-all uppercase"
                   style={{
@@ -460,7 +517,10 @@ export default function KioskPage() {
               )}
 
               <motion.button
-                onClick={() => handleNext('plateNumber')}
+                onClick={() => {
+                  updateActivity();
+                  handleNext('plateNumber');
+                }}
                 disabled={!formData.plateNumber}
                 className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 style={{ backgroundColor: primaryColor }}
@@ -498,11 +558,15 @@ export default function KioskPage() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.2, duration: 0.3 }}
+                onClick={updateActivity}
               >
                 <Calendar
                   mode="single"
                   selected={formData.expiryDate || undefined}
-                  onSelect={(date) => setFormData(prev => ({ ...prev, expiryDate: date || null }))}
+                  onSelect={(date) => {
+                    setFormData(prev => ({ ...prev, expiryDate: date || null }));
+                    updateActivity();
+                  }}
                   disabled={(date) => date < new Date()}
                   className="rounded-xl border-2 p-4"
                   classNames={{
@@ -523,7 +587,10 @@ export default function KioskPage() {
               )}
 
               <motion.button
-                onClick={() => handleNext('expiryDate')}
+                onClick={() => {
+                  updateActivity();
+                  handleNext('expiryDate');
+                }}
                 disabled={!formData.expiryDate}
                 className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 style={{ backgroundColor: primaryColor }}
@@ -561,14 +628,16 @@ export default function KioskPage() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.2 }}
+                onClick={updateActivity}
               >
                 <div className="flex items-start gap-4">
                   <Checkbox
                     id="consent"
                     checked={formData.consent}
-                    onCheckedChange={(checked) =>
-                      setFormData(prev => ({ ...prev, consent: checked as boolean }))
-                    }
+                    onCheckedChange={(checked) => {
+                      setFormData(prev => ({ ...prev, consent: checked as boolean }));
+                      updateActivity();
+                    }}
                     className="mt-1 w-6 h-6"
                   />
                   <Label htmlFor="consent" className="text-lg leading-relaxed cursor-pointer">
@@ -592,7 +661,10 @@ export default function KioskPage() {
               )}
 
               <motion.button
-                onClick={handleSubmit}
+                onClick={() => {
+                  updateActivity();
+                  handleSubmit();
+                }}
                 disabled={!formData.consent || submitting}
                 className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3"
                 style={{ backgroundColor: primaryColor }}
