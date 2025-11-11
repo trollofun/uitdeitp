@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
           attempts: supabase.rpc('increment_attempts')
         })
         .eq('phone_number', formattedPhone)
-        .eq('code', code)
+        .eq('verification_code', code)  // Fixed: was "code"
         .is('verified', false)
         .gt('expires_at', new Date().toISOString());
 

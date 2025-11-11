@@ -76,17 +76,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Get station_id from slug
+    const { data: station, error: stationError } = await supabase
+      .from('kiosk_stations')
+      .select('id')
+      .eq('slug', stationSlug)
+      .single();
+
+    if (stationError || !station) {
+      console.error('[Verification] Station not found:', { slug: stationSlug, error: stationError });
+      return NextResponse.json(
+        { error: 'Stația nu a fost găsită' },
+        { status: 400 }
+      );
+    }
+
     // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     console.log('[Verification] Generated code (dev only):', process.env.NODE_ENV === 'development' ? code : '***');
 
-    // Store in database
+    // Store in database (use correct column names)
     const { error: insertError } = await supabase
       .from('phone_verifications')
       .insert({
         phone_number: formattedPhone,
-        code,
-        station_slug: stationSlug,
+        verification_code: code,  // Fixed: was "code"
+        station_id: station.id,    // Fixed: was "station_slug"
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       });
 
