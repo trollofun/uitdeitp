@@ -470,7 +470,7 @@ export default function KioskPage() {
                     if (e.key === 'Enter') handleNext('plateNumber');
                   }}
                   onFocus={updateActivity}
-                  placeholder="B-123-ABC"
+                  placeholder="B123ABC sau B-123-ABC"
                   className="w-full px-6 py-6 text-2xl text-center font-mono border-2 rounded-xl focus:outline-none transition-all uppercase"
                   style={{
                     borderColor: errors.plateNumber ? '#ef4444' : formData.plateNumber && !errors.plateNumber ? primaryColor : '#d1d5db',
@@ -482,7 +482,7 @@ export default function KioskPage() {
                   transition={{ duration: 0.2 }}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  maxLength={10}
+                  maxLength={15}
                   autoFocus
                 />
                 {formData.plateNumber && !errors.plateNumber && (
@@ -502,7 +502,7 @@ export default function KioskPage() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
               >
-                Format: XX-XXX-ABC (ex: B-123-ABC, CJ-45-XYZ)
+                Scrie în orice format: B123ABC, B-123-ABC sau B 123 ABC
               </motion.p>
 
               {errors.plateNumber && (

@@ -59,15 +59,15 @@ export function normalizePhoneNumber(phone: string): string {
 
 /**
  * Validate Romanian license plate
- * Format: RO-XX-ABC or XX-XXX-ABC
- * Examples: B-123-ABC, CJ-45-XYZ, IF-678-DEF
+ * Accepts any format: B123ABC, B-123-ABC, B 123 ABC
+ * Validates structure: 1-2 letters + 2-3 digits + 3 letters
  */
 export function validatePlateNumber(plate: string): ValidationResult {
-  // Normalize: uppercase, trim whitespace
-  const normalized = plate.toUpperCase().trim();
+  // Remove all non-alphanumeric characters and convert to uppercase
+  const normalized = plate.replace(/[^A-Z0-9]/gi, '').toUpperCase().trim();
 
-  // Pattern: 1-2 letters, hyphen, 2-3 digits, hyphen, 3 letters
-  const platePattern = /^[A-Z]{1,2}-[0-9]{2,3}-[A-Z]{3}$/;
+  // Pattern: 1-2 letters, 2-3 digits, 3 letters (no separators)
+  const platePattern = /^[A-Z]{1,2}[0-9]{2,3}[A-Z]{3}$/;
 
   if (platePattern.test(normalized)) {
     return { valid: true };
@@ -75,30 +75,17 @@ export function validatePlateNumber(plate: string): ValidationResult {
 
   return {
     valid: false,
-    error: 'Număr invalid. Format: XX-XXX-ABC (ex: B-123-ABC)'
+    error: 'Număr invalid. Ex: B123ABC sau B-123-ABC'
   };
 }
 
 /**
- * Normalize license plate to uppercase with hyphens
+ * Normalize license plate - remove all non-alphanumeric characters
+ * Saves characters for SMS: B-123-ABC → B123ABC
  */
 export function normalizePlateNumber(plate: string): string {
-  // Remove all whitespace and convert to uppercase
-  let normalized = plate.replace(/\s/g, '').toUpperCase();
-
-  // Remove existing hyphens
-  normalized = normalized.replace(/-/g, '');
-
-  // Try to parse and add hyphens
-  // Pattern: letters (1-2) + digits (2-3) + letters (3)
-  const match = normalized.match(/^([A-Z]{1,2})([0-9]{2,3})([A-Z]{3})$/);
-
-  if (match) {
-    return `${match[1]}-${match[2]}-${match[3]}`;
-  }
-
-  // Return as-is if can't parse
-  return normalized;
+  // Remove all non-alphanumeric characters (spaces, hyphens, etc.) and convert to uppercase
+  return plate.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 }
 
 /**
