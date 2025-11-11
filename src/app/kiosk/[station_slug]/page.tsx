@@ -451,9 +451,10 @@ export default function KioskPage() {
           {step === 4 && (
             <div key="step4" className="h-full">
               <PhoneVerificationStep
+                phone={formData.phone}
                 stationSlug={stationSlug}
-                onVerified={(verifiedPhone, consent) => {
-                  setFormData(prev => ({ ...prev, phone: verifiedPhone, consent }));
+                onVerified={(consent) => {
+                  setFormData(prev => ({ ...prev, consent }));
                   setPhoneVerified(true);
                   updateActivity();
                   setStep(5);
