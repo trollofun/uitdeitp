@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!ipRateLimit.allowed) {
+      console.error('[Verification] IP rate limit exceeded:', clientIp);
       const response = NextResponse.json(
         { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
         { status: 400 }
@@ -35,11 +36,17 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    console.log('[Verification] Received request:', { phone: body.phone, stationSlug: body.stationSlug });
+
     const { phone, stationSlug } = sendSchema.parse(body);
+    console.log('[Verification] Schema validated:', { phone, stationSlug });
 
     // Format phone to E.164
     const formattedPhone = formatPhoneNumber(phone);
+    console.log('[Verification] Formatted phone:', { input: phone, output: formattedPhone });
+
     if (!formattedPhone) {
+      console.error('[Verification] Phone formatting failed:', phone);
       return NextResponse.json(
         { error: 'Număr de telefon invalid' },
         { status: 400 }
