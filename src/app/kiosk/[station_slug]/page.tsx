@@ -380,9 +380,19 @@ export default function KioskPage() {
                   value={formData.phone.replace('+40', '')}
                   onChange={(e) => {
                     const value = e.target.value.replace(/\D/g, '');
+                    let normalizedPhone = '';
+
+                    if (value.length === 10 && value.startsWith('0')) {
+                      // 10 digits starting with 0 (domestic format) - remove leading 0
+                      normalizedPhone = `+40${value.substring(1)}`;
+                    } else if (value.length > 0) {
+                      // 9 digits OR still typing - just add +40 prefix (E.164 format)
+                      normalizedPhone = `+40${value}`;
+                    }
+
                     setFormData(prev => ({
                       ...prev,
-                      phone: value.startsWith('7') ? `+40${value}` : value ? `+407${value}` : ''
+                      phone: normalizedPhone
                     }));
                     updateActivity();
                   }}
