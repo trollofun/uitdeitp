@@ -6,13 +6,25 @@ export const phoneSchema = z
   .regex(/^\+40\d{9}$/, 'Numărul de telefon trebuie să fie în format +40XXXXXXXXX');
 
 // Romanian plate number validation
+// Accepts any format: B123ABC, B-123-ABC, B 123 ABC
+// Normalizes to: B123ABC (compact format for SMS savings)
 export const plateNumberSchema = z
   .string()
-  .regex(
-    /^[A-Z]{1,2}-\d{2,3}-[A-Z]{3}$/,
-    'Numărul de înmatriculare trebuie să fie în format XX-123-ABC'
-  )
-  .transform((val) => val.toUpperCase());
+  .min(6, 'Număr de înmatriculare prea scurt')
+  .max(15, 'Număr de înmatriculare prea lung')
+  .transform((val) => {
+    // Remove all non-alphanumeric characters and convert to uppercase
+    const normalized = val.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
+    // Validate structure: 1-2 letters + 2-3 digits + 3 letters
+    const platePattern = /^[A-Z]{1,2}[0-9]{2,3}[A-Z]{3}$/;
+
+    if (!platePattern.test(normalized)) {
+      throw new Error('Număr de înmatriculare invalid (ex: B123ABC, B-123-ABC)');
+    }
+
+    return normalized; // Returns: B123ABC (without separators)
+  });
 
 // Email validation
 export const emailSchema = z.string().email('Email invalid');
