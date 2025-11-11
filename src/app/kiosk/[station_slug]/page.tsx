@@ -205,7 +205,7 @@ export default function KioskPage() {
       });
 
       if (response.ok) {
-        setStep(7);
+        setStep(8);
       } else {
         const error = await response.json();
         alert(`Eroare: ${error.message || 'Nu s-a putut salva reminder-ul'}`);
@@ -244,12 +244,12 @@ export default function KioskPage() {
   const primaryColor = station.primary_color;
 
   return (
-    <KioskLayout station={station} showHeader={step !== 1 && step !== 7}>
+    <KioskLayout station={station} showHeader={step !== 1 && step !== 8}>
       <div className="bg-white rounded-2xl shadow-2xl p-12">
-        {step !== 1 && step !== 7 && (
+        {step !== 1 && step !== 8 && (
           <StepIndicator
             currentStep={step}
-            totalSteps={7}
+            totalSteps={8}
             primaryColor={primaryColor}
           />
         )}
@@ -558,10 +558,10 @@ export default function KioskPage() {
             </motion.div>
           )}
 
-          {/* Step 5: Expiry Date */}
-          {step === 5 && (
+          {/* Step 6: Expiry Date */}
+          {step === 6 && (
             <motion.div
-              key="step5"
+              key="step6"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
@@ -628,10 +628,10 @@ export default function KioskPage() {
             </motion.div>
           )}
 
-          {/* Step 6: GDPR Consent */}
-          {step === 6 && (
+          {/* Step 7: GDPR Consent */}
+          {step === 7 && (
             <motion.div
-              key="step6"
+              key="step7"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
@@ -719,10 +719,10 @@ export default function KioskPage() {
             </motion.div>
           )}
 
-          {/* Step 7: Success Screen */}
-          {step === 7 && (
+          {/* Step 8: Success Screen */}
+          {step === 8 && (
             <motion.div
-              key="step7"
+              key="step8"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
