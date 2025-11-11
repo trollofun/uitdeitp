@@ -380,27 +380,9 @@ export default function KioskPage() {
                   value={formData.phone.replace('+40', '')}
                   onChange={(e) => {
                     const value = e.target.value.replace(/\D/g, '');
-                    let normalizedPhone = '';
-
-                    if (value.length === 9 && /^[723]/.test(value)) {
-                      // 9 digits starting with 7/2/3 - prepend 0 for valid Romanian number
-                      normalizedPhone = `+400${value}`;
-                    } else if (value.startsWith('07') && value.length === 10) {
-                      // 10 digits starting with 07 - remove leading 0
-                      normalizedPhone = `+40${value.substring(1)}`;
-                    } else if (value.startsWith('7') && value.length === 10) {
-                      // 10 digits starting with 7 (already formatted correctly)
-                      normalizedPhone = `+40${value}`;
-                    } else if (value.length > 0) {
-                      // Default: assume user is typing, prepend +407
-                      normalizedPhone = `+407${value}`;
-                    } else {
-                      normalizedPhone = '';
-                    }
-
                     setFormData(prev => ({
                       ...prev,
-                      phone: normalizedPhone
+                      phone: value.startsWith('7') ? `+40${value}` : value ? `+407${value}` : ''
                     }));
                     updateActivity();
                   }}

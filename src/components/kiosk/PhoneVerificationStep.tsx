@@ -64,15 +64,8 @@ export function PhoneVerificationStep({
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '');
-
-    // Auto-prepend 0 for 9-digit numbers starting with 7/2/3
-    let normalizedValue = value;
-    if (value.length === 9 && /^[723]/.test(value)) {
-      normalizedValue = `0${value}`;
-    }
-
-    if (normalizedValue.length <= 10) {
-      setPhone(normalizedValue);
+    if (value.length <= 10) {
+      setPhone(value);
       setError('');
     }
   };
