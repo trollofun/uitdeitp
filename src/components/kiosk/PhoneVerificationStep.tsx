@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
-import { Phone, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Phone, Check, AlertCircle, Loader2, Shield } from 'lucide-react';
 
 interface PhoneVerificationStepProps {
   stationSlug: string;
-  onVerified: (phone: string) => void;
+  onVerified: (phone: string, consent: boolean) => void;
   onBack: () => void;
 }
 
@@ -20,6 +22,7 @@ export function PhoneVerificationStep({
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expiresIn, setExpiresIn] = useState(0);
@@ -93,6 +96,10 @@ export function PhoneVerificationStep({
       setError('Codul trebuie să aibă 6 cifre');
       return;
     }
+    if (!consent) {
+      setError('Trebuie să accepți prelucrarea datelor pentru a continua');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -103,7 +110,7 @@ export function PhoneVerificationStep({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Cod invalid');
-      if (data.verified) onVerified(phone);
+      if (data.verified) onVerified(phone, consent);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cod invalid');
     } finally {
@@ -174,15 +181,39 @@ export function PhoneVerificationStep({
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Cod de verificare</label>
-            <Input type="text" inputMode="numeric" placeholder="000000" value={code} 
+            <Input type="text" inputMode="numeric" placeholder="000000" value={code}
               onChange={handleCodeChange} disabled={loading} className="text-2xl h-16 text-center font-mono" autoFocus />
             <p className="text-xs text-muted-foreground text-center">Expiră în {formatTime(expiresIn)}</p>
           </div>
+
+          {/* GDPR Consent */}
+          <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="consent"
+                checked={consent}
+                onCheckedChange={(checked) => setConsent(checked as boolean)}
+                className="mt-1"
+              />
+              <Label htmlFor="consent" className="text-sm leading-relaxed cursor-pointer flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Shield className="w-4 h-4 text-blue-600" />
+                  <span className="font-semibold text-blue-900">Consimțământ GDPR</span>
+                </div>
+                <span className="text-gray-700">
+                  Accept prelucrarea datelor mele personale (nume, telefon, număr auto)
+                  în scopul trimiterii de reminder-uri SMS/Email despre expirarea ITP.
+                  Datele vor fi stocate securizat conform GDPR.
+                </span>
+              </Label>
+            </div>
+          </div>
+
           {error && (<div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg">
             <AlertCircle className="w-5 h-5" /><span className="text-sm">{error}</span></div>)}
           <div className="space-y-3">
-            <Button onClick={handleVerifyCode} disabled={loading || code.length !== 6} className="w-full h-14">
-              {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Se verifică...</> : 'Verifică'}
+            <Button onClick={handleVerifyCode} disabled={loading || code.length !== 6 || !consent} className="w-full h-14">
+              {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Se verifică...</> : 'Verifică și Continuă'}
             </Button>
             {canResend ? (
               <Button variant="outline" onClick={handleResendCode} disabled={loading} className="w-full h-12">Retrimite</Button>

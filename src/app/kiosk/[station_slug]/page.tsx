@@ -3,15 +3,14 @@
 /**
  * Kiosk Mode - Guest Registration Flow
  *
- * 8-Step Workflow:
+ * 7-Step Workflow (Simplified per Gestalt Pragnanz Law):
  * 1. Idle Screen
  * 2. Name Input
  * 3. Phone Input
- * 4. Phone Verification (SMS Code)
+ * 4. Phone Verification (SMS Code + GDPR Consent)
  * 5. Plate Number
  * 6. Expiry Date
- * 7. GDPR Consent
- * 8. Success Screen
+ * 7. Success Screen
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -36,7 +35,7 @@ import {
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 
-type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export default function KioskPage() {
   const params = useParams();
@@ -205,7 +204,7 @@ export default function KioskPage() {
       });
 
       if (response.ok) {
-        setStep(8);
+        setStep(7);
       } else {
         const error = await response.json();
         alert(`Eroare: ${error.message || 'Nu s-a putut salva reminder-ul'}`);
@@ -244,12 +243,12 @@ export default function KioskPage() {
   const primaryColor = station.primary_color;
 
   return (
-    <KioskLayout station={station} showHeader={step !== 1 && step !== 8}>
+    <KioskLayout station={station} showHeader={step !== 1 && step !== 7}>
       <div className="bg-white rounded-2xl shadow-2xl p-12">
-        {step !== 1 && step !== 8 && (
+        {step !== 1 && step !== 7 && (
           <StepIndicator
             currentStep={step}
-            totalSteps={8}
+            totalSteps={7}
             primaryColor={primaryColor}
           />
         )}
@@ -442,13 +441,13 @@ export default function KioskPage() {
             </motion.div>
           )}
 
-          {/* Step 4: Phone Verification */}
+          {/* Step 4: Phone Verification + GDPR Consent */}
           {step === 4 && (
             <div key="step4" className="h-full">
               <PhoneVerificationStep
                 stationSlug={stationSlug}
-                onVerified={(verifiedPhone) => {
-                  setFormData(prev => ({ ...prev, phone: verifiedPhone }));
+                onVerified={(verifiedPhone, consent) => {
+                  setFormData(prev => ({ ...prev, phone: verifiedPhone, consent }));
                   setPhoneVerified(true);
                   updateActivity();
                   setStep(5);
@@ -612,83 +611,9 @@ export default function KioskPage() {
               <motion.button
                 onClick={() => {
                   updateActivity();
-                  handleNext('expiryDate');
-                }}
-                disabled={!formData.expiryDate}
-                className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                style={{ backgroundColor: primaryColor }}
-                whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
-              >
-                Continuă →
-              </motion.button>
-            </motion.div>
-          )}
-
-          {/* Step 7: GDPR Consent */}
-          {step === 7 && (
-            <motion.div
-              key="step7"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            >
-              <motion.h3
-                className="text-3xl font-bold text-gray-900 mb-8 text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                Consimțământ Prelucrare Date
-              </motion.h3>
-
-              <motion.div
-                className="bg-gray-50 p-8 rounded-xl mb-8"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2 }}
-                onClick={updateActivity}
-              >
-                <div className="flex items-start gap-4">
-                  <Checkbox
-                    id="consent"
-                    checked={formData.consent}
-                    onCheckedChange={(checked) => {
-                      setFormData(prev => ({ ...prev, consent: checked as boolean }));
-                      updateActivity();
-                    }}
-                    className="mt-1 w-6 h-6"
-                  />
-                  <Label htmlFor="consent" className="text-lg leading-relaxed cursor-pointer">
-                    Accept prelucrarea datelor mele personale (nume, telefon, număr auto)
-                    în scopul trimiterii de reminder-uri SMS/Email despre expirarea ITP.
-                    Datele vor fi stocate securizat conform GDPR și pot fi șterse oricând
-                    la cerere.
-                  </Label>
-                </div>
-              </motion.div>
-
-              {errors.consent && (
-                <motion.p
-                  initial={{ x: 0 }}
-                  animate={{ x: [-10, 10, -10, 10, 0] }}
-                  transition={{ duration: 0.4 }}
-                  className="text-red-600 text-lg text-center mb-4"
-                >
-                  {errors.consent}
-                </motion.p>
-              )}
-
-              <motion.button
-                onClick={() => {
-                  updateActivity();
                   handleSubmit();
                 }}
-                disabled={!formData.consent || submitting}
+                disabled={!formData.expiryDate || submitting}
                 className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3"
                 style={{ backgroundColor: primaryColor }}
                 whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
@@ -699,18 +624,8 @@ export default function KioskPage() {
               >
                 {submitting ? (
                   <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    >
-                      <Loader2 className="w-6 h-6" />
-                    </motion.div>
-                    <motion.span
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      Se salvează...
-                    </motion.span>
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <span>Se salvează...</span>
                   </>
                 ) : (
                   'Salvează Reminder-ul ✓'
@@ -719,10 +634,10 @@ export default function KioskPage() {
             </motion.div>
           )}
 
-          {/* Step 8: Success Screen */}
-          {step === 8 && (
+          {/* Step 7: Success Screen */}
+          {step === 7 && (
             <motion.div
-              key="step8"
+              key="step7"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
