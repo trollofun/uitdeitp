@@ -3,14 +3,15 @@
 /**
  * Kiosk Mode - Guest Registration Flow
  *
- * 7-Step Workflow:
+ * 8-Step Workflow:
  * 1. Idle Screen
  * 2. Name Input
  * 3. Phone Input
- * 4. Plate Number
- * 5. Expiry Date
- * 6. GDPR Consent
- * 7. Success Screen
+ * 4. Phone Verification (SMS Code)
+ * 5. Plate Number
+ * 6. Expiry Date
+ * 7. GDPR Consent
+ * 8. Success Screen
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -21,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { KioskLayout, type StationConfig } from '@/components/kiosk/KioskLayout';
 import { StepIndicator } from '@/components/kiosk/StepIndicator';
 import KioskIdleState from '@/components/kiosk/KioskIdleState';
+import { PhoneVerificationStep } from '@/components/kiosk/PhoneVerificationStep';
 import {
   validateName,
   validatePhoneNumber,
@@ -34,7 +36,7 @@ import {
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 
-type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export default function KioskPage() {
   const params = useParams();
@@ -53,6 +55,7 @@ export default function KioskPage() {
   const [errors, setErrors] = useState<Partial<Record<keyof KioskFormData, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   // Activity tracking callback
   const updateActivity = useCallback(() => {
@@ -82,7 +85,7 @@ export default function KioskPage() {
 
   // Auto-reset after success (30 seconds)
   useEffect(() => {
-    if (step === 7) {
+    if (step === 8) {
       const timer = setTimeout(() => {
         setStep(1);
         setFormData({
@@ -93,6 +96,7 @@ export default function KioskPage() {
           consent: false
         });
         setErrors({});
+        setPhoneVerified(false);
       }, 30000);
 
       return () => clearTimeout(timer);
@@ -101,13 +105,13 @@ export default function KioskPage() {
 
   // Inactivity timeout - auto-reset to idle if no activity
   useEffect(() => {
-    // Only monitor steps 2-6 (not idle state or success screen)
-    if (step >= 2 && step <= 6) {
+    // Only monitor steps 2-7 (not idle state or success screen)
+    if (step >= 2 && step <= 7) {
       const checkInactivity = setInterval(() => {
         const timeSinceLastActivity = Date.now() - lastActivity;
 
         // Different timeouts for different step types
-        const timeout = (step === 5 || step === 6) ? 30000 : 20000; // 30s for calendar/consent, 20s for inputs
+        const timeout = (step === 4 || step === 6 || step === 7) ? 30000 : 20000; // 30s for verification/calendar/consent, 20s for inputs
 
         if (timeSinceLastActivity >= timeout) {
           // Reset to idle state
@@ -438,10 +442,29 @@ export default function KioskPage() {
             </motion.div>
           )}
 
-          {/* Step 4: Plate Number */}
+          {/* Step 4: Phone Verification */}
           {step === 4 && (
+            <div key="step4" className="h-full">
+              <PhoneVerificationStep
+                stationSlug={stationSlug}
+                onVerified={(verifiedPhone) => {
+                  setFormData(prev => ({ ...prev, phone: verifiedPhone }));
+                  setPhoneVerified(true);
+                  updateActivity();
+                  setStep(5);
+                }}
+                onBack={() => {
+                  setStep(3);
+                  updateActivity();
+                }}
+              />
+            </div>
+          )}
+
+          {/* Step 5: Plate Number */}
+          {step === 5 && (
             <motion.div
-              key="step4"
+              key="step5"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}

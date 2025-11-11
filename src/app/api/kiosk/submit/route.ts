@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { kioskSubmissionSchema } from '@/lib/validation';
 import {
   handleApiError,
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     const validated = await validateRequestBody(req, kioskSubmissionSchema);
-    const supabase = createServerClient();
+    const supabase = createAdminClient();
 
     // Verify station exists and is active
     const { data: station, error: stationError } = await supabase
