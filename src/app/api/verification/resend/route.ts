@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     // Check rate limiting (3 codes per hour)
     const { data: rateLimitCheck } = await supabase.rpc(
-      'check_verification_rate_limit',
+      'check_verification_rate_limit_rpc',
       { p_phone: formattedPhone }
     );
 
