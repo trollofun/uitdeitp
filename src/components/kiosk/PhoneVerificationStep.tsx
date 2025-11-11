@@ -9,18 +9,21 @@ import { motion } from 'framer-motion';
 import { Phone, Check, AlertCircle, Loader2, Shield } from 'lucide-react';
 
 interface PhoneVerificationStepProps {
-  phone: string;  // Phone number from previous step
+  phone?: string;  // Optional: If provided (kiosk), skip phone input and auto-send SMS
   stationSlug: string;
-  onVerified: (consent: boolean) => void;  // Only return consent
+  onVerified: (phone: string, consent: boolean) => void;  // Return both phone and consent
   onBack: () => void;
 }
 
 export function PhoneVerificationStep({
-  phone,
+  phone: phoneProp,
   stationSlug,
   onVerified,
   onBack,
 }: PhoneVerificationStepProps) {
+  // Internal state for phone (if not provided as prop)
+  const [phone, setPhone] = useState(phoneProp || '');
+  const [step, setStep] = useState<'phone' | 'code'>(phoneProp ? 'code' : 'phone');
   const [code, setCode] = useState('');
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,9 +31,11 @@ export function PhoneVerificationStep({
   const [expiresIn, setExpiresIn] = useState(0);
   const [canResend, setCanResend] = useState(false);
 
-  // Auto-send SMS code when component mounts
+  // Auto-send SMS code when phone prop is provided (kiosk mode)
   useEffect(() => {
-    handleSendCode();
+    if (phoneProp) {
+      handleSendCode();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -57,6 +62,14 @@ export function PhoneVerificationStep({
     return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7, 10)}`;
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 10) {
+      setPhone(value);
+      setError('');
+    }
+  };
+
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '');
     if (value.length <= 6) {
@@ -66,6 +79,10 @@ export function PhoneVerificationStep({
   };
 
   const handleSendCode = async () => {
+    if (phone.length !== 10) {
+      setError('Te rugăm să introduci un număr valid de telefon');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -76,6 +93,7 @@ export function PhoneVerificationStep({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Eroare la trimiterea codului');
+      setStep('code');
       setExpiresIn(data.expiresIn || 600);
       setCanResend(false);
     } catch (err) {
@@ -104,7 +122,7 @@ export function PhoneVerificationStep({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Cod invalid');
-      if (data.verified) onVerified(consent);  // Only return consent
+      if (data.verified) onVerified(phone, consent);  // Return both phone and consent
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cod invalid');
     } finally {
@@ -141,7 +159,31 @@ export function PhoneVerificationStep({
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      {step === 'phone' ? (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+              <Phone className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold">Verificare Telefon</h2>
+            <p className="text-muted-foreground">Introdu numărul tău de telefon</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Număr de telefon</label>
+            <Input type="tel" placeholder="07XX XXX XXX" value={formatPhoneDisplay(phone)}
+              onChange={handlePhoneChange} disabled={loading} className="text-lg h-14 text-center" autoFocus />
+          </div>
+          {error && (<div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg">
+            <AlertCircle className="w-5 h-5" /><span className="text-sm">{error}</span></div>)}
+          <div className="flex gap-4">
+            <Button variant="outline" onClick={onBack} disabled={loading} className="flex-1 h-14">Înapoi</Button>
+            <Button onClick={handleSendCode} disabled={loading || phone.length !== 10} className="flex-1 h-14">
+              {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Se trimite...</> : 'Trimite Cod'}
+            </Button>
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           <div className="text-center space-y-2">
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
               <Check className="w-8 h-8 text-primary" />
@@ -187,11 +229,14 @@ export function PhoneVerificationStep({
             </Button>
             {canResend ? (
               <Button variant="outline" onClick={handleResendCode} disabled={loading} className="w-full h-12">Retrimite Cod</Button>
-            ) : (
+            ) : phoneProp ? (
               <Button variant="ghost" onClick={onBack} disabled={loading} className="w-full h-12">Înapoi</Button>
+            ) : (
+              <Button variant="ghost" onClick={() => setStep('phone')} disabled={loading} className="w-full h-12">Schimbă Numărul</Button>
             )}
           </div>
         </motion.div>
+      )}
     </div>
   );
 }

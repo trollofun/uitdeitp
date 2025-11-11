@@ -453,8 +453,8 @@ export default function KioskPage() {
               <PhoneVerificationStep
                 phone={formData.phone}
                 stationSlug={stationSlug}
-                onVerified={(consent) => {
-                  setFormData(prev => ({ ...prev, consent }));
+                onVerified={(phone, consent) => {
+                  setFormData(prev => ({ ...prev, phone, consent }));
                   setPhoneVerified(true);
                   updateActivity();
                   setStep(5);
