@@ -1,135 +1,15 @@
-// Database types (to be generated from Supabase)
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
-
-export interface Database {
-  public: {
-    Tables: {
-      user_profiles: {
-        Row: {
-          id: string;
-          full_name: string | null;
-          phone: string | null;
-          prefers_sms: boolean;
-          station_id: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          full_name?: string | null;
-          phone?: string | null;
-          prefers_sms?: boolean;
-          station_id?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          full_name?: string | null;
-          phone?: string | null;
-          prefers_sms?: boolean;
-          station_id?: string | null;
-          updated_at?: string;
-        };
-      };
-      reminders: {
-        Row: {
-          id: string;
-          user_id: string | null;
-          guest_phone: string | null;
-          guest_name: string | null;
-          plate_number: string;
-          reminder_type: 'itp' | 'rca' | 'rovinieta';
-          expiry_date: string;
-          notification_intervals: Json;
-          notification_channels: Json;
-          last_notification_sent_at: string | null;
-          next_notification_date: string | null;
-          source: 'web' | 'kiosk' | 'whatsapp' | 'voice' | 'import';
-          station_id: string | null;
-          consent_given: boolean;
-          consent_timestamp: string | null;
-          consent_ip: string | null;
-          opt_out: boolean;
-          opt_out_timestamp: string | null;
-          deleted_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id?: string | null;
-          guest_phone?: string | null;
-          guest_name?: string | null;
-          plate_number: string;
-          reminder_type?: 'itp' | 'rca' | 'rovinieta';
-          expiry_date: string;
-          notification_intervals?: Json;
-          notification_channels?: Json;
-          source: 'web' | 'kiosk' | 'whatsapp' | 'voice' | 'import';
-          station_id?: string | null;
-          consent_given?: boolean;
-          consent_timestamp?: string | null;
-          consent_ip?: string | null;
-        };
-        Update: {
-          plate_number?: string;
-          expiry_date?: string;
-          notification_intervals?: Json;
-          notification_channels?: Json;
-          opt_out?: boolean;
-          opt_out_timestamp?: string | null;
-          deleted_at?: string | null;
-          updated_at?: string;
-        };
-      };
-      kiosk_stations: {
-        Row: {
-          id: string;
-          slug: string;
-          name: string;
-          logo_url: string | null;
-          primary_color: string;
-          owner_id: string | null;
-          sms_template_5d: string;
-          sms_template_3d: string;
-          sms_template_1d: string;
-          station_phone: string | null;
-          station_address: string | null;
-          total_reminders: number;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          slug: string;
-          name: string;
-          logo_url?: string | null;
-          primary_color?: string;
-          owner_id?: string | null;
-          sms_template_5d?: string;
-          sms_template_3d?: string;
-          sms_template_1d?: string;
-          station_phone?: string | null;
-          station_address?: string | null;
-        };
-        Update: {
-          name?: string;
-          logo_url?: string | null;
-          primary_color?: string;
-          sms_template_5d?: string;
-          sms_template_3d?: string;
-          sms_template_1d?: string;
-          station_phone?: string | null;
-          station_address?: string | null;
-          is_active?: boolean;
-          updated_at?: string;
-        };
-      };
-    };
-  };
-}
+// Re-export database types from the generated schema
+export type {
+  Json,
+  Database,
+  ReminderType,
+  ReminderSource,
+  NotificationChannel as DbNotificationChannel,
+  NotificationStatus,
+  UserRole,
+  PendingNotification,
+  StationStatistics,
+} from './database.types';
 
 // API Response types
 export interface ApiResponse<T = unknown> {

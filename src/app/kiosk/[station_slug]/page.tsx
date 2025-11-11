@@ -84,7 +84,7 @@ export default function KioskPage() {
 
   // Auto-reset after success (30 seconds)
   useEffect(() => {
-    if (step === 8) {
+    if (step === 7) {
       const timer = setTimeout(() => {
         setStep(1);
         setFormData({
@@ -104,16 +104,21 @@ export default function KioskPage() {
 
   // Inactivity timeout - auto-reset to idle if no activity
   useEffect(() => {
-    // Only monitor steps 2-7 (not idle state or success screen)
-    if (step >= 2 && step <= 7) {
+    // Only monitor steps 2-6 (not idle state or success screen)
+    if (step >= 2 && step <= 6) {
       const checkInactivity = setInterval(() => {
         const timeSinceLastActivity = Date.now() - lastActivity;
 
-        // Different timeouts for different step types
-        const timeout = (step === 4 || step === 6 || step === 7) ? 30000 : 20000; // 30s for verification/calendar/consent, 20s for inputs
+        // Extended timeout for Step 4 (phone verification - waiting for SMS)
+        // Standard timeout for other steps
+        const IDLE_TIMEOUT_VERIFICATION = 300000; // 5 minutes (300 seconds) for SMS wait
+        const IDLE_TIMEOUT_DEFAULT = 30000; // 30 seconds for other steps
+
+        const timeout = step === 4 ? IDLE_TIMEOUT_VERIFICATION : IDLE_TIMEOUT_DEFAULT;
 
         if (timeSinceLastActivity >= timeout) {
           // Reset to idle state
+          console.log(`[Kiosk] Idle timeout reached on step ${step} (${timeout}ms)`);
           setStep(1);
           setFormData({
             name: '',
@@ -123,6 +128,7 @@ export default function KioskPage() {
             consent: false
           });
           setErrors({});
+          setPhoneVerified(false);
         }
       }, 1000); // Check every second
 
