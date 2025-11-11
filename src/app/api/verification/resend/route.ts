@@ -31,18 +31,19 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServerClient();
 
+    // TEMPORARILY DISABLED FOR TESTING
     // Check rate limiting (3 codes per hour)
-    const { data: rateLimitCheck } = await supabase.rpc(
-      'check_verification_rate_limit_rpc',
-      { p_phone: formattedPhone }
-    );
+    // const { data: rateLimitCheck } = await supabase.rpc(
+    //   'check_verification_rate_limit_rpc',
+    //   { p_phone: formattedPhone }
+    // );
 
-    if (!rateLimitCheck) {
-      return NextResponse.json(
-        { error: 'Prea multe încercări. Te rugăm să încerci din nou peste o oră.' },
-        { status: 429 }
-      );
-    }
+    // if (!rateLimitCheck) {
+    //   return NextResponse.json(
+    //     { error: 'Prea multe încercări. Te rugăm să încerci din nou peste o oră.' },
+    //     { status: 429 }
+    //   );
+    // }
 
     // Invalidate any existing unverified codes for this phone
     await supabase
