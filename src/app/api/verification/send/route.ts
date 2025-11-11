@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         throw new Error('NotifyHub not configured');
       }
 
-      const smsResponse = await fetch(`${notifyHubUrl}/api/sms/send`, {
+      const smsResponse = await fetch(`${notifyHubUrl}/api/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

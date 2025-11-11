@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
         plate_number: validated.plate_number,
         reminder_type: 'itp',
         expiry_date: validated.expiry_date.toISOString(),
-        notification_intervals: [7, 3, 1],
+        notification_intervals: [5],  // Guest users: single reminder at 5 days
         notification_channels: { sms: true, email: false },
         source: 'kiosk',
         station_id: station.id,
