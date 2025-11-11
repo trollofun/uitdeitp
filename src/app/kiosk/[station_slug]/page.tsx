@@ -111,7 +111,7 @@ export default function KioskPage() {
 
         // Extended timeout for Step 4 (phone verification - waiting for SMS)
         // Standard timeout for other steps
-        const IDLE_TIMEOUT_VERIFICATION = 300000; // 5 minutes (300 seconds) for SMS wait
+        const IDLE_TIMEOUT_VERIFICATION = 600000; // 10 minutes (600 seconds) - matches SMS expiry
         const IDLE_TIMEOUT_DEFAULT = 30000; // 30 seconds for other steps
 
         const timeout = step === 4 ? IDLE_TIMEOUT_VERIFICATION : IDLE_TIMEOUT_DEFAULT;
