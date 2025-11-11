@@ -56,12 +56,19 @@ export async function POST(req: NextRequest) {
     const supabase = createServerClient();
 
     // Check rate limiting (3 codes per hour)
-    const { data: rateLimitCheck } = await supabase.rpc(
+    const { data: rateLimitCheck, error: rpcError } = await supabase.rpc(
       'check_verification_rate_limit',
       { p_phone: formattedPhone }
     );
 
+    console.log('[Verification] RPC rate limit check:', {
+      data: rateLimitCheck,
+      error: rpcError,
+      phone: formattedPhone
+    });
+
     if (!rateLimitCheck) {
+      console.error('[Verification] Rate limit check failed or returned false');
       // Generic error to prevent enumeration
       return NextResponse.json(
         { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
@@ -71,6 +78,7 @@ export async function POST(req: NextRequest) {
 
     // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('[Verification] Generated code (dev only):', process.env.NODE_ENV === 'development' ? code : '***');
 
     // Store in database
     const { error: insertError } = await supabase
@@ -82,8 +90,13 @@ export async function POST(req: NextRequest) {
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       });
 
+    console.log('[Verification] Database insert result:', {
+      success: !insertError,
+      error: insertError ? insertError.message : null
+    });
+
     if (insertError) {
-      console.error('Database error:', insertError);
+      console.error('[Verification] Database insert error:', insertError);
       // Generic error to prevent enumeration
       return NextResponse.json(
         { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
