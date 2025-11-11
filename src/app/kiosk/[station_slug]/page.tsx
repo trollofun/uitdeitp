@@ -461,10 +461,12 @@ export default function KioskPage() {
           {step === 4 && (
             <div key="step4" className="h-full">
               <PhoneVerificationStep
-                phone={formData.phone}
+                phone={formData.phone.replace('+40', '0')}
                 stationSlug={stationSlug}
                 onVerified={(phone, consent) => {
-                  setFormData(prev => ({ ...prev, phone, consent }));
+                  // Convert back to E.164 format for storage
+                  const e164Phone = phone.startsWith('0') ? `+40${phone.substring(1)}` : `+40${phone}`;
+                  setFormData(prev => ({ ...prev, phone: e164Phone, consent }));
                   setPhoneVerified(true);
                   updateActivity();
                   setStep(5);
