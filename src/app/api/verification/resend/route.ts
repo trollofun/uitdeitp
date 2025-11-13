@@ -77,8 +77,11 @@ export async function POST(req: NextRequest) {
       .from('phone_verifications')
       .insert({
         phone_number: formattedPhone,
-        verification_code: code,  // Fixed: was "code"
-        station_id: station.id,    // Fixed: was "station_slug"
+        verification_code: code,
+        source: 'kiosk',  // Required by RLS policy
+        station_id: station.id,
+        verified: false,  // Required by RLS policy
+        attempts: 0,      // Required by RLS policy
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       });
 
