@@ -62,12 +62,11 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServerClient();
 
-    // Get active verification
+    // Get active verification (RPC accepts only p_phone, not p_code)
     const { data: verification } = await supabase.rpc(
       'get_active_verification',
       {
-        p_phone: formattedPhone,
-        p_code: code
+        p_phone: formattedPhone
       }
     );
 
@@ -99,6 +98,21 @@ export async function POST(req: NextRequest) {
     }
 
     const record = verification[0];
+
+    // Verify the code matches (comparison done in API since RPC doesn't accept p_code)
+    if (record.verification_code !== code) {
+      // Increment attempts for incorrect code
+      await supabase.rpc('increment_verification_attempts', {
+        p_verification_id: record.id
+      });
+
+      await addTimingProtection();
+
+      return NextResponse.json(
+        { success: false, error: GENERIC_ERROR },
+        { status: 400 }
+      );
+    }
 
     // Check if expired or too many attempts (use same generic error)
     if (new Date(record.expires_at) < new Date() || record.attempts >= 3) {
