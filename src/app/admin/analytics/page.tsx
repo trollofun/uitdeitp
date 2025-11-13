@@ -4,7 +4,7 @@ import { KPICard } from '@/components/admin/KPICard';
 import { RemindersChart } from '@/components/admin/RemindersChart';
 import { DeliveryPieChart } from '@/components/admin/DeliveryPieChart';
 import { StationStatsTable } from '@/components/admin/StationStatsTable';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { createServerClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {

@@ -175,7 +175,7 @@ function useToast() {
         listeners.splice(index, 1);
       }
     };
-  }, [state]);
+  }, []); // Fixed: removed [state] to prevent infinite re-renders
 
   return {
     ...state,

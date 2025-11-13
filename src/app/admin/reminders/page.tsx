@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { createServerClient } from '@/lib/supabase/server';
 import { RemindersTable } from '@/components/admin/RemindersTable';
 import { RemindersTableSkeleton } from '@/components/admin/RemindersTableSkeleton';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 
 export const metadata = {

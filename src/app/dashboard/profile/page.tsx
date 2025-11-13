@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';

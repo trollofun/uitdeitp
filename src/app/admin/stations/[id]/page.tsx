@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { StationForm } from '@/components/admin/StationForm';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 
 export const metadata = {
   title: 'Editează Stație | Admin Panel',

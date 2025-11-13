@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQueryState, parseAsString } from 'nuqs'
 import { X, SlidersHorizontal } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,

@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { createServerClient } from '@/lib/supabase/server';
 import { StationsTable } from '@/components/admin/StationsTable';
 import { StationsTableSkeleton } from '@/components/admin/StationsTableSkeleton';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 

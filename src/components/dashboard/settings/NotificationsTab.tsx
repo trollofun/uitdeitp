@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { ChipInput } from '@/components/ui/ChipInput';
 import { TimeRangePicker } from '@/components/ui/TimeRangePicker';
 import { Separator } from '@/components/ui/separator';

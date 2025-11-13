@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { useDeleteReminder } from '@/hooks/reminders/useDeleteReminder';
 import { Database } from '@/types';
 import { AlertCircle } from 'lucide-react';

@@ -3,7 +3,7 @@
 import { format, formatDistanceToNow } from 'date-fns';
 import { ro } from 'date-fns/locale';
 import { Edit, Trash2, Send } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/Badge';
 import {
   Table,

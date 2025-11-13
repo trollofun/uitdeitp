@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQueryState, parseAsString, parseAsInteger } from 'nuqs'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { RemindersFilters } from './RemindersFilters'
 import { RemindersSearch } from './RemindersSearch'
