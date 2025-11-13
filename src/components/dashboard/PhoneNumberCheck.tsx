@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { PhoneVerificationModal } from '@/components/dashboard/modals/PhoneVerificationModal';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/useToast';
 
 export function PhoneNumberCheck() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
   const [user, setUser] = useState<any>(null);
   const supabase = createBrowserClient();
+  const { toast } = useToast();
 
   useEffect(() => {
     const checkPhoneVerification = async () => {
@@ -75,15 +76,19 @@ export function PhoneNumberCheck() {
 
       if (error) throw error;
 
-      toast.success('Telefon verificat cu succes!', {
+      toast({
+        title: 'Telefon verificat cu succes!',
         description: 'Acum poți primi notificări SMS.',
+        variant: 'success',
       });
 
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error updating phone:', error);
-      toast.error('Eroare la salvarea numărului de telefon', {
+      toast({
+        title: 'Eroare la salvarea numărului de telefon',
         description: 'Te rugăm să încerci din nou.',
+        variant: 'destructive',
       });
     }
   };
