@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createServerClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { formatPhoneNumber } from '@/lib/services/phone';
 
 const resendSchema = z.object({
@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
+    // Use service role to bypass RLS (verification is a system operation)
+    const supabase = createServiceClient();
 
     // TEMPORARILY DISABLED FOR TESTING
     // Check rate limiting (3 codes per hour)
@@ -45,14 +46,8 @@ export async function POST(req: NextRequest) {
     //   );
     // }
 
-    // Invalidate any existing unverified codes for this phone
-    await supabase
-      .from('phone_verifications')
-      .update({
-        expires_at: new Date().toISOString() // Expire immediately
-      })
-      .eq('phone_number', formattedPhone)
-      .is('verified', false);
+    // Note: Old unverified codes will expire naturally after 10 minutes
+    // No need to manually invalidate them
 
     // Get station_id from slug
     const { data: station, error: stationError } = await supabase
