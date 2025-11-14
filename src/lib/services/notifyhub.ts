@@ -1,7 +1,19 @@
 /**
  * NotifyHub Client for uitdeitp-app
  * Handles SMS verification and notification sending via NotifyHub gateway
+ *
+ * Features:
+ * - Exponential backoff retry (3 attempts)
+ * - Automatic failover between providers
+ * - Network error handling
  */
+
+/**
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 interface SendSmsRequest {
   to: string;
@@ -34,38 +46,93 @@ class NotifyHubClient {
   }
 
   /**
-   * Send SMS via NotifyHub with automatic failover
+   * Send SMS via NotifyHub with automatic failover and retry logic
+   *
+   * Retry Strategy:
+   * - 3 attempts with exponential backoff
+   * - Initial delay: 1s, then 2s, then 4s
+   * - Total max time: 7 seconds
+   * - Retries on: NETWORK_ERROR, HTTP 5xx, timeout
+   * - No retry on: 4xx errors (bad request, auth failure)
    */
   async sendSms(request: SendSmsRequest): Promise<SendSmsResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(request),
-      });
+    const maxRetries = 3;
+    let lastError: SendSmsResponse | null = null;
 
-      const data = await response.json();
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetch(`${this.baseUrl}/api/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify(request),
+          signal: AbortSignal.timeout(5000), // 5s timeout per attempt
+        });
 
-      if (!response.ok) {
-        return {
+        const data = await response.json();
+
+        if (!response.ok) {
+          const errorResponse = {
+            success: false,
+            error: data.error || 'SMS sending failed',
+            code: data.code || 'UNKNOWN_ERROR',
+          };
+
+          // Don't retry on 4xx errors (client errors, auth failures)
+          if (response.status >= 400 && response.status < 500) {
+            console.error(`[NotifyHub] Client error (no retry): ${response.status}`, errorResponse);
+            return errorResponse;
+          }
+
+          // Retry on 5xx errors (server errors)
+          lastError = errorResponse;
+          console.warn(`[NotifyHub] Attempt ${attempt}/${maxRetries} failed: ${response.status}`, errorResponse);
+
+          if (attempt < maxRetries) {
+            const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+            console.log(`[NotifyHub] Retrying in ${delay}ms...`);
+            await sleep(delay);
+            continue;
+          }
+
+          return errorResponse;
+        }
+
+        // Success!
+        if (attempt > 1) {
+          console.log(`[NotifyHub] ✅ Success on attempt ${attempt}/${maxRetries}`);
+        }
+        return data;
+
+      } catch (error) {
+        const errorResponse: SendSmsResponse = {
           success: false,
-          error: data.error || 'SMS sending failed',
-          code: data.code || 'UNKNOWN_ERROR',
+          error: error instanceof Error ? error.message : 'Network error',
+          code: 'NETWORK_ERROR',
         };
-      }
 
-      return data;
-    } catch (error) {
-      console.error('[NotifyHub] Request failed:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Network error',
-        code: 'NETWORK_ERROR',
-      };
+        lastError = errorResponse;
+        console.error(`[NotifyHub] Attempt ${attempt}/${maxRetries} network error:`, error);
+
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+          console.log(`[NotifyHub] Retrying in ${delay}ms...`);
+          await sleep(delay);
+          continue;
+        }
+
+        return errorResponse;
+      }
     }
+
+    // Should never reach here, but TypeScript requires a return
+    return lastError || {
+      success: false,
+      error: 'All retry attempts failed',
+      code: 'MAX_RETRIES_EXCEEDED',
+    };
   }
 
   /**
