@@ -10,6 +10,7 @@ import { notifyHub } from '@/lib/services/notifyhub';
 import { sendReminderEmail } from '@/lib/services/email';
 import { getDaysUntilExpiry } from '@/lib/services/date';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { formatInTimeZone } from 'date-fns-tz';
 
 interface Reminder {
   id: string;
@@ -254,9 +255,13 @@ export async function processReminder(
  */
 export async function processRemindersForToday() {
   const supabase = createServerClient();
-  const today = new Date().toISOString().split('T')[0];
 
-  console.log('[Processor] Starting reminder processing...');
+  // FIXED: Use Romanian timezone (Europe/Bucharest) instead of UTC
+  // This ensures reminders are processed at correct local time
+  // Example: 09:00 EET = 07:00 UTC (cron runs at 07:00 UTC)
+  const today = formatInTimeZone(new Date(), 'Europe/Bucharest', 'yyyy-MM-dd');
+
+  console.log('[Processor] Starting reminder processing for Romanian date:', today);
 
   // Get reminders due for notification
   const { data: reminders, error: remindersError } = await supabase
