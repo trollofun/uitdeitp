@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { AlertCircle, Loader2, Mail, Lock, User, CheckCircle2 } from 'lucide-react';
 
 export default function RegisterPage() {
@@ -293,6 +294,19 @@ export default function RegisterPage() {
           )}
         </Button>
       </form>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card px-2 text-muted-foreground">
+            sau
+          </span>
+        </div>
+      </div>
+
+      <GoogleSignInButton className="w-full" />
 
       <div className="text-center text-sm">
         <span className="text-muted-foreground">Ai deja cont? </span>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { AlertCircle, Loader2, Mail, Lock } from 'lucide-react';
 
 export default function LoginPage() {
@@ -140,6 +141,8 @@ export default function LoginPage() {
           </span>
         </div>
       </div>
+
+      <GoogleSignInButton className="w-full" />
 
       <div className="text-center text-sm">
         <span className="text-muted-foreground">Nu ai cont? </span>
