@@ -56,27 +56,26 @@ export async function POST(req: NextRequest) {
     // Use service role to bypass RLS (verification is a system operation)
     const supabase = createServiceClient();
 
-    // TEMPORARILY DISABLED FOR TESTING
-    // Check rate limiting (3 codes per hour)
-    // const { data: rateLimitCheck, error: rpcError } = await supabase.rpc(
-    //   'check_verification_rate_limit_rpc',
-    //   { p_phone: formattedPhone }
-    // );
+    // Check rate limiting (3 codes per hour per phone)
+    const { data: rateLimitCheck, error: rpcError } = await supabase.rpc(
+      'check_verification_rate_limit_rpc',
+      { p_phone: formattedPhone }
+    );
 
-    // console.log('[Verification] RPC rate limit check:', {
-    //   data: rateLimitCheck,
-    //   error: rpcError,
-    //   phone: formattedPhone
-    // });
+    console.log('[Verification] RPC rate limit check:', {
+      data: rateLimitCheck,
+      error: rpcError,
+      phone: formattedPhone
+    });
 
-    // if (!rateLimitCheck) {
-    //   console.error('[Verification] Rate limit check failed or returned false');
-    //   // Generic error to prevent enumeration
-    //   return NextResponse.json(
-    //     { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
-    //     { status: 400 }
-    //   );
-    // }
+    if (!rateLimitCheck) {
+      console.error('[Verification] Rate limit check failed or returned false');
+      // Generic error to prevent enumeration
+      return NextResponse.json(
+        { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
+        { status: 400 }
+      );
+    }
 
     // Get station_id from slug
     const { data: station, error: stationError } = await supabase

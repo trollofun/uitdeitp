@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/service';
 import { formatPhoneNumber } from '@/lib/services/phone';
+import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
 
 const resendSchema = z.object({
   phone: z.string().min(9).max(15),
@@ -17,6 +18,23 @@ const resendSchema = z.object({
  */
 export async function POST(req: NextRequest) {
   try {
+    // IP-based rate limiting (5 resend requests per hour per IP)
+    const clientIp = getClientIp(req);
+    const ipRateLimit = checkRateLimit(`verification:resend:ip:${clientIp}`, {
+      maxRequests: 5,
+      windowMs: 60 * 60 * 1000, // 1 hour
+    });
+
+    if (!ipRateLimit.allowed) {
+      console.error('[Resend] IP rate limit exceeded:', clientIp);
+      const response = NextResponse.json(
+        { error: 'Prea multe încercări. Te rugăm să încerci din nou mai târziu.' },
+        { status: 429 }
+      );
+      addRateLimitHeaders(response.headers, 5, ipRateLimit.remaining, ipRateLimit.resetTime);
+      return response;
+    }
+
     const body = await req.json();
     const { phone, stationSlug } = resendSchema.parse(body);
 
@@ -32,19 +50,20 @@ export async function POST(req: NextRequest) {
     // Use service role to bypass RLS (verification is a system operation)
     const supabase = createServiceClient();
 
-    // TEMPORARILY DISABLED FOR TESTING
-    // Check rate limiting (3 codes per hour)
-    // const { data: rateLimitCheck } = await supabase.rpc(
-    //   'check_verification_rate_limit_rpc',
-    //   { p_phone: formattedPhone }
-    // );
+    // Check rate limiting (3 codes per hour per phone)
+    const { data: rateLimitCheck } = await supabase.rpc(
+      'check_verification_rate_limit_rpc',
+      { p_phone: formattedPhone }
+    );
 
-    // if (!rateLimitCheck) {
-    //   return NextResponse.json(
-    //     { error: 'Prea multe încercări. Te rugăm să încerci din nou peste o oră.' },
-    //     { status: 429 }
-    //   );
-    // }
+    if (!rateLimitCheck) {
+      const response = NextResponse.json(
+        { error: 'Prea multe încercări. Te rugăm să încerci din nou peste o oră.' },
+        { status: 429 }
+      );
+      addRateLimitHeaders(response.headers, 5, ipRateLimit.remaining, ipRateLimit.resetTime);
+      return response;
+    }
 
     // Note: Old unverified codes will expire naturally after 10 minutes
     // No need to manually invalidate them
@@ -131,10 +150,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       expiresIn: 600, // 10 minutes in seconds
     });
+
+    // Add rate limit headers to success response
+    addRateLimitHeaders(response.headers, 5, ipRateLimit.remaining, ipRateLimit.resetTime);
+
+    return response;
 
   } catch (error) {
     console.error('Verification resend error:', error);
