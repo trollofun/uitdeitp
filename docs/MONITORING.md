@@ -39,6 +39,10 @@ From Sentry dashboard → Settings → Projects → uitdeitp-app → Client Keys
 NEXT_PUBLIC_SENTRY_DSN=https://xxx@oyyy.ingest.sentry.io/zzz
 ```
 
+
+https://fd0a5cc3b9e591ee94893d6860e00f78@o4510363648851968.ingest.de.sentry.io/4510363650162768
+
+
 #### C. Configure Environment Variables
 
 Add to `.env.local` (development):
@@ -49,10 +53,10 @@ NEXT_PUBLIC_SENTRY_DSN=https://xxx@oyyy.ingest.sentry.io/zzz
 Add to **Vercel** (production):
 1. Go to https://vercel.com/trollofun/uitdeitp/settings/environment-variables
 2. Add variables:
-   - `NEXT_PUBLIC_SENTRY_DSN` = your DSN
-   - `SENTRY_ORG` = your organization slug
+   - `NEXT_PUBLIC_SENTRY_DSN` = https://fd0a5cc3b9e591ee94893d6860e00f78@o4510363648851968.ingest.de.sentry.io/4510363650162768
+   - `SENTRY_ORG` = euro-auto-service
    - `SENTRY_PROJECT` = uitdeitp-app
-   - `SENTRY_AUTH_TOKEN` = (get from Sentry → Settings → Auth Tokens)
+   - `SENTRY_AUTH_TOKEN` = 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
 
 #### D. Verify Installation
 After deployment, trigger a test error:

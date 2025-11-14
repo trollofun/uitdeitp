@@ -58,6 +58,23 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Cron] Processing complete in ${executionTime}ms:`, result.stats);
 
+    // Send heartbeat signal for monitoring (don't fail if heartbeat fails)
+    try {
+      const heartbeatUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://uitdeitp.ro'}/api/cron/heartbeat`;
+      await fetch(heartbeatUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stats: result.stats,
+          executionTime: `${executionTime}ms`,
+        }),
+      });
+      console.log('[Cron] Heartbeat sent successfully');
+    } catch (heartbeatError) {
+      console.warn('[Cron] Failed to send heartbeat:', heartbeatError);
+      // Don't fail the cron job if heartbeat fails
+    }
+
     // Return execution stats
     return NextResponse.json({
       success: true,
