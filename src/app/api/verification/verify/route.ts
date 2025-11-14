@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createServerClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { formatPhoneNumber } from '@/lib/services/phone';
 import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
 
@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
+    // Use service role to bypass RLS (verification is a system operation)
+    const supabase = createServiceClient();
 
     // Get active verification (RPC accepts only p_phone, not p_code)
     const { data: verification } = await supabase.rpc(
