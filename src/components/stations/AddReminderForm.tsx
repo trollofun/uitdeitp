@@ -43,9 +43,9 @@ export function AddReminderForm({ stations }: AddReminderFormProps) {
 
   const [formData, setFormData] = useState({
     plate_number: '',
-    itp_expiry_date: '',
+    expiry_date: '',
     phone_number: '',
-    user_name: '',
+    guest_name: '',
     station_slug: stations[0]?.slug || '',
     sms_notifications_enabled: true,
   });
@@ -99,12 +99,12 @@ export function AddReminderForm({ stations }: AddReminderFormProps) {
       return;
     }
 
-    if (!formData.itp_expiry_date) {
+    if (!formData.expiry_date) {
       setSubmitError('Data expirării este obligatorie');
       return;
     }
 
-    const expiry = new Date(formData.itp_expiry_date);
+    const expiry = new Date(formData.expiry_date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -131,9 +131,9 @@ export function AddReminderForm({ stations }: AddReminderFormProps) {
       // Reset form
       setFormData({
         plate_number: '',
-        itp_expiry_date: '',
+        expiry_date: '',
         phone_number: '',
-        user_name: '',
+        guest_name: '',
         station_slug: stations[0]?.slug || '',
         sms_notifications_enabled: true,
       });
@@ -171,8 +171,8 @@ export function AddReminderForm({ stations }: AddReminderFormProps) {
           </label>
           <Input
             type="text"
-            value={formData.user_name}
-            onChange={(e) => setFormData({ ...formData, user_name: e.target.value })}
+            value={formData.guest_name}
+            onChange={(e) => setFormData({ ...formData, guest_name: e.target.value })}
             placeholder="Ion Popescu"
           />
           <p className="text-xs text-muted-foreground mt-1">
@@ -236,8 +236,8 @@ export function AddReminderForm({ stations }: AddReminderFormProps) {
           </label>
           <Input
             type="date"
-            value={formData.itp_expiry_date}
-            onChange={(e) => setFormData({ ...formData, itp_expiry_date: e.target.value })}
+            value={formData.expiry_date}
+            onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
             min={new Date().toISOString().split('T')[0]}
             required
           />

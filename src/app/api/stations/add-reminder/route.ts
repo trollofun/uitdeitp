@@ -33,31 +33,35 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       plate_number,
-      itp_expiry_date,
+      expiry_date,
       phone_number,
-      user_name,
+      guest_name,
       station_slug,
       sms_notifications_enabled,
     } = body;
 
     // Validate required fields
-    if (!plate_number || !itp_expiry_date || !phone_number || !station_slug) {
+    if (!plate_number || !expiry_date || !phone_number || !station_slug) {
       return NextResponse.json(
         { error: 'Câmpurile obligatorii lipsesc' },
         { status: 400 }
       );
     }
 
-    // Validate phone number
-    if (!/^07\d{8}$/.test(phone_number)) {
+    // Normalize phone number to E.164 format (+40XXXXXXXXX)
+    let normalizedPhone = phone_number.trim();
+    if (/^07\d{8}$/.test(normalizedPhone)) {
+      // Convert 07XXXXXXXX to +407XXXXXXXX
+      normalizedPhone = '+4' + normalizedPhone;
+    } else if (!/^\+40\d{9}$/.test(normalizedPhone)) {
       return NextResponse.json(
-        { error: 'Număr de telefon invalid' },
+        { error: 'Număr de telefon invalid (format: 07XXXXXXXX sau +407XXXXXXXX)' },
         { status: 400 }
       );
     }
 
     // Validate expiry date
-    const expiryDate = new Date(itp_expiry_date);
+    const expiryDate = new Date(expiry_date);
     if (isNaN(expiryDate.getTime())) {
       return NextResponse.json(
         { error: 'Dată invalidă' },
@@ -74,13 +78,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if reminder already exists
+    // Check if reminder already exists (active reminders only, not deleted)
     const { data: existing } = await supabase
       .from('reminders')
       .select('id')
       .eq('plate_number', plate_number.toUpperCase())
-      .eq('phone_number', phone_number)
-      .eq('status', 'active')
+      .eq('guest_phone', normalizedPhone)
+      .is('deleted_at', null)
       .single();
 
     if (existing) {
@@ -105,24 +109,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate confirmation code
-    const confirmationCode = 'ITP' + Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    // Create reminder
+    // Create reminder with correct schema fields
     const { data: reminder, error } = await supabase
       .from('reminders')
       .insert({
-        phone_number: phone_number,
+        guest_phone: normalizedPhone,
+        guest_name: guest_name || null,
         plate_number: plate_number.toUpperCase(),
-        itp_expiry_date: itp_expiry_date,
-        user_name: user_name || null,
-        station_slug: station_slug,
-        reminder_type: 'itp',
-        consent_given: true,
-        sms_notifications_enabled: sms_notifications_enabled ?? true,
+        expiry_date: expiry_date,
+        reminder_type: 'ITP', // Capitalized to match database enum
+        station_id: station.id, // UUID from station lookup
+        notification_channels: {
+          sms: sms_notifications_enabled ?? true,
+          email: false, // Guest users don't have email
+        },
+        notification_intervals: [7, 3, 1], // Default intervals
         source: 'station_manual',
-        confirmation_code: confirmationCode,
-        status: 'active',
+        consent_given: true,
+        consent_timestamp: new Date().toISOString(),
       })
       .select()
       .single();
