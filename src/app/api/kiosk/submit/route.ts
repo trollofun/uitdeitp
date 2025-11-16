@@ -73,13 +73,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check for duplicate submission (same phone + plate)
+    // Check for duplicate submission (same phone + plate) - GLOBAL check across all stations
     const { data: existing } = await supabase
       .from('reminders')
-      .select('id, expiry_date')
+      .select('id, expiry_date, station_id')
       .eq('guest_phone', validated.guest_phone)
       .eq('plate_number', validated.plate_number)
-      .eq('station_id', station.id)
       .is('deleted_at', null)
       .single();
 

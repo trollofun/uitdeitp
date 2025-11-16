@@ -104,6 +104,20 @@ class NotifyHubClient {
         if (attempt > 1) {
           console.log(`[NotifyHub] ✅ Success on attempt ${attempt}/${maxRetries}`);
         }
+
+        // FIXED: NotifyHub wraps response in 'data' object
+        // Normalize response to match expected schema
+        if (data.data) {
+          return {
+            success: data.success,
+            messageId: data.data.messageId,
+            provider: data.data.provider,
+            parts: data.data.parts,
+            cost: data.data.cost,
+          };
+        }
+
+        // Fallback for old schema (if NotifyHub changes back)
         return data;
 
       } catch (error) {

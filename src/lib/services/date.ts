@@ -1,5 +1,6 @@
-import { format, formatDistanceToNow, differenceInDays, isAfter, isBefore } from 'date-fns';
+import { format, formatDistanceToNow, differenceInDays, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ro } from 'date-fns/locale';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
 /**
  * Format date for Romanian locale
@@ -22,11 +23,20 @@ export function getRelativeTime(date: Date | string): string {
 
 /**
  * Calculate days until expiry
+ * FIXED: Normalize both dates to midnight in Romanian timezone to avoid hour-based discrepancies
  * @param expiryDate - Expiry date
  */
 export function getDaysUntilExpiry(expiryDate: Date | string): number {
+  const ROMANIAN_TZ = 'Europe/Bucharest';
+
+  // Parse expiry date and normalize to midnight in Romanian timezone
   const dateObj = typeof expiryDate === 'string' ? new Date(expiryDate) : expiryDate;
-  return differenceInDays(dateObj, new Date());
+  const expiryMidnight = startOfDay(toZonedTime(dateObj, ROMANIAN_TZ));
+
+  // Get current date normalized to midnight in Romanian timezone
+  const nowMidnight = startOfDay(toZonedTime(new Date(), ROMANIAN_TZ));
+
+  return differenceInDays(expiryMidnight, nowMidnight);
 }
 
 /**
