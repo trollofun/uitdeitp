@@ -10,7 +10,7 @@ import { Phone, Check, AlertCircle, Loader2, Shield } from 'lucide-react';
 
 interface PhoneVerificationStepProps {
   phone?: string;  // Optional: If provided (kiosk), skip phone input and auto-send SMS
-  stationSlug: string;
+  stationSlug: string | null;  // null for dashboard verification, string for kiosk
   onVerified: (phone: string, consent: boolean) => void;  // Return both phone and consent
   onBack: () => void;
 }

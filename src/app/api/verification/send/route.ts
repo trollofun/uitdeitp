@@ -6,7 +6,7 @@ import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/midd
 
 const sendSchema = z.object({
   phone: z.string().min(9).max(15),
-  stationSlug: z.string().min(1),
+  stationSlug: z.string().min(1).nullable().optional(),
 });
 
 /**
@@ -77,19 +77,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get station_id from slug
-    const { data: station, error: stationError } = await supabase
-      .from('kiosk_stations')
-      .select('id')
-      .eq('slug', stationSlug)
-      .single();
+    // Get station_id from slug (or null for dashboard users)
+    let stationId = null;
+    let source = 'dashboard';
 
-    if (stationError || !station) {
-      console.error('[Verification] Station not found:', { slug: stationSlug, error: stationError });
-      return NextResponse.json(
-        { error: 'Stația nu a fost găsită' },
-        { status: 400 }
-      );
+    if (stationSlug) {
+      const { data: station, error: stationError } = await supabase
+        .from('kiosk_stations')
+        .select('id')
+        .eq('slug', stationSlug)
+        .single();
+
+      if (stationError || !station) {
+        console.error('[Verification] Station not found:', { slug: stationSlug, error: stationError });
+        return NextResponse.json(
+          { error: 'Stația nu a fost găsită' },
+          { status: 400 }
+        );
+      }
+
+      stationId = station.id;
+      source = 'kiosk';
     }
 
     // Generate 6-digit code
@@ -102,8 +110,8 @@ export async function POST(req: NextRequest) {
       .insert({
         phone_number: formattedPhone,
         verification_code: code,
-        source: 'kiosk',  // Required by RLS policy
-        station_id: station.id,
+        source: source,  // 'dashboard' or 'kiosk'
+        station_id: stationId,  // null for dashboard, station UUID for kiosk
         verified: false,  // Required by RLS policy
         attempts: 0,      // Required by RLS policy
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),

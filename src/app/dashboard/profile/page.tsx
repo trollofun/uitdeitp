@@ -64,11 +64,11 @@ export default function ProfilePage() {
       ]);
 
       if (profileData.success) {
-        setProfile(profileData.profile);
+        setProfile(profileData.data);
       }
 
       if (statsData.success) {
-        setStats(statsData.stats);
+        setStats(statsData.data);
       }
     } catch (error) {
       console.error('Error loading profile:', error);

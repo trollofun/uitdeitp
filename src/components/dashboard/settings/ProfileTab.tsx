@@ -57,7 +57,7 @@ export function ProfileTab() {
       const data = await response.json();
 
       if (data.success) {
-        setProfile(data.profile);
+        setProfile(data.data);
       } else {
         toast({
           title: 'Eroare',

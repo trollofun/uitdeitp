@@ -52,11 +52,11 @@ export function NotificationsTab() {
       ]);
 
       if (settingsData.success) {
-        setSettings(settingsData.settings);
+        setSettings(settingsData.data);
       }
 
       if (profileData.success) {
-        setPhoneVerified(profileData.profile.phone_verified);
+        setPhoneVerified(profileData.data.phone_verified);
       }
     } catch (error) {
       toast({

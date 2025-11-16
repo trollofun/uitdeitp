@@ -9,6 +9,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { notifyHub } from '@/lib/services/notifyhub';
 import { sendReminderEmail } from '@/lib/services/email';
 import { getDaysUntilExpiry } from '@/lib/services/date';
+import { getUserQuietHours, isInQuietHours, calculateNextAvailableTime } from '@/lib/services/quiet-hours';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -88,6 +89,35 @@ export async function processReminder(
     }
   }
 
+  // Check quiet hours for registered users
+  if (reminder.user_id) {
+    const quietHoursSettings = await getUserQuietHours(reminder.user_id, supabase);
+
+    if (quietHoursSettings && isInQuietHours(quietHoursSettings)) {
+      // User is in quiet hours - reschedule notification
+      const nextAvailableTime = calculateNextAvailableTime(quietHoursSettings);
+
+      console.log(`[Processor] User ${reminder.user_id} is in quiet hours. Rescheduling to ${nextAvailableTime}`);
+
+      // Reschedule reminder for when quiet hours end
+      await supabase
+        .from('reminders')
+        .update({
+          next_notification_date: nextAvailableTime ? nextAvailableTime.split('T')[0] : null,
+        })
+        .eq('id', reminder.id);
+
+      return {
+        reminderId: reminder.id,
+        plate: reminder.plate_number,
+        type: reminder.type,
+        success: false,
+        channel: 'email',
+        error: `Quiet hours active - rescheduled to ${nextAvailableTime}`,
+      };
+    }
+  }
+
   // Determine notification channels based on user preferences
   const isRegisteredUser = !!reminder.user_id;
   const channels = reminder.notification_channels || { email: true, sms: false };
@@ -99,7 +129,7 @@ export async function processReminder(
   console.log(`[Processor] Notification plan: email=${shouldSendEmail}, sms=${shouldSendSMS}, registered=${isRegisteredUser}`);
 
   let emailResult: { success: boolean; messageId?: string; error?: string } | undefined;
-  let smsResult: { success: boolean; messageId?: string; error?: string } | undefined;
+  let smsResult: { success: boolean; messageId?: string; provider?: string; cost?: number; error?: string } | undefined;
   let channel: 'email' | 'sms' | 'email+sms' = 'email';
 
   // Send email (for registered users who opted in)
@@ -180,10 +210,13 @@ export async function processReminder(
       if (smsResult.success) {
         await supabase.from('notification_log').insert({
           reminder_id: reminder.id,
-          type: 'sms',
+          channel: 'sms',  // FIXED: Use 'channel' (required) instead of 'type'
+          type: 'sms',     // Keep for backward compatibility
           status: 'sent',
           sent_at: new Date().toISOString(),
           provider_message_id: smsResult.messageId,
+          provider: smsResult.provider,
+          estimated_cost: smsResult.cost,
           metadata: { days_until_expiry: daysUntilExpiry },
         });
         console.log(`[Processor] SMS sent successfully: ${smsResult.messageId}`);
@@ -193,9 +226,11 @@ export async function processReminder(
         console.error(`[Processor] SMS failed: ${smsResult.error}`);
         await supabase.from('notification_log').insert({
           reminder_id: reminder.id,
+          channel: 'sms',  // FIXED: Use 'channel' (required)
           type: 'sms',
           status: 'failed',
           sent_at: new Date().toISOString(),
+          error_message: smsResult.error,
           metadata: {
             days_until_expiry: daysUntilExpiry,
             error: smsResult.error,

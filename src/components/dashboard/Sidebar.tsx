@@ -12,6 +12,8 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { logout } from '@/lib/auth/actions';
+import { useState } from 'react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -27,11 +29,23 @@ interface SidebarProps {
 
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLinkClick = () => {
     // Close mobile sidebar when navigation link is clicked
     if (onMobileClose) {
       onMobileClose();
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      // logout() handles redirect to /login
+    } catch (error) {
+      console.error('Logout error:', error);
+      setIsLoggingOut(false);
     }
   };
 
@@ -101,12 +115,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
         {/* Logout */}
         <div className="border-t p-4">
-          <form action="/auth/signout" method="post">
-            <Button variant="ghost" className="w-full justify-start" type="submit">
-              <LogOut className="mr-3 h-5 w-5" />
-              Deconectare
-            </Button>
-          </form>
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            <LogOut className="mr-3 h-5 w-5" />
+            {isLoggingOut ? 'Se deconectează...' : 'Deconectare'}
+          </Button>
         </div>
       </div>
     </>
