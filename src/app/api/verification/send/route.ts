@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     // Get station_id from slug (or null for dashboard users)
     let stationId = null;
-    let source = 'dashboard';
+    let source = 'profile_update'; // Database constraint allows: 'kiosk' | 'registration' | 'profile_update'
 
     if (stationSlug) {
       const { data: station, error: stationError } = await supabase
