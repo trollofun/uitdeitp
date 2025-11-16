@@ -71,7 +71,7 @@ export function AccountTab() {
             <p>Fișierul va conține:</p>
             <ul className="list-disc list-inside space-y-1">
               <li>Informații profil (nume, email, telefon, locație)</li>
-              <li>Toate rovignete și reamintirile tale</li>
+              <li>Toate reminder-urile tale (ITP, RCA)</li>
               <li>Istoricul notificărilor</li>
               <li>Setările de preferințe</li>
             </ul>
@@ -112,7 +112,7 @@ export function AccountTab() {
               <h3 className="font-semibold mb-2">Ce se va șterge:</h3>
               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                 <li>Contul tău de utilizator</li>
-                <li>Toate rovignetele și reamintirile</li>
+                <li>Toate reminder-urile tale (ITP, RCA)</li>
                 <li>Istoricul notificărilor</li>
                 <li>Informațiile personale (nume, email, telefon)</li>
                 <li>Avatar-ul și preferințele</li>

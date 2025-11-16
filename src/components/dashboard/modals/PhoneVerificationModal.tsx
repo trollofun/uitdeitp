@@ -22,7 +22,7 @@ export function PhoneVerificationModal({
         </DialogHeader>
         <PhoneVerificationStep
           stationSlug={null}
-          onVerified={(phone) => {
+          onVerified={(phone, consent) => {
             onVerified(phone);
             onClose();
           }}

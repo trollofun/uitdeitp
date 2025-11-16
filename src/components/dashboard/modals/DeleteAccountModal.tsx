@@ -107,7 +107,7 @@ export function DeleteAccountModal({ isOpen, onClose }: DeleteAccountModalProps)
               <h3 className="font-semibold mb-2">Se vor șterge:</h3>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>
-                  • {stats?.remindersCount || 0} reamintiri și rovignete
+                  • {stats?.remindersCount || 0} reminder-uri (ITP, RCA)
                 </li>
                 <li>
                   • {stats?.notificationsCount || 0} notificări din istoric

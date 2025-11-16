@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AvatarUpload } from '@/components/ui/AvatarUpload';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { useToast } from '@/hooks/useToast';
-import { MapPin, Phone, Mail, Loader2 } from 'lucide-react';
+import { MapPin, Phone, Mail, Loader2, Info } from 'lucide-react';
 import { PhoneVerificationModal } from '@/components/dashboard/modals/PhoneVerificationModal';
+import { detectUserLocation } from '@/lib/services/geolocation';
 
 interface UserProfile {
   id: string;
@@ -35,7 +36,50 @@ const countries = [
 ];
 
 const cities = {
-  RO: ['București', 'Cluj-Napoca', 'Timișoara', 'Iași', 'Constanța', 'Brașov'],
+  RO: [
+    'București',
+    'Alba',
+    'Arad',
+    'Argeș',
+    'Bacău',
+    'Bihor',
+    'Bistrița-Năsăud',
+    'Botoșani',
+    'Brăila',
+    'Brașov',
+    'Buzău',
+    'Călărași',
+    'Caraș-Severin',
+    'Cluj',
+    'Constanța',
+    'Covasna',
+    'Dâmbovița',
+    'Dolj',
+    'Galați',
+    'Giurgiu',
+    'Gorj',
+    'Harghita',
+    'Hunedoara',
+    'Ialomița',
+    'Iași',
+    'Ilfov',
+    'Maramureș',
+    'Mehedinți',
+    'Mureș',
+    'Neamț',
+    'Olt',
+    'Prahova',
+    'Sălaj',
+    'Satu Mare',
+    'Sibiu',
+    'Suceava',
+    'Teleorman',
+    'Timiș',
+    'Tulcea',
+    'Vâlcea',
+    'Vaslui',
+    'Vrancea',
+  ],
   MD: ['Chișinău', 'Bălți', 'Tiraspol', 'Bender', 'Cahul'],
   IT: ['Roma', 'Milano', 'Napoli', 'Torino', 'Palermo'],
   ES: ['Madrid', 'Barcelona', 'Valencia', 'Sevilla', 'Zaragoza'],
@@ -49,6 +93,8 @@ export function ProfileTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const [detectionSource, setDetectionSource] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadProfile = useCallback(async () => {
@@ -58,6 +104,11 @@ export function ProfileTab() {
 
       if (data.success) {
         setProfile(data.data);
+
+        // Auto-detect location if not set and not using manual location
+        if (!data.data.city && !data.data.use_manual_location) {
+          await autoDetectLocation(data.data);
+        }
       } else {
         toast({
           title: 'Eroare',
@@ -75,6 +126,51 @@ export function ProfileTab() {
       setIsLoading(false);
     }
   }, [toast]);
+
+  const autoDetectLocation = async (currentProfile: UserProfile) => {
+    setDetectingLocation(true);
+
+    try {
+      const result = await detectUserLocation();
+
+      // Update profile with detected location
+      await saveProfile({
+        city: result.county, // Use county (județ) instead of city for better granularity
+        country: 'RO', // Store country code
+      });
+
+      // Update local state
+      setProfile({
+        ...currentProfile,
+        city: result.county,
+        country: 'RO',
+      });
+
+      // Store detection source for display
+      const sourceLabels: Record<string, string> = {
+        ipgeo: 'IPGeoLocation',
+        ipinfo: 'IPInfo',
+        ipapi: 'ipapi.co',
+        cache: 'Cache',
+        manual: 'Default',
+      };
+      setDetectionSource(sourceLabels[result.source] || result.source);
+
+      toast({
+        title: 'Locație detectată',
+        description: `${result.county}, România (via ${sourceLabels[result.source]})`,
+      });
+    } catch (error) {
+      console.error('Location detection failed:', error);
+      toast({
+        title: 'Atenție',
+        description: 'Nu s-a putut detecta locația automată. Poți selecta manual.',
+        variant: 'default',
+      });
+    } finally {
+      setDetectingLocation(false);
+    }
+  };
 
   useEffect(() => {
     loadProfile();
@@ -255,13 +351,32 @@ export function ProfileTab() {
           </h3>
 
           <div className="space-y-4">
+            {/* Detecting location spinner */}
+            {detectingLocation && (
+              <div className="p-4 bg-muted rounded-lg flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <div>
+                  <p className="font-medium">Detectare locație...</p>
+                  <p className="text-sm text-muted-foreground">
+                    Se încearcă IPGeoLocation, IPInfo și ipapi.co
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Auto-detected location */}
-            {!profile.use_manual_location && (
-              <div className="p-4 bg-muted rounded-lg">
+            {!profile.use_manual_location && !detectingLocation && (
+              <div className="p-4 bg-muted rounded-lg space-y-2">
                 <p className="text-sm text-muted-foreground">Locație detectată automat:</p>
                 <p className="font-medium">
                   📍 {profile.city || 'București'}, {profile.country || 'România'}
                 </p>
+                {detectionSource && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Info className="h-3 w-3" />
+                    <span>Detectat via {detectionSource}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -312,7 +427,7 @@ export function ProfileTab() {
                     Oraș
                   </label>
                   <Select
-                    value={profile.city || ''}
+                    value={profile.city ?? ''}
                     onValueChange={(value) => saveProfile({ city: value })}
                   >
                     <SelectTrigger>

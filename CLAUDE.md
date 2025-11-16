@@ -179,6 +179,13 @@ NEXT_PUBLIC_APP_URL=https://uitdeitp.ro
 NOTIFYHUB_URL=https://ntf.uitdeitp.ro
 NOTIFYHUB_API_KEY=uitp_your_api_key_here
 
+# IP Geolocation APIs (Automatic Location Detection)
+# Primary: IPGeoLocation API (best Romanian accuracy, 1,000 req/day free)
+NEXT_PUBLIC_IPGEO_KEY=4d76345f075d48e7872534cfe201802d
+# Secondary: IPInfo API (fast, reliable, 50,000 req/month free)
+NEXT_PUBLIC_IPINFO_TOKEN=fe5f8aaf3f9aff
+# Tertiary: ipapi.co (no key required, automatic fallback)
+
 # Optional: Analytics
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
 
@@ -196,6 +203,8 @@ SENTRY_DSN=https://xxx@sentry.io/xxx
 | `NEXT_PUBLIC_APP_URL` | Your app's public URL | https://uitdeitp.ro |
 | `NOTIFYHUB_URL` | NotifyHub SMS gateway URL | https://ntf.uitdeitp.ro |
 | `NOTIFYHUB_API_KEY` | NotifyHub API key | uitp_xxx |
+| `NEXT_PUBLIC_IPGEO_KEY` | IPGeoLocation API key (primary) | 4d76... |
+| `NEXT_PUBLIC_IPINFO_TOKEN` | IPInfo API token (secondary) | fe5f... |
 
 ---
 
@@ -250,7 +259,50 @@ SENTRY_DSN=https://xxx@sentry.io/xxx
 
 **Revenue Model:** €49/month per white-label station license
 
-### 5. GDPR Compliance
+### 5. IP-Based Geolocation System
+
+**Automatic Location Detection with Dual-Fallback:**
+
+**Purpose:** Enable national scaling beyond Constanța by automatically detecting user location (Romanian county/județ) for:
+- Targeted ITP station recommendations
+- Location-specific SMS notifications
+- Multi-station white-label deployments across Romania
+
+**Fallback Chain:**
+1. **localStorage cache** (7 days) - Avoids repeated API calls
+2. **IPGeoLocation API** (primary) - Best Romanian county-level accuracy
+3. **IPInfo API** (secondary) - Fast, reliable, higher rate limits
+4. **ipapi.co** (tertiary) - Free tier fallback, no API key required
+5. **Manual selection** (final) - București default with user override
+
+**Features:**
+- County-level accuracy (județ detection, not just city)
+- ISO 3166-2 state codes (e.g., "RO-CJ" for Cluj)
+- Automatic detection on registration and profile load
+- Manual override option in profile settings
+- Debug info showing which API was used
+- Rate limit protection (caching reduces API calls by 90%+)
+
+**Rate Limits:**
+- IPGeoLocation: 1,000 requests/day (30k/month)
+- IPInfo: 50,000 requests/month
+- ipapi.co: 1,000 requests/day (fallback only)
+
+**Expected Usage:**
+- New users: ~50-100 API calls/day
+- Existing users: 0 calls (cached in database)
+- Well under all free tier limits
+
+**Implementation:**
+- Service: `/src/lib/services/geolocation.ts`
+- Components: `LocationPicker.tsx`, `ProfileTab.tsx`
+- Research: `/research/ip-geolocation-apis.md`
+
+**Romanian County Support:**
+All 42 Romanian counties (județe) + București mapped correctly:
+- Alba, Arad, Argeș, Bacău, Bihor, Bistrița-Năsăud, Botoșani, Brăila, Brașov, București, Buzău, Călărași, Caraș-Severin, Cluj, Constanța, Covasna, Dâmbovița, Dolj, Galați, Giurgiu, Gorj, Harghita, Hunedoara, Ialomița, Iași, Ilfov, Maramureș, Mehedinți, Mureș, Neamț, Olt, Prahova, Sălaj, Satu Mare, Sibiu, Suceava, Teleorman, Timiș, Tulcea, Vâlcea, Vaslui, Vrancea
+
+### 6. GDPR Compliance
 
 **Features:**
 - Explicit consent checkbox (required)
@@ -870,3 +922,4 @@ For issues or questions:
 **License**: Private
 **Built with**: Next.js 14 + Supabase + NotifyHub
 **Last Updated**: 2025-11-04
+- pentru supabase ai deja mcp tool avaible

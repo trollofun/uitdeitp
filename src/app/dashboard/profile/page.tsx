@@ -260,10 +260,10 @@ export default function ProfilePage() {
             <Bell className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-xl font-semibold mb-2">Nu ai reamintiri active</h3>
             <p className="text-muted-foreground mb-6">
-              Adaugă prima ta rovignetă pentru a primi notificări automate
+              Adaugă primul tău reminder ITP pentru a primi notificări automate
             </p>
             <Button onClick={() => router.push('/dashboard')}>
-              Adaugă rovignetă
+              Adaugă reminder ITP
             </Button>
           </Card>
         )}
@@ -302,7 +302,7 @@ export default function ProfilePage() {
               onClick={() => router.push('/dashboard')}
             >
               <Calendar className="mr-2 h-4 w-4" />
-              Rovignete
+              Reminder-uri ITP
             </Button>
           </div>
         </Card>

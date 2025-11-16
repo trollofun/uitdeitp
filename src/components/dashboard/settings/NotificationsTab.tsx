@@ -242,7 +242,7 @@ export function NotificationsTab() {
 
         <div className="mt-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
           <p>
-            📅 Exemplu: Pentru o rovigneta care expiră pe 15 martie, vei primi notificări în zilele:{' '}
+            📅 Exemplu: Pentru un ITP care expiră pe 15 martie, vei primi notificări în zilele:{' '}
             {settings.reminder_intervals.map((d, i) => {
               const date = new Date();
               date.setDate(15 - d);

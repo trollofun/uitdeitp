@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/auth/input';
 import { Label } from '@/components/auth/label';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Loader2, Info } from 'lucide-react';
+import { detectUserLocation } from '@/lib/services/geolocation';
 
 interface LocationPickerProps {
   onLocationChange?: (location: { city: string; country: string }) => void;
@@ -20,6 +21,7 @@ export function LocationPicker({
   const [country, setCountry] = useState(defaultCountry);
   const [detecting, setDetecting] = useState(false);
   const [manualOverride, setManualOverride] = useState(false);
+  const [detectionSource, setDetectionSource] = useState<string | null>(null);
 
   // Auto-detect location on mount
   useEffect(() => {
@@ -39,23 +41,27 @@ export function LocationPicker({
     setDetecting(true);
 
     try {
-      // Use ipapi.co for geolocation (free tier: 1000 requests/day)
-      const response = await fetch('https://ipapi.co/json/');
-      const data = await response.json();
+      // Use new geolocation service with dual-fallback
+      const result = await detectUserLocation();
 
-      if (data.city && data.country_name) {
-        setCity(data.city);
-        setCountry(data.country_name);
-      } else {
-        // Fallback to Romania
-        setCity('București');
-        setCountry('România');
-      }
+      setCity(result.city);
+      setCountry(result.country);
+
+      // Store detection source for debugging
+      const sourceLabels: Record<string, string> = {
+        ipgeo: 'IPGeoLocation',
+        ipinfo: 'IPInfo',
+        ipapi: 'ipapi.co',
+        cache: 'Cache',
+        manual: 'Default',
+      };
+      setDetectionSource(sourceLabels[result.source] || result.source);
     } catch (error) {
       console.error('Location detection failed:', error);
-      // Fallback to Romania
+      // Fallback to România
       setCity('București');
       setCountry('România');
+      setDetectionSource('Fallback');
     } finally {
       setDetecting(false);
     }
@@ -110,12 +116,20 @@ export function LocationPicker({
           </div>
         </div>
       ) : (
-        <div className="rounded-lg bg-gray-50 p-3 text-sm">
-          <p className="text-gray-700">
-            <span className="font-medium">{city}</span>
-            {city && country && ', '}
-            <span className="font-medium">{country}</span>
-          </p>
+        <div className="space-y-2">
+          <div className="rounded-lg bg-gray-50 p-3 text-sm">
+            <p className="text-gray-700">
+              <span className="font-medium">{city}</span>
+              {city && country && ', '}
+              <span className="font-medium">{country}</span>
+            </p>
+          </div>
+          {detectionSource && (
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <Info className="h-3 w-3" />
+              <span>Detectat via {detectionSource}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
