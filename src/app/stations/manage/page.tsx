@@ -101,7 +101,7 @@ export default async function StationsManagePage() {
             {stations.map((station) => (
               <div key={station.id} className="bg-card border rounded-lg overflow-hidden">
                 <div
-                  className={`h-2 ${station.active ? 'bg-green-500' : 'bg-gray-400'}`}
+                  className={`h-2 ${station.is_active ? 'bg-green-500' : 'bg-gray-400'}`}
                 />
 
                 <div className="p-6">
@@ -120,12 +120,12 @@ export default async function StationsManagePage() {
 
                     <span
                       className={`px-3 py-1 text-xs font-medium rounded-full ${
-                        station.active
+                        station.is_active
                           ? 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
                       }`}
                     >
-                      {station.active ? 'Activ' : 'Inactiv'}
+                      {station.is_active ? 'Activ' : 'Inactiv'}
                     </span>
                   </div>
 
