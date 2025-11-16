@@ -20,10 +20,10 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { plate_number, itp_expiry_date, sms_notifications_enabled } = body;
+    const { plate_number, expiry_date, sms_notifications_enabled } = body;
 
     // Validate required fields
-    if (!plate_number || !itp_expiry_date) {
+    if (!plate_number || !expiry_date) {
       return NextResponse.json(
         { error: 'Plate number and expiry date are required' },
         { status: 400 }
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate expiry date
-    const expiryDate = new Date(itp_expiry_date);
+    const expiryDate = new Date(expiry_date);
     if (isNaN(expiryDate.getTime())) {
       return NextResponse.json(
         { error: 'Invalid expiry date' },
@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
       .from('reminders')
       .select('id')
       .eq('plate_number', plate_number)
-      .eq('phone_number', user.phone || user.email)
-      .eq('status', 'active')
+      .eq('guest_phone', user.phone || user.email)
+      .is('deleted_at', null)
       .single();
 
     if (existing) {
@@ -62,15 +62,14 @@ export async function POST(request: NextRequest) {
     const { data: reminder, error } = await supabase
       .from('reminders')
       .insert({
-        phone_number: user.phone || user.email,
+        guest_phone: user.phone || user.email,
         plate_number: plate_number.toUpperCase(),
-        itp_expiry_date: itp_expiry_date,
+        expiry_date: expiry_date,
         reminder_type: 'itp',
         consent_given: true,
         sms_notifications_enabled: sms_notifications_enabled ?? true,
         source: 'dashboard',
         confirmation_code: confirmationCode,
-        status: 'active',
       })
       .select()
       .single();

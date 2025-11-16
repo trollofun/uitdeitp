@@ -32,7 +32,6 @@ export async function GET(request: Request) {
     // Get query parameters for filtering
     const { searchParams } = new URL(request.url);
     const stationId = searchParams.get('station_id');
-    const status = searchParams.get('status');
     const source = searchParams.get('source');
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
@@ -54,9 +53,8 @@ export async function GET(request: Request) {
     if (stationId) {
       query = query.eq('station_id', stationId);
     }
-    if (status) {
-      query = query.eq('status', status);
-    }
+    // Filter only active reminders (not soft-deleted)
+    query = query.is('deleted_at', null);
     if (source) {
       query = query.eq('source', source);
     }
@@ -153,7 +151,6 @@ export async function POST(request: Request) {
       .insert([{
         ...reminderData,
         reminder_time: reminderTime.toISOString(),
-        status: 'pending',
         source: 'manual', // Admin/user created
       }])
       .select()

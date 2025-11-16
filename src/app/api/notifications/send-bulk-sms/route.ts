@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     // Get reminders with phone numbers
     const { data: reminders, error: remindersError } = await supabase
       .from('reminders')
-      .select('id, phone_number, plate_number, reminder_type, itp_expiry_date')
+      .select('id, guest_phone, plate_number, reminder_type, expiry_date')
       .in('id', reminder_ids);
 
     if (remindersError) throw remindersError;
@@ -101,13 +101,13 @@ export async function POST(req: NextRequest) {
         const { data: optOut } = await supabase
           .from('global_opt_outs')
           .select('phone')
-          .eq('phone', reminder.phone_number)
+          .eq('phone', reminder.guest_phone)
           .single();
 
         if (optOut) {
           results.failed++;
           results.errors.push(
-            `${reminder.plate_number}: Număr dezabonat (${reminder.phone_number})`
+            `${reminder.plate_number}: Număr dezabonat (${reminder.guest_phone})`
           );
           continue;
         }
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
         // Build message
         const message =
           message_template ||
-          `ITP pentru ${reminder.plate_number} expira pe ${new Date(reminder.itp_expiry_date).toLocaleDateString('ro-RO')}. Programeaza inspectia!`;
+          `ITP pentru ${reminder.plate_number} expira pe ${new Date(reminder.expiry_date).toLocaleDateString('ro-RO')}. Programeaza inspectia!`;
 
         // Send SMS
         const smsResponse = await fetch(`${notifyHubUrl}/api/send`, {
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
             Authorization: `Bearer ${notifyHubApiKey}`,
           },
           body: JSON.stringify({
-            to: reminder.phone_number,
+            to: reminder.guest_phone,
             message,
             metadata: {
               reminder_id: reminder.id,

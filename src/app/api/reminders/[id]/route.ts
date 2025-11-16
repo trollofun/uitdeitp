@@ -33,7 +33,7 @@ export async function GET(
     }
 
     // Check if user owns this reminder
-    if (reminder.phone_number !== user.phone && reminder.phone_number !== user.email) {
+    if (reminder.guest_phone !== user.phone && reminder.guest_phone !== user.email) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -79,17 +79,17 @@ export async function PUT(
     }
 
     // Check ownership
-    if (existingReminder.phone_number !== user.phone && existingReminder.phone_number !== user.email) {
+    if (existingReminder.guest_phone !== user.phone && existingReminder.guest_phone !== user.email) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Parse request body
     const body = await request.json();
-    const { itp_expiry_date, sms_notifications_enabled } = body;
+    const { expiry_date, sms_notifications_enabled } = body;
 
     // Validate data
-    if (itp_expiry_date) {
-      const expiryDate = new Date(itp_expiry_date);
+    if (expiry_date) {
+      const expiryDate = new Date(expiry_date);
       if (isNaN(expiryDate.getTime())) {
         return NextResponse.json(
           { error: 'Invalid expiry date' },
@@ -100,7 +100,7 @@ export async function PUT(
 
     // Update reminder
     const updateData: any = {};
-    if (itp_expiry_date !== undefined) updateData.itp_expiry_date = itp_expiry_date;
+    if (expiry_date !== undefined) updateData.expiry_date = expiry_date;
     if (sms_notifications_enabled !== undefined) updateData.sms_notifications_enabled = sms_notifications_enabled;
     updateData.updated_at = new Date().toISOString();
 
@@ -157,14 +157,14 @@ export async function DELETE(
     }
 
     // Check ownership
-    if (existingReminder.phone_number !== user.phone && existingReminder.phone_number !== user.email) {
+    if (existingReminder.guest_phone !== user.phone && existingReminder.guest_phone !== user.email) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Soft delete - set status to 'deleted'
     const { error } = await supabase
       .from('reminders')
-      .update({ status: 'deleted', updated_at: new Date().toISOString() })
+      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', params.id);
 
     if (error) {
