@@ -10,6 +10,8 @@ import { notifyHub } from '@/lib/services/notifyhub';
 import { sendReminderEmail } from '@/lib/services/email';
 import { getDaysUntilExpiry } from '@/lib/services/date';
 import { getUserQuietHours, isInQuietHours, calculateNextAvailableTime } from '@/lib/services/quiet-hours';
+import { renderSmsTemplate, getTemplateForDays, DEFAULT_SMS_TEMPLATES, sendSms } from '@/lib/services/notification';
+import { generateOptOutLink } from '@/lib/utils/opt-out';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -29,6 +31,7 @@ interface Reminder {
     sms: boolean;
   };
   source: 'user' | 'kiosk';
+  station_id: string | null;  // NEW: For fetching custom notification templates
 }
 
 export interface ProcessReminderResult {
@@ -198,35 +201,105 @@ export async function processReminder(
     if (phoneNumber) {
       console.log(`[Processor] Sending SMS to ${phoneNumber}`);
 
-      // Use existing NotifyHub service
-      smsResult = await notifyHub.sendItpReminder(
-        phoneNumber,
-        reminder.guest_name || 'Client',
-        reminder.plate_number,
-        reminder.expiry_date,
-        daysUntilExpiry
-      );
+      // NEW: Fetch station custom templates if reminder is from a kiosk station
+      let smsTemplate: string | undefined;
+      let stationData: { name?: string; station_phone?: string; station_address?: string } = {};
 
-      if (smsResult.success) {
+      if (reminder.station_id) {
+        console.log(`[Processor] Fetching custom template for station ${reminder.station_id}`);
+
+        const { data: station } = await supabase
+          .from('kiosk_stations')
+          .select('name, station_phone, station_address, sms_template_5d, sms_template_3d, sms_template_1d')
+          .eq('id', reminder.station_id)
+          .single();
+
+        if (station) {
+          stationData = {
+            name: station.name,
+            station_phone: station.station_phone || undefined,
+            station_address: station.station_address || undefined,
+          };
+
+          // Select appropriate template based on days until expiry
+          // Match notification intervals: 7/5 days, 3 days, 1 day
+          if (daysUntilExpiry <= 1 && station.sms_template_1d) {
+            smsTemplate = station.sms_template_1d;
+            console.log(`[Processor] Using station custom 1-day template`);
+          } else if (daysUntilExpiry <= 3 && station.sms_template_3d) {
+            smsTemplate = station.sms_template_3d;
+            console.log(`[Processor] Using station custom 3-day template`);
+          } else if (daysUntilExpiry >= 5 && station.sms_template_5d) {
+            smsTemplate = station.sms_template_5d;
+            console.log(`[Processor] Using station custom 5-day template`);
+          }
+        }
+      }
+
+      // Fall back to default templates if no custom template
+      if (!smsTemplate) {
+        const templateKey = getTemplateForDays(daysUntilExpiry);
+        smsTemplate = DEFAULT_SMS_TEMPLATES[templateKey];
+        console.log(`[Processor] Using default template: ${templateKey}`);
+      }
+
+      // Generate opt-out link (GDPR required)
+      const optOutLink = generateOptOutLink(phoneNumber);
+
+      // Render template with all data
+      const renderedMessage = renderSmsTemplate(smsTemplate, {
+        name: reminder.guest_name || 'Client',
+        plate: reminder.plate_number,
+        date: reminder.expiry_date,
+        station_name: stationData.name || 'uitdeITP',
+        station_phone: stationData.station_phone || '',
+        station_address: stationData.station_address || '',
+        app_url: process.env.NEXT_PUBLIC_APP_URL || 'https://uitdeitp.ro',
+        opt_out_link: optOutLink,
+      });
+
+      console.log(`[Processor] Rendered message (${renderedMessage.length} chars): ${renderedMessage.substring(0, 100)}...`);
+
+      // Send SMS via NotifyHub with rendered message
+      const smsResponse = await sendSms(phoneNumber, renderedMessage);
+
+      if (smsResponse.success) {
+        smsResult = {
+          success: true,
+          messageId: smsResponse.messageId,
+          provider: smsResponse.provider,
+          cost: smsResponse.cost,
+        };
+
         await supabase.from('notification_log').insert({
           reminder_id: reminder.id,
-          channel: 'sms',  // FIXED: Use 'channel' (required) instead of 'type'
-          type: 'sms',     // Keep for backward compatibility
+          channel: 'sms',
+          type: 'sms',
           status: 'sent',
           sent_at: new Date().toISOString(),
           provider_message_id: smsResult.messageId,
           provider: smsResult.provider,
           estimated_cost: smsResult.cost,
-          metadata: { days_until_expiry: daysUntilExpiry },
+          message_body: renderedMessage,  // Store actual message sent
+          metadata: {
+            days_until_expiry: daysUntilExpiry,
+            template_source: reminder.station_id ? 'custom' : 'default',
+            station_id: reminder.station_id,
+          },
         });
         console.log(`[Processor] SMS sent successfully: ${smsResult.messageId}`);
 
         channel = emailResult?.success ? 'email+sms' : 'sms';
       } else {
+        smsResult = {
+          success: false,
+          error: smsResponse.error || 'Failed to send SMS',
+        };
+
         console.error(`[Processor] SMS failed: ${smsResult.error}`);
         await supabase.from('notification_log').insert({
           reminder_id: reminder.id,
-          channel: 'sms',  // FIXED: Use 'channel' (required)
+          channel: 'sms',
           type: 'sms',
           status: 'failed',
           sent_at: new Date().toISOString(),
@@ -234,6 +307,7 @@ export async function processReminder(
           metadata: {
             days_until_expiry: daysUntilExpiry,
             error: smsResult.error,
+            template_source: reminder.station_id ? 'custom' : 'default',
           },
         });
       }

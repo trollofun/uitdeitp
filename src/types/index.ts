@@ -55,6 +55,9 @@ export interface NotificationData {
   date: string;
   station_name?: string;
   station_phone?: string;
+  station_address?: string;  // NEW: Station address for custom branding
+  app_url?: string;          // NEW: App URL for links in SMS/email
+  opt_out_link?: string;     // NEW: GDPR-required opt-out link
 }
 
 export type NotificationChannel = 'sms' | 'email';

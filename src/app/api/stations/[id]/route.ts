@@ -7,9 +7,16 @@ const StationUpdateSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
   logo_url: z.string().url().optional().nullable(),
   primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
-  contact_email: z.string().email().optional().nullable(),
-  contact_phone: z.string().optional().nullable(),
-  sms_template: z.string().optional().nullable(),
+  station_phone: z.string().optional().nullable(), // Fixed: was contact_phone
+  station_address: z.string().optional().nullable(), // Fixed: was contact_email
+  // SMS templates for different intervals
+  sms_template_5d: z.string().min(10).optional().nullable(),
+  sms_template_3d: z.string().min(10).optional().nullable(),
+  sms_template_1d: z.string().min(10).optional().nullable(),
+  // Email templates (to be added to DB)
+  email_template_5d: z.string().optional().nullable(),
+  email_template_3d: z.string().optional().nullable(),
+  email_template_1d: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
 });
 

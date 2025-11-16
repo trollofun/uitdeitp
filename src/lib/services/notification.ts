@@ -23,6 +23,19 @@ export function renderSmsTemplate(template: string, data: NotificationData): str
     rendered = rendered.replace(/{station_phone}/g, data.station_phone);
   }
 
+  // NEW: Add missing placeholders for custom templates
+  if (data.station_address) {
+    rendered = rendered.replace(/{station_address}/g, data.station_address);
+  }
+
+  if (data.app_url) {
+    rendered = rendered.replace(/{app_url}/g, data.app_url);
+  }
+
+  if (data.opt_out_link) {
+    rendered = rendered.replace(/{opt_out_link}/g, data.opt_out_link);
+  }
+
   return rendered;
 }
 

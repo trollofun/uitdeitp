@@ -149,7 +149,7 @@ export async function POST(request: Request) {
 
     // Create reminder with user_id (manual entry, not guest)
     const { data, error } = await supabase
-      .from('parking_reminders')
+      .from('reminders')
       .insert([{
         ...reminderData,
         reminder_time: reminderTime.toISOString(),

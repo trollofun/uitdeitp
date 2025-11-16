@@ -95,6 +95,14 @@ export const createStationSchema = z.object({
   primary_color: z.string().regex(/^#[0-9A-F]{6}$/i).default('#3B82F6'),
   station_phone: phoneSchema.optional(),
   station_address: z.string().optional(),
+  // SMS notification templates (optional - DB defaults used if omitted)
+  sms_template_5d: z.string().min(10, 'Template-ul trebuie să aibă minim 10 caractere').optional(),
+  sms_template_3d: z.string().min(10, 'Template-ul trebuie să aibă minim 10 caractere').optional(),
+  sms_template_1d: z.string().min(10, 'Template-ul trebuie să aibă minim 10 caractere').optional(),
+  // Email notification templates (optional - DB defaults used if omitted)
+  email_template_5d: z.string().optional(),
+  email_template_3d: z.string().optional(),
+  email_template_1d: z.string().optional(),
 });
 
 export const updateStationSchema = createStationSchema.partial();

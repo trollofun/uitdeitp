@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { BrandingEditor } from '@/components/admin/BrandingEditor';
+import { NotificationTemplateEditor } from '@/components/admin/NotificationTemplateEditor';
 import { useToast } from '@/hooks/useToast';
 import { Loader2, Save, Trash2 } from 'lucide-react';
 
@@ -34,6 +35,12 @@ interface Station {
   station_address: string | null;
   logo_url: string | null;
   primary_color: string;
+  sms_template_5d: string | null;
+  sms_template_3d: string | null;
+  sms_template_1d: string | null;
+  email_template_5d: string | null;
+  email_template_3d: string | null;
+  email_template_1d: string | null;
 }
 
 interface StationFormProps {
@@ -227,6 +234,48 @@ export function StationForm({ station }: StationFormProps) {
           }}
         />
       </Card>
+
+      {/* Notification Templates (only for existing stations) */}
+      {station && (
+        <Card className="p-8">
+          <h2 className="text-xl font-semibold mb-6">Template-uri Notificări</h2>
+          <p className="text-muted-foreground mb-6">
+            Personalizează mesajele SMS și email trimise clienților tăi. Folosește variabile pentru a include date dinamice.
+          </p>
+          <NotificationTemplateEditor
+            smsTemplate5d={station.sms_template_5d || ''}
+            smsTemplate3d={station.sms_template_3d || ''}
+            smsTemplate1d={station.sms_template_1d || ''}
+            emailTemplate5d={station.email_template_5d || ''}
+            emailTemplate3d={station.email_template_3d || ''}
+            emailTemplate1d={station.email_template_1d || ''}
+            stationName={watchName}
+            stationPhone={watch('station_phone') || ''}
+            stationAddress={watch('station_address') || ''}
+            onSave={async (templates) => {
+              // Save templates directly to API
+              const response = await fetch(`/api/stations/${station.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(templates),
+              });
+
+              if (!response.ok) {
+                const result = await response.json();
+                throw new Error(result.error?.message || 'Eroare la salvare');
+              }
+
+              toast({
+                title: 'Template-uri actualizate',
+                description: 'Template-urile de notificare au fost salvate cu succes',
+                variant: 'success',
+              });
+
+              router.refresh();
+            }}
+          />
+        </Card>
+      )}
 
       {/* Actions */}
       <div className="flex items-center justify-between">
