@@ -13,23 +13,10 @@ export const metadata = {
 async function RemindersData({ filter }: { filter: string }) {
   const supabase = createServerClient();
 
-  // Build query based on filter
+  // Use admin_reminders_view which securely includes user emails
   let query = supabase
-    .from('reminders')
-    .select(`
-      id,
-      plate_number,
-      reminder_type,
-      expiry_date,
-      source,
-      guest_phone,
-      guest_name,
-      user_id,
-      station_id,
-      created_at,
-      users:user_id(email, phone),
-      kiosk_stations:station_id(name)
-    `)
+    .from('admin_reminders_view')
+    .select('*')
     .order('created_at', { ascending: false })
     .limit(100);
 
@@ -44,18 +31,29 @@ async function RemindersData({ filter }: { filter: string }) {
 
   if (error) {
     console.error('Error fetching reminders:', error);
-    return <div className="text-error">Eroare la încărcarea reminder-urilor</div>;
+    return <div className="text-error">Eroare la încărcarea reminder-urilor: {error.message}</div>;
   }
 
-  // Transform joined data from arrays to single objects (Supabase returns arrays for joins)
+  // Transform view data to match component interface
   const transformedReminders = (reminders || []).map((reminder: any) => ({
-    ...reminder,
-    users: Array.isArray(reminder.users)
-      ? (reminder.users[0] || null)
-      : reminder.users,
-    kiosk_stations: Array.isArray(reminder.kiosk_stations)
-      ? (reminder.kiosk_stations[0] || null)
-      : reminder.kiosk_stations
+    id: reminder.id,
+    user_id: reminder.user_id,
+    guest_phone: reminder.guest_phone,
+    guest_name: reminder.guest_name,
+    plate_number: reminder.plate_number,
+    reminder_type: reminder.reminder_type,
+    expiry_date: reminder.expiry_date,
+    source: reminder.source,
+    station_id: reminder.station_id,
+    created_at: reminder.created_at,
+    // Map view fields to component interface
+    users: reminder.user_id ? {
+      email: reminder.user_email || '',
+      phone: reminder.user_phone || null
+    } : null,
+    kiosk_stations: reminder.station_name ? {
+      name: reminder.station_name
+    } : null
   }));
 
   return <RemindersTable reminders={transformedReminders} />;
