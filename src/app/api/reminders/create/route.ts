@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { createReminderSchema } from '@/lib/validation';
 
 /**
  * POST /api/reminders/create
@@ -18,26 +19,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Parse request body
+    // Parse and validate request body
     const body = await request.json();
-    const { plate_number, expiry_date, sms_notifications_enabled } = body;
+    const validated = createReminderSchema.safeParse(body);
 
-    // Validate required fields
-    if (!plate_number || !expiry_date) {
+    if (!validated.success) {
       return NextResponse.json(
-        { error: 'Plate number and expiry date are required' },
+        { error: 'Validation failed', details: validated.error.errors },
         { status: 400 }
       );
     }
 
-    // Validate expiry date
-    const expiryDate = new Date(expiry_date);
-    if (isNaN(expiryDate.getTime())) {
-      return NextResponse.json(
-        { error: 'Invalid expiry date' },
-        { status: 400 }
-      );
-    }
+    const {
+      plate_number,
+      expiry_date,
+      reminder_type,
+      notification_intervals,
+      notification_channels,
+    } = validated.data;
 
     // Check if reminder already exists for this plate number and user
     const { data: existing } = await supabase
@@ -58,16 +57,17 @@ export async function POST(request: NextRequest) {
     // Generate confirmation code
     const confirmationCode = 'ITP' + Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // Create reminder
+    // Create reminder with user-selected notification preferences
     const { data: reminder, error } = await supabase
       .from('reminders')
       .insert({
         guest_phone: user.phone || user.email,
         plate_number: plate_number.toUpperCase(),
-        expiry_date: expiry_date,
-        reminder_type: 'itp',
+        expiry_date: expiry_date.toISOString(),
+        reminder_type: reminder_type,
         consent_given: true,
-        sms_notifications_enabled: sms_notifications_enabled ?? true,
+        notification_intervals: notification_intervals,
+        notification_channels: notification_channels,
         source: 'dashboard',
         confirmation_code: confirmationCode,
       })

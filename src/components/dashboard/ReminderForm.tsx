@@ -17,6 +17,7 @@ import {
 } from '@/components/ui';
 import { Checkbox } from '@/components/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { NotificationIntervalPicker } from '@/components/dashboard/NotificationIntervalPicker';
 
 interface ReminderFormProps {
   initialData?: Partial<CreateReminder>;
@@ -38,7 +39,7 @@ export function ReminderForm({ initialData, onSubmit, isEdit = false }: Reminder
     resolver: zodResolver(createReminderSchema) as any,
     defaultValues: {
       reminder_type: 'itp',
-      notification_intervals: [7, 3, 1],
+      notification_intervals: [5], // Changed default to match new system (5 days only)
       notification_channels: {
         sms: true,
         email: false,
@@ -49,6 +50,7 @@ export function ReminderForm({ initialData, onSubmit, isEdit = false }: Reminder
 
   const reminderType = watch('reminder_type');
   const notificationChannels = watch('notification_channels');
+  const notificationIntervals = watch('notification_intervals');
 
   const handleFormSubmit = async (data: CreateReminder) => {
     try {
@@ -121,14 +123,21 @@ export function ReminderForm({ initialData, onSubmit, isEdit = false }: Reminder
         </CardContent>
       </Card>
 
+      {/* Notification Intervals Picker */}
+      <NotificationIntervalPicker
+        selectedIntervals={notificationIntervals || [5]}
+        onChange={(intervals) => setValue('notification_intervals', intervals)}
+        maxSelections={3}
+      />
+
       <Card>
         <CardHeader>
-          <CardTitle>Setări notificări</CardTitle>
+          <CardTitle>Canale de Notificare</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Notification Channels */}
           <div className="space-y-3">
-            <Label>Canale de notificare</Label>
+            <Label>Cum vrei să primești notificările?</Label>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="sms"
@@ -138,7 +147,7 @@ export function ReminderForm({ initialData, onSubmit, isEdit = false }: Reminder
                 }
               />
               <Label htmlFor="sms" className="font-normal cursor-pointer">
-                SMS
+                SMS (Recomandat)
               </Label>
             </div>
             <div className="flex items-center space-x-2">
@@ -153,6 +162,9 @@ export function ReminderForm({ initialData, onSubmit, isEdit = false }: Reminder
                 Email
               </Label>
             </div>
+            <p className="text-sm text-muted-foreground">
+              Pentru a primi notificări SMS, verifică-ți telefonul în setările profilului.
+            </p>
           </div>
 
           {/* Guest Info (optional) */}

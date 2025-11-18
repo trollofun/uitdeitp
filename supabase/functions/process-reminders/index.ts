@@ -247,20 +247,15 @@ async function processReminder(
   console.log(`Processing reminder ${reminder.id} for ${reminder.plate_number} (${daysUntilExpiry} days until expiry)`);
   console.log(`User intervals: ${JSON.stringify(reminder.notification_intervals)}, channels: ${JSON.stringify(reminder.notification_channels)}`);
 
-  // Check if current daysUntilExpiry matches any of the user's notification intervals
-  const shouldNotifyToday = reminder.notification_intervals?.includes(daysUntilExpiry) || false;
+  // If next_notification_date <= today, we should send the notification
+  // This includes both scheduled notifications AND overdue notifications (missed due to system failures)
+  // The next_notification_date was calculated based on user's intervals, so we trust it
+  console.log(`Notification approved: next_notification_date (${reminder.next_notification_date}) <= today, proceeding to send`);
 
-  if (!shouldNotifyToday) {
-    console.log(`Skipping notification - ${daysUntilExpiry} days is not in user's intervals [${reminder.notification_intervals}]`);
-    return {
-      reminderId: reminder.id,
-      plate: reminder.plate_number,
-      type: reminder.type,
-      success: false,
-      channel: 'email',
-      error: 'Not a scheduled notification day',
-    };
-  }
+  // Note: We removed the interval check here because:
+  // 1. The database query already filters by next_notification_date <= today
+  // 2. next_notification_date was calculated based on intervals when reminder was created/updated
+  // 3. If cron job failed previously, we need to send overdue notifications regardless of current daysUntilExpiry
 
   // Check if user opted out
   const phoneToCheck = reminder.guest_phone || null;

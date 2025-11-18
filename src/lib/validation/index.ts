@@ -48,7 +48,13 @@ export const createReminderSchema = z.object({
     (date) => date > new Date(),
     'Data expirării trebuie să fie în viitor'
   ),
-  notification_intervals: z.array(z.number().positive()).default([7, 3, 1]),
+  notification_intervals: z
+    .array(z.number().refine((val) => [1, 5, 14].includes(val), {
+      message: 'Intervalul trebuie să fie 1, 5 sau 14 zile',
+    }))
+    .min(1, 'Trebuie să selectezi cel puțin 1 interval de notificare')
+    .max(3, 'Poți selecta maxim 3 intervale de notificare')
+    .default([5]),
   notification_channels: z
     .object({
       sms: z.boolean(),
