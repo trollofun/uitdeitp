@@ -5,7 +5,8 @@
  * Ported from Supabase Edge Function to enable code reuse
  */
 
-import { createServerClient } from '@/lib/supabase/server';
+// NOTE: Do NOT import createServerClient here - it requires cookies() which is not available in cron context
+// Instead, processRemindersForToday() creates a direct Supabase client with service role key
 import { notifyHub } from '@/lib/services/notifyhub';
 import { sendReminderEmail } from '@/lib/services/email';
 import { getDaysUntilExpiry } from '@/lib/services/date';
