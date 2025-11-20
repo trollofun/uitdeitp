@@ -14,10 +14,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Calendar } from '@/components/ui/calendar';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { KioskLayout, type StationConfig } from '@/components/kiosk/KioskLayout';
 import { StepIndicator } from '@/components/kiosk/StepIndicator';
 import KioskIdleState from '@/components/kiosk/KioskIdleState';
@@ -32,12 +30,73 @@ import {
   validateConsent,
   normalizePhoneNumber,
   normalizePlateNumber,
-  type KioskFormData
+  type KioskFormData,
+  type ValidationResult
 } from '@/lib/kiosk/validation';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2, Sparkles, Car, ChevronRight } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { ro } from 'date-fns/locale';
+
+// --- ANIMATIONS CONFIG ---
+const pageVariants = {
+  initial: (direction: number) => ({
+    x: direction > 0 ? 1000 : -1000,
+    opacity: 0,
+    scale: 0.9,
+    rotateY: direction > 0 ? 15 : -15, // 3D effect
+  }),
+  animate: {
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    rotateY: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 200,
+      damping: 25,
+      mass: 0.5
+    },
+  },
+  exit: (direction: number) => ({
+    x: direction < 0 ? 1000 : -1000,
+    opacity: 0,
+    scale: 0.9,
+    rotateY: direction < 0 ? 15 : -15,
+    transition: { duration: 0.3 }
+  })
+};
+
+const digitVariants = {
+  initial: { y: 20, opacity: 0, scale: 0.5 },
+  animate: { y: 0, opacity: 1, scale: 1, transition: { type: "spring" as const, stiffness: 500, damping: 15 } },
+  exit: { y: -20, opacity: 0, transition: { duration: 0.1 } }
+};
+
+// Componentă simplă de fundal animat
+const BackgroundMesh = ({ color }: { color: string }) => (
+  <div className="absolute inset-0 overflow-hidden -z-10 pointer-events-none">
+    <motion.div
+      animate={{
+        scale: [1, 1.2, 1],
+        rotate: [0, 10, -10, 0],
+        opacity: [0.3, 0.5, 0.3]
+      }}
+      transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+      className="absolute -top-[20%] -right-[20%] w-[800px] h-[800px] rounded-full blur-[100px] opacity-30 mix-blend-multiply"
+      style={{ backgroundColor: color }}
+    />
+    <motion.div
+      animate={{
+        scale: [1, 1.5, 1],
+        x: [0, 50, 0],
+        opacity: [0.2, 0.4, 0.2]
+      }}
+      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+      className="absolute -bottom-[20%] -left-[20%] w-[600px] h-[600px] rounded-full blur-[80px] opacity-20 bg-blue-300 mix-blend-multiply"
+    />
+  </div>
+);
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -48,6 +107,8 @@ export default function KioskPage() {
   const [station, setStation] = useState<StationConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<Step>(1);
+  const [direction, setDirection] = useState(1); // Pentru direcția animației
+
   const [formData, setFormData] = useState<KioskFormData>({
     name: '',
     phone: '',
@@ -60,12 +121,16 @@ export default function KioskPage() {
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [phoneVerified, setPhoneVerified] = useState(false);
 
-  // Activity tracking callback
-  const updateActivity = useCallback(() => {
-    setLastActivity(Date.now());
-  }, []);
+  // Helpers
+  const updateActivity = useCallback(() => setLastActivity(Date.now()), []);
 
-  // Fetch station config
+  const changeStep = (newStep: Step) => {
+    setDirection(newStep > step ? 1 : -1);
+    setStep(newStep);
+    updateActivity();
+  };
+
+  // Fetch station
   useEffect(() => {
     async function fetchStation() {
       try {
@@ -73,8 +138,6 @@ export default function KioskPage() {
         if (response.ok) {
           const data = await response.json();
           setStation(data);
-        } else {
-          console.error('Station not found or kiosk disabled');
         }
       } catch (error) {
         console.error('Failed to fetch station:', error);
@@ -82,122 +145,49 @@ export default function KioskPage() {
         setLoading(false);
       }
     }
-
     fetchStation();
   }, [stationSlug]);
 
-  // Auto-reset after success (30 seconds)
+  // Auto-reset logic (Simplified)
   useEffect(() => {
     if (step === 7) {
       const timer = setTimeout(() => {
         setStep(1);
-        setFormData({
-          name: '',
-          phone: '',
-          plateNumber: '',
-          expiryDate: null,
-          consent: false
-        });
-        setErrors({});
-        setPhoneVerified(false);
+        setFormData({ name: '', phone: '', plateNumber: '', expiryDate: null, consent: false });
       }, 30000);
-
       return () => clearTimeout(timer);
     }
   }, [step]);
 
-  // Inactivity timeout - auto-reset to idle if no activity
-  useEffect(() => {
-    // Only monitor steps 2-6 (not idle state or success screen)
-    if (step >= 2 && step <= 6) {
-      const checkInactivity = setInterval(() => {
-        const timeSinceLastActivity = Date.now() - lastActivity;
-
-        // Extended timeout for Step 4 (phone verification - waiting for SMS)
-        // Standard timeout for other steps
-        const IDLE_TIMEOUT_VERIFICATION = 600000; // 10 minutes (600 seconds) - matches SMS expiry
-        const IDLE_TIMEOUT_DEFAULT = 30000; // 30 seconds for other steps
-
-        const timeout = step === 4 ? IDLE_TIMEOUT_VERIFICATION : IDLE_TIMEOUT_DEFAULT;
-
-        if (timeSinceLastActivity >= timeout) {
-          // Reset to idle state
-          console.log(`[Kiosk] Idle timeout reached on step ${step} (${timeout}ms)`);
-          setStep(1);
-          setFormData({
-            name: '',
-            phone: '',
-            plateNumber: '',
-            expiryDate: null,
-            consent: false
-          });
-          setErrors({});
-          setPhoneVerified(false);
-        }
-      }, 1000); // Check every second
-
-      return () => clearInterval(checkInactivity);
-    }
-  }, [step, lastActivity]);
-
+  // Validation & Navigation
   const handleNext = (field: keyof KioskFormData) => {
-    // Validate current field
-    let validationResult;
+    let validationResult: ValidationResult = { valid: true };
 
     switch (field) {
-      case 'name':
-        validationResult = validateName(formData.name);
-        break;
+      case 'name': validationResult = validateName(formData.name); break;
       case 'phone':
         validationResult = validatePhoneNumber(formData.phone);
-        if (validationResult.valid) {
-          // Normalize phone to +40 format
-          setFormData(prev => ({
-            ...prev,
-            phone: normalizePhoneNumber(prev.phone)
-          }));
-        }
+        if (validationResult.valid) setFormData(p => ({...p, phone: normalizePhoneNumber(p.phone)}));
         break;
       case 'plateNumber':
         validationResult = validatePlateNumber(formData.plateNumber);
-        if (validationResult.valid) {
-          // Normalize plate to uppercase with hyphens
-          setFormData(prev => ({
-            ...prev,
-            plateNumber: normalizePlateNumber(prev.plateNumber)
-          }));
-        }
+        if (validationResult.valid) setFormData(p => ({...p, plateNumber: normalizePlateNumber(p.plateNumber)}));
         break;
-      case 'expiryDate':
-        validationResult = validateExpiryDate(formData.expiryDate);
-        break;
-      case 'consent':
-        validationResult = validateConsent(formData.consent);
-        break;
-      default:
-        validationResult = { valid: true };
     }
 
     if (!validationResult.valid) {
       setErrors(prev => ({ ...prev, [field]: validationResult.error }));
+      // Shake animation logic could go here
       return;
     }
 
-    // Clear error and advance
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[field];
-      return newErrors;
-    });
-
-    setStep(prev => (prev + 1) as Step);
+    setErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
+    changeStep((step + 1) as Step);
   };
 
   const handleSubmit = async () => {
     if (!station) return;
-
     setSubmitting(true);
-
     try {
       const response = await fetch('/api/kiosk/submit', {
         method: 'POST',
@@ -213,650 +203,372 @@ export default function KioskPage() {
         })
       });
 
-      if (response.ok) {
-        setStep(7);
-      } else {
-        const error = await response.json();
-        alert(`Eroare: ${error.message || 'Nu s-a putut salva reminder-ul'}`);
-      }
-    } catch (error) {
-      console.error('Submit error:', error);
-      alert('Eroare de conexiune. Te rugăm să încerci din nou.');
-    } finally {
-      setSubmitting(false);
-    }
+      if (response.ok) changeStep(7);
+      else alert('Eroare la salvare.');
+    } catch (e) { console.error(e); }
+    finally { setSubmitting(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-blue-600" /></div>;
+  if (!station) return <div className="min-h-screen flex items-center justify-center">Stație indisponibilă</div>;
 
-  if (!station) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Stație ITP Indisponibilă
-          </h1>
-          <p className="text-gray-600">
-            Modul kiosk nu este activat pentru această stație.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const primaryColor = station.primary_color;
+  const primaryColor = station.primary_color || '#2563eb';
 
   return (
     <KioskLayout station={station} showHeader={step !== 1 && step !== 7}>
-      <div className="bg-white rounded-2xl shadow-2xl p-12">
+      {/* Container Principal cu perspectivă pentru efecte 3D */}
+      <div className="relative bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-12 w-full h-[85vh] flex flex-col overflow-hidden border border-white/50">
+
+        <BackgroundMesh color={primaryColor} />
+
         {step !== 1 && step !== 7 && (
-          <StepIndicator
-            currentStep={step}
-            totalSteps={7}
-            primaryColor={primaryColor}
-          />
+          <div className="mb-6 shrink-0">
+            <StepIndicator currentStep={step} totalSteps={7} primaryColor={primaryColor} />
+          </div>
         )}
 
-        <AnimatePresence mode="wait">
-          {/* Step 1: Idle Screen */}
-          {step === 1 && (
-            <div key="step1" className="fixed inset-0 z-50">
-              <KioskIdleState onStart={() => setStep(2)} />
-            </div>
-          )}
+        <div className="flex-1 relative flex flex-col justify-center">
+          <AnimatePresence mode="wait" custom={direction} initial={false}>
 
-          {/* Step 2: Name Input */}
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            >
-              <motion.h3
-                className="text-3xl font-bold text-gray-900 mb-8 text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
+            {/* Step 1: Idle Screen - Pulsating Effect */}
+            {step === 1 && (
+              <motion.div
+                key="step1"
+                className="absolute inset-0 z-50 flex items-center justify-center"
+                exit={{ opacity: 0, scale: 1.1, filter: 'blur(10px)' }}
               >
-                Cum te numești?
-              </motion.h3>
+                <KioskIdleState onStart={() => changeStep(2)} />
+              </motion.div>
+            )}
 
-              <div className="relative mb-4">
-                <motion.input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => {
-                    setFormData(prev => ({ ...prev, name: e.target.value }));
-                    updateActivity();
-                  }}
-                  onKeyDown={(e) => {
-                    updateActivity();
-                    if (e.key === 'Enter') handleNext('name');
-                  }}
-                  onFocus={updateActivity}
-                  placeholder="Numele tău complet"
-                  className="w-full px-6 py-6 text-2xl border-2 rounded-xl focus:outline-none transition-all"
-                  style={{
-                    borderColor: errors.name ? '#ef4444' : formData.name && !errors.name ? primaryColor : '#d1d5db',
-                  }}
-                  whileFocus={{
-                    scale: 1.02,
-                    boxShadow: `0 0 0 4px ${primaryColor}20`
-                  }}
-                  transition={{ duration: 0.2 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  autoFocus
-                />
-                {formData.name && !errors.name && (
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2"
-                  >
-                    <CheckCircle2 className="w-8 h-8 text-green-500" />
-                  </motion.div>
-                )}
-              </div>
-
-              {errors.name && (
-                <motion.p
-                  initial={{ x: 0 }}
-                  animate={{ x: [-10, 10, -10, 10, 0] }}
-                  transition={{ duration: 0.4 }}
-                  className="text-red-600 text-lg mb-4"
-                >
-                  {errors.name}
-                </motion.p>
-              )}
-
-              <motion.button
-                onClick={() => {
-                  updateActivity();
-                  handleNext('name');
-                }}
-                disabled={!formData.name.trim()}
-                className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                style={{ backgroundColor: primaryColor }}
-                whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            {/* Step 2: Name Input */}
+            {step === 2 && (
+              <motion.div
+                key="step2"
+                custom={direction}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="w-full max-w-2xl mx-auto text-center"
               >
-                Continuă →
-              </motion.button>
-            </motion.div>
-          )}
-
-          {/* Step 3: Phone Input - iPad Split Layout with Custom Numpad */}
-          {step === 3 && (
-            <motion.div
-              key="step3"
-              initial={{ opacity: 0, x: '100%', scale: 0.95, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, x: '-100%', scale: 0.95, filter: 'blur(10px)' }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
-            >
-              {/* Left Column: Display */}
-              <div className="space-y-6">
                 <motion.h3
-                  className="text-3xl lg:text-4xl font-bold text-gray-900 text-center lg:text-left"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
+                  initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                  className="text-4xl font-bold text-gray-900 mb-8"
                 >
-                  Numărul tău de telefon?
+                  Cum te numești?
                 </motion.h3>
 
-                <motion.div
-                  className="relative bg-gradient-to-br from-white to-gray-50/50 backdrop-blur border-2 rounded-2xl p-8 shadow-lg"
-                  style={{
-                    borderColor: errors.phone ? '#ef4444' : formData.phone.length >= 12 ? primaryColor : '#e5e7eb',
-                  }}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <div className="text-5xl lg:text-6xl font-mono text-center tracking-wider">
-                    <span className="text-gray-500">+40</span>
-                    <span className="ml-2 text-gray-900">
-                      {formData.phone.replace('+40', '') || '---'}
-                    </span>
-                  </div>
-
-                  {formData.phone.length >= 12 && !errors.phone && (
-                    <motion.div
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      className="absolute -top-3 -right-3"
-                    >
-                      <CheckCircle2 className="w-12 h-12 text-green-500 bg-white rounded-full" />
-                    </motion.div>
-                  )}
-                </motion.div>
-
-                {errors.phone && (
-                  <motion.p
-                    initial={{ x: 0 }}
-                    animate={{ x: [-10, 10, -10, 10, 0] }}
-                    transition={{ duration: 0.4 }}
-                    className="text-red-600 text-lg text-center lg:text-left"
-                  >
-                    {errors.phone}
-                  </motion.p>
-                )}
-
-                <motion.button
-                  onClick={() => {
-                    updateActivity();
-                    handleNext('phone');
-                  }}
-                  disabled={formData.phone.length < 12}
-                  className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  style={{ backgroundColor: primaryColor }}
-                  whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
-                  whileTap={{ scale: 0.98 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  Continuă →
-                </motion.button>
-              </div>
-
-              {/* Right Column: Custom Numpad */}
-              <motion.div
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                onClick={updateActivity}
-              >
-                <Numpad
-                  onInput={(digit) => {
-                    const currentDigits = formData.phone.replace('+40', '');
-                    if (currentDigits.length < 9) {
-                      const newPhone = `+40${currentDigits}${digit}`;
-                      setFormData(prev => ({ ...prev, phone: newPhone }));
-                      updateActivity();
-                    }
-                  }}
-                  onDelete={() => {
-                    const currentDigits = formData.phone.replace('+40', '');
-                    if (currentDigits.length > 0) {
-                      const newPhone = `+40${currentDigits.slice(0, -1)}`;
-                      setFormData(prev => ({ ...prev, phone: newPhone }));
-                      updateActivity();
-                    }
-                  }}
-                />
-              </motion.div>
-            </motion.div>
-          )}
-
-          {/* Step 4: Phone Verification + GDPR Consent */}
-          {step === 4 && (
-            <div key="step4" className="h-full">
-              <PhoneVerificationStep
-                phone={formData.phone.replace('+40', '0')}
-                stationSlug={stationSlug}
-                onVerified={(phone, consent) => {
-                  // Convert back to E.164 format for storage
-                  const e164Phone = phone.startsWith('0') ? `+40${phone.substring(1)}` : `+40${phone}`;
-                  setFormData(prev => ({ ...prev, phone: e164Phone, consent }));
-                  setPhoneVerified(true);
-                  updateActivity();
-                  setStep(5);
-                }}
-                onBack={() => {
-                  setStep(3);
-                  updateActivity();
-                }}
-              />
-            </div>
-          )}
-
-          {/* Step 5: Plate Number - Euroband Visual + Custom Keyboard */}
-          {step === 5 && (
-            <motion.div
-              key="step5"
-              initial={{ opacity: 0, x: '100%', scale: 0.95, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, x: '-100%', scale: 0.95, filter: 'blur(10px)' }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="space-y-8"
-            >
-              <motion.h3
-                className="text-3xl lg:text-4xl font-bold text-gray-900 mb-8 text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                Numărul de înmatriculare?
-              </motion.h3>
-
-              {/* Euroband License Plate Visual */}
-              <motion.div
-                className="flex items-center justify-center bg-white border-4 border-black rounded-lg overflow-hidden shadow-2xl max-w-[600px] mx-auto"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, type: "spring" }}
-                style={{ height: '140px' }}
-              >
-                {/* EU Blue Band */}
-                <div className="w-20 h-full bg-[#003399] flex flex-col items-center justify-center text-white">
-                  <div className="text-xs mb-1">⭐⭐⭐</div>
-                  <div className="text-xs mb-1">⭐ ⭐</div>
-                  <div className="text-xs mb-1">⭐⭐⭐</div>
-                  <div className="text-xs mb-1">⭐ ⭐</div>
-                  <div className="text-xs mb-2">⭐⭐⭐</div>
-                  <div className="font-bold text-lg">RO</div>
-                </div>
-
-                {/* Plate Number Display */}
-                <div className="flex-1 flex items-center justify-center bg-white px-6">
-                  <span className="text-6xl lg:text-7xl font-mono font-black tracking-wider uppercase text-gray-900">
-                    {formData.plateNumber || 'B12ABC'}
-                  </span>
-                </div>
-
-                {formData.plateNumber && !errors.plateNumber && (
+                <div className="relative mb-8 group">
+                  <motion.input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => { setFormData(p => ({ ...p, name: e.target.value })); updateActivity(); }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleNext('name')}
+                    placeholder="Ion Popescu"
+                    autoFocus
+                    className="w-full px-8 py-8 text-4xl text-center font-medium border-b-4 bg-gray-50/50 focus:bg-white rounded-t-2xl focus:outline-none transition-all"
+                    style={{ borderColor: errors.name ? '#ef4444' : formData.name ? primaryColor : '#e5e7eb' }}
+                  />
+                  {/* Animated Underline */}
                   <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    className="absolute -top-4 -right-4"
-                  >
-                    <CheckCircle2 className="w-14 h-14 text-green-500 bg-white rounded-full shadow-lg" />
-                  </motion.div>
-                )}
-              </motion.div>
-
-              {errors.plateNumber && (
-                <motion.p
-                  initial={{ x: 0 }}
-                  animate={{ x: [-10, 10, -10, 10, 0] }}
-                  transition={{ duration: 0.4 }}
-                  className="text-red-600 text-lg text-center"
-                >
-                  {errors.plateNumber}
-                </motion.p>
-              )}
-
-              {/* Custom QWERTY Keyboard */}
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                onClick={updateActivity}
-              >
-                <PlateKeyboard
-                  onInput={(key) => {
-                    if (formData.plateNumber.length < 15) {
-                      const newPlate = (formData.plateNumber + key).toUpperCase();
-                      setFormData(prev => ({ ...prev, plateNumber: newPlate }));
-                      updateActivity();
-                    }
-                  }}
-                  onDelete={() => {
-                    if (formData.plateNumber.length > 0) {
-                      const newPlate = formData.plateNumber.slice(0, -1);
-                      setFormData(prev => ({ ...prev, plateNumber: newPlate }));
-                      updateActivity();
-                    }
-                  }}
-                />
-              </motion.div>
-
-              <motion.button
-                onClick={() => {
-                  updateActivity();
-                  handleNext('plateNumber');
-                }}
-                disabled={!formData.plateNumber}
-                className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                style={{ backgroundColor: primaryColor }}
-                whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-              >
-                Continuă →
-              </motion.button>
-            </motion.div>
-          )}
-
-          {/* Step 6: Expiry Date - iPad Split Layout with Enhanced Calendar */}
-          {step === 6 && (
-            <motion.div
-              key="step6"
-              initial={{ opacity: 0, x: '100%', scale: 0.95, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, x: '-100%', scale: 0.95, filter: 'blur(10px)' }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
-            >
-              {/* Left Column: Selected Date Display */}
-              <div className="space-y-6">
-                <motion.h3
-                  className="text-3xl lg:text-4xl font-bold text-gray-900 text-center lg:text-left"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  Când expiră ITP-ul?
-                </motion.h3>
-
-                <motion.div
-                  className="relative bg-gradient-to-br from-white to-blue-50/30 backdrop-blur border-2 rounded-2xl p-10 shadow-lg"
-                  style={{
-                    borderColor: errors.expiryDate ? '#ef4444' : formData.expiryDate ? primaryColor : '#e5e7eb',
-                  }}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  {formData.expiryDate ? (
-                    <>
-                      <div className="text-center">
-                        <div className="text-6xl lg:text-7xl font-bold text-gray-900 mb-2">
-                          {format(formData.expiryDate, 'dd', { locale: ro })}
-                        </div>
-                        <div className="text-2xl lg:text-3xl text-gray-600 mb-1">
-                          {format(formData.expiryDate, 'MMMM', { locale: ro })}
-                        </div>
-                        <div className="text-xl lg:text-2xl text-gray-500">
-                          {format(formData.expiryDate, 'yyyy', { locale: ro })}
-                        </div>
-                      </div>
-                      <motion.div
-                        initial={{ scale: 0, rotate: -180 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        className="absolute -top-3 -right-3"
-                      >
-                        <CheckCircle2 className="w-12 h-12 text-green-500 bg-white rounded-full" />
-                      </motion.div>
-                    </>
-                  ) : (
-                    <div className="text-center text-gray-400 text-3xl py-8">
-                      Selectează data →
-                    </div>
-                  )}
-                </motion.div>
-
-                {errors.expiryDate && (
-                  <motion.p
-                    initial={{ x: 0 }}
-                    animate={{ x: [-10, 10, -10, 10, 0] }}
-                    transition={{ duration: 0.4 }}
-                    className="text-red-600 text-lg text-center lg:text-left"
-                  >
-                    {errors.expiryDate}
-                  </motion.p>
-                )}
-
-                <motion.button
-                  onClick={() => {
-                    updateActivity();
-                    handleSubmit();
-                  }}
-                  disabled={!formData.expiryDate || submitting}
-                  className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3"
-                  style={{ backgroundColor: primaryColor }}
-                  whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
-                  whileTap={{ scale: 0.98 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      <span>Se salvează...</span>
-                    </>
-                  ) : (
-                    'Salvează Reminder-ul ✓'
-                  )}
-                </motion.button>
-              </div>
-
-              {/* Right Column: Enhanced Calendar */}
-              <motion.div
-                className="flex justify-center"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.3 }}
-                onClick={updateActivity}
-              >
-                <Calendar
-                  mode="single"
-                  selected={formData.expiryDate || undefined}
-                  onSelect={(date) => {
-                    setFormData(prev => ({ ...prev, expiryDate: date || null }));
-                    updateActivity();
-                  }}
-                  disabled={(date) => date < new Date()}
-                  className="rounded-2xl border-2 p-6 bg-white shadow-lg scale-110"
-                  classNames={{
-                    months: 'space-y-4',
-                    month: 'space-y-4',
-                    caption: 'flex justify-center pt-1 relative items-center text-xl font-semibold',
-                    caption_label: 'text-2xl font-bold',
-                    nav: 'space-x-1 flex items-center',
-                    nav_button: 'h-12 w-12 bg-transparent hover:bg-gray-100 p-0 rounded-lg transition-colors',
-                    nav_button_previous: 'absolute left-1',
-                    nav_button_next: 'absolute right-1',
-                    table: 'w-full border-collapse space-y-1',
-                    head_row: 'flex',
-                    head_cell: 'text-gray-500 rounded-md w-14 font-semibold text-lg',
-                    row: 'flex w-full mt-2',
-                    cell: 'h-14 w-14 text-center text-xl p-0 relative',
-                    day: 'h-14 w-14 p-0 font-semibold rounded-xl hover:bg-gray-100 transition-all',
-                    day_selected: `bg-blue-600 text-white hover:bg-blue-700 scale-110 shadow-lg`,
-                    day_today: 'bg-gray-100 text-gray-900 font-bold',
-                    day_outside: 'text-gray-300 opacity-50',
-                    day_disabled: 'text-gray-300 opacity-30 cursor-not-allowed',
-                    day_hidden: 'invisible',
-                  }}
-                />
-              </motion.div>
-            </motion.div>
-          )}
-
-          {/* Step 7: Success Screen */}
-          {step === 7 && (
-            <motion.div
-              key="step7"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              className="text-center"
-            >
-              <div className="mb-8">
-                <motion.div
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{
-                    delay: 0.2,
-                    type: 'spring',
-                    stiffness: 260,
-                    damping: 20
-                  }}
-                >
-                  <CheckCircle2 className="w-40 h-40 mx-auto mb-6" style={{ color: primaryColor }} />
-                </motion.div>
-
-                <motion.h3
-                  className="text-5xl font-bold text-gray-900 mb-4"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  🎉 Reminder Salvat!
-                </motion.h3>
-
-                <motion.p
-                  className="text-2xl text-gray-600 mb-8"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  Vei primi SMS/Email cu reminder înainte de expirarea ITP.
-                </motion.p>
-              </div>
-
-              <motion.div
-                className="bg-gradient-to-br from-gray-50 to-blue-50/30 p-8 rounded-2xl mb-8"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.6 }}
-              >
-                <p className="text-xl text-gray-700 mb-4 font-semibold">
-                  Vrei să gestionezi reminder-ele tale online?
-                </p>
-                <p className="text-gray-600 mb-4">
-                  Creează cont pe <strong className="text-blue-600">uitdeITP.ro</strong> și ai acces la:
-                </p>
-                <motion.ul
-                  className="text-left text-gray-600 space-y-3 max-w-md mx-auto"
-                  initial="hidden"
-                  animate="visible"
-                  variants={{
-                    visible: {
-                      transition: {
-                        staggerChildren: 0.1,
-                        delayChildren: 0.7
-                      }
-                    }
-                  }}
-                >
-                  {['Dashboard cu toate mașinile tale', 'Istoric ITP și reminder-e multiple', 'Integrare cu Rovinieta și RCA'].map((item, i) => (
-                    <motion.li
-                      key={i}
-                      variants={{
-                        hidden: { opacity: 0, x: -20 },
-                        visible: { opacity: 1, x: 0 }
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <motion.span
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.7 + i * 0.1 }}
-                        className="text-green-500 text-xl"
-                      >
-                        ✓
-                      </motion.span>
-                      {item}
-                    </motion.li>
-                  ))}
-                </motion.ul>
-              </motion.div>
-
-              {station.station_phone && (
-                <motion.div
-                  className="text-gray-600 mb-8"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 1 }}
-                >
-                  <p className="text-xl">
-                    Întrebări? Sună la: <strong className="text-blue-600">{station.station_phone}</strong>
-                  </p>
-                </motion.div>
-              )}
-
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.1 }}
-              >
-                <p className="text-sm text-gray-500 mb-3">
-                  Resetare automată în 30 secunde...
-                </p>
-                <div className="w-full max-w-md mx-auto h-3 bg-gray-200 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
+                    className="absolute bottom-0 left-0 h-1 bg-blue-500"
+                    initial={{ width: "0%" }}
+                    animate={{ width: "100%" }}
                     style={{ backgroundColor: primaryColor }}
-                    initial={{ width: '100%' }}
-                    animate={{ width: '0%' }}
-                    transition={{ duration: 30, ease: "linear" }}
                   />
                 </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleNext('name')}
+                  disabled={!formData.name.trim()}
+                  className="px-12 py-6 text-2xl font-bold text-white rounded-full shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-3 mx-auto"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Continuă <ChevronRight size={32} />
+                </motion.button>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+
+            {/* Step 3: Phone Input - FIX LAYOUT (md:grid-cols-2) */}
+            {step === 3 && (
+              <motion.div
+                key="step3"
+                custom={direction}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="h-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center content-center"
+              >
+                {/* Left: Display */}
+                <div className="flex flex-col justify-center space-y-6">
+                  <h3 className="text-3xl font-bold text-gray-900">Numărul de telefon?</h3>
+
+                  <div className={`
+                    relative p-8 rounded-3xl border-2 bg-white/80 backdrop-blur-sm shadow-xl transition-all duration-300
+                    ${formData.phone.length >= 12 ? 'border-green-500 ring-4 ring-green-100' : 'border-gray-200'}
+                  `}>
+                    <div className="flex justify-center items-center gap-1 text-5xl font-mono font-bold tracking-wider h-20">
+                      <span className="text-gray-400 select-none">+40</span>
+
+                      {/* Animated Digits */}
+                      <LayoutGroup>
+                        {formData.phone.replace('+40', '').split('').map((digit, i) => (
+                          <motion.span
+                            key={i}
+                            layoutId={`digit-${i}`}
+                            variants={digitVariants}
+                            initial="initial"
+                            animate="animate"
+                            className="text-gray-900"
+                          >
+                            {digit}
+                          </motion.span>
+                        ))}
+                        {/* Cursor */}
+                        <motion.div
+                          animate={{ opacity: [1, 0] }}
+                          transition={{ repeat: Infinity, duration: 0.8 }}
+                          className="w-1 h-12 bg-blue-600 ml-1"
+                        />
+                      </LayoutGroup>
+                    </div>
+
+                    {formData.phone.length >= 12 && (
+                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-4 -right-4 bg-white rounded-full">
+                         <CheckCircle2 className="w-12 h-12 text-green-500 shadow-lg rounded-full" />
+                       </motion.div>
+                    )}
+                  </div>
+
+                  {errors.phone && <p className="text-red-500 text-lg font-medium animate-pulse">{errors.phone}</p>}
+
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleNext('phone')}
+                    disabled={formData.phone.length < 12}
+                    className="hidden md:block w-full py-6 text-xl font-bold text-white rounded-2xl shadow-md disabled:opacity-50"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    Trimite SMS
+                  </motion.button>
+                </div>
+
+                {/* Right: Numpad (Always visible on side in md+) */}
+                <div className="flex justify-center w-full">
+                  <div className="bg-gray-100/50 p-6 rounded-[2rem] shadow-inner w-full max-w-[350px]">
+                    <Numpad
+                      onInput={(d) => {
+                        const curr = formData.phone.replace('+40', '');
+                        if (curr.length < 9) { setFormData(p => ({ ...p, phone: `+40${curr}${d}` })); updateActivity(); }
+                      }}
+                      onDelete={() => {
+                        const curr = formData.phone.replace('+40', '');
+                        if (curr.length > 0) { setFormData(p => ({ ...p, phone: `+40${curr.slice(0, -1)}` })); updateActivity(); }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Mobile-only button */}
+                <button className="md:hidden w-full py-4 bg-blue-600 text-white font-bold rounded-xl mt-4">Continuă</button>
+              </motion.div>
+            )}
+
+            {/* Step 4: Verification */}
+            {step === 4 && (
+              <motion.div key="step4" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" className="h-full">
+                <PhoneVerificationStep
+                  phone={formData.phone.replace('+40', '0')}
+                  stationSlug={stationSlug}
+                  onVerified={(phone, consent) => {
+                    const e164 = phone.startsWith('0') ? `+40${phone.substring(1)}` : `+40${phone}`;
+                    setFormData(p => ({ ...p, phone: e164, consent }));
+                    setPhoneVerified(true); changeStep(5);
+                  }}
+                  onBack={() => changeStep(3)}
+                />
+              </motion.div>
+            )}
+
+            {/* Step 5: Plate Number - Shiny Plate Effect */}
+            {step === 5 && (
+              <motion.div
+                key="step5"
+                custom={direction}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="flex flex-col items-center justify-center h-full space-y-8"
+              >
+                <h3 className="text-3xl font-bold text-gray-900">Numărul de înmatriculare?</h3>
+
+                {/* Realistic Plate with Shimmer */}
+                <div className="relative group">
+                    <motion.div
+                      className="relative flex items-center w-[340px] sm:w-[500px] h-[110px] bg-white border-[6px] border-black rounded-lg overflow-hidden shadow-2xl"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                        {/* Shimmer Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-full h-full -skew-x-12 translate-x-[-200%] animate-[shimmer_3s_infinite]" />
+
+                        <div className="w-20 h-full bg-[#003399] flex flex-col items-center justify-center text-white border-r-2 border-white z-10">
+                            <div className="grid grid-cols-6 gap-0.5 mb-2 w-10">{[...Array(12)].map((_,i)=><div key={i} className="w-1 h-1 bg-yellow-400 rounded-full"/>)}</div>
+                            <span className="font-bold text-2xl">RO</span>
+                        </div>
+
+                        <div className="flex-1 flex justify-center items-center z-10">
+                            <span className="text-5xl sm:text-6xl font-mono font-bold tracking-[0.2em] uppercase text-gray-900">
+                                {formData.plateNumber || <span className="opacity-20">B12ABC</span>}
+                            </span>
+                        </div>
+                    </motion.div>
+                </div>
+
+                {/* Custom Keyboard Overlay */}
+                <div className="w-full max-w-3xl bg-gray-100/80 backdrop-blur-md p-4 rounded-3xl shadow-xl border border-white/50">
+                  <PlateKeyboard
+                    onInput={(k) => {
+                      if (formData.plateNumber.length < 15) {
+                        setFormData(p => ({ ...p, plateNumber: (p.plateNumber + k).toUpperCase() }));
+                        updateActivity();
+                      }
+                    }}
+                    onDelete={() => {
+                      setFormData(p => ({ ...p, plateNumber: p.plateNumber.slice(0, -1) }));
+                      updateActivity();
+                    }}
+                  />
+                </div>
+
+                <motion.button
+                   whileTap={{ scale: 0.95 }}
+                   onClick={() => handleNext('plateNumber')}
+                   disabled={!formData.plateNumber}
+                   className="px-16 py-4 text-xl font-bold text-white rounded-full shadow-lg transition-all disabled:opacity-50"
+                   style={{ backgroundColor: primaryColor }}
+                >
+                  Confirmă
+                </motion.button>
+              </motion.div>
+            )}
+
+            {/* Step 6: Calendar - Scaled & Friendly */}
+            {step === 6 && (
+              <motion.div
+                key="step6"
+                custom={direction}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="h-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
+              >
+                 <div className="space-y-6 text-center md:text-left pl-4">
+                    <h3 className="text-4xl font-bold text-gray-900">Când expiră?</h3>
+                    <div className="bg-white p-6 rounded-2xl border shadow-sm inline-block min-w-[250px]">
+                        <p className="text-sm text-gray-500 uppercase font-bold tracking-wider">Data Selectată</p>
+                        <p className="text-4xl font-bold text-blue-900 mt-2">
+                          {formData.expiryDate ? format(formData.expiryDate, 'dd MMMM yyyy', { locale: ro }) : '---'}
+                        </p>
+                    </div>
+                    <div>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleSubmit}
+                          disabled={!formData.expiryDate || submitting}
+                          className="w-full md:w-auto px-12 py-6 text-xl font-bold text-white rounded-2xl shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                          {submitting ? <Loader2 className="animate-spin" /> : 'Finalizează'}
+                        </motion.button>
+                    </div>
+                 </div>
+
+                 <div className="flex justify-center">
+                    <div className="transform scale-110 origin-center bg-white p-4 rounded-3xl shadow-2xl border-2 border-blue-50">
+                        <Calendar
+                            mode="single"
+                            selected={formData.expiryDate || undefined}
+                            onSelect={(d) => { setFormData(p => ({...p, expiryDate: d || null})); updateActivity(); }}
+                            disabled={(d) => d < new Date()}
+                            className="p-2"
+                            classNames={{
+                                day_selected: "bg-blue-600 text-white hover:bg-blue-700 scale-110 shadow-md transition-all duration-200",
+                                day: "h-14 w-14 p-0 font-semibold text-lg rounded-xl hover:bg-gray-100 aria-selected:opacity-100",
+                                head_cell: "text-gray-400 w-14 font-normal",
+                                caption: "mb-4",
+                                caption_label: "text-xl font-bold text-gray-800"
+                            }}
+                        />
+                    </div>
+                 </div>
+              </motion.div>
+            )}
+
+            {/* Step 7: Success - Confetti & Stamp */}
+            {step === 7 && (
+              <motion.div
+                key="step7"
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="flex flex-col items-center justify-center h-full text-center"
+              >
+                {/* CSS-based Confetti Particles (Simplificat, fără librărie externă) */}
+                {[...Array(12)].map((_, i) => (
+                   <motion.div
+                     key={i}
+                     initial={{ x: 0, y: 0, opacity: 1 }}
+                     animate={{
+                        x: (Math.random() - 0.5) * 600,
+                        y: (Math.random() - 0.5) * 600,
+                        opacity: 0,
+                        rotate: Math.random() * 360
+                     }}
+                     transition={{ duration: 1.5, ease: "easeOut" }}
+                     className="absolute w-3 h-3 rounded-sm"
+                     style={{
+                        backgroundColor: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1'][i % 4],
+                        top: '50%', left: '50%'
+                     }}
+                   />
+                ))}
+
+                <motion.div
+                    initial={{ scale: 3, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className="mb-8"
+                >
+                    <div className="w-40 h-40 bg-green-100 rounded-full flex items-center justify-center mx-auto ring-8 ring-green-50">
+                        <CheckCircle2 className="w-24 h-24 text-green-600" />
+                    </div>
+                </motion.div>
+
+                <h1 className="text-6xl font-black text-gray-900 mb-4 tracking-tight">Gata!</h1>
+                <p className="text-2xl text-gray-600 max-w-lg mx-auto leading-relaxed">
+                   Reminder-ul a fost setat cu succes. Vei primi o notificare înainte de expirare.
+                </p>
+
+                <div className="mt-12 w-64 h-2 bg-gray-100 rounded-full overflow-hidden mx-auto">
+                    <motion.div
+                        className="h-full bg-green-500"
+                        initial={{ width: "100%" }}
+                        animate={{ width: "0%" }}
+                        transition={{ duration: 30, ease: "linear" }}
+                    />
+                </div>
+                <p className="text-sm text-gray-400 mt-2">Resetare automată...</p>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
       </div>
     </KioskLayout>
   );
