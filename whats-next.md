@@ -1,274 +1,524 @@
 <original_task>
-Investigate why daily ITP reminder notifications are not being sent to users despite a new day passing. Check Supabase logs and Vercel deployment logs in parallel to identify the root cause.
+Fix notification system that stopped sending reminders after migration from Supabase Edge Functions to Vercel Cron.
 
-**User Report**: "a trecut o noua zi si eu tot nu am primit nici o notificare"
-**Expected Behavior**: Users should receive SMS/email notifications at configured intervals (1, 5, or 14 days before ITP expiry)
-**Actual Behavior**: No notifications sent for 8+ days
+**User Report (Session 1)**: "a mai trecut o zi si nu am primit nici o notificare"
+**User Report (Session 2)**: "a mai trecut o zi si nu am primit nici o notificare. foloseste supabase mcp si vercel cli sa verificam logs si sa vedem DE CE NU SE TRIMIT NOTIFICARILE"
+
+**Expected Behavior**: Daily automated reminders sent at 07:00 UTC (09:00 EET)
+**Actual Behavior**: Complete system failure - no notifications for 8+ days, then HTTP 500 on all API routes
 </original_task>
 
 <work_completed>
-## Parallel Investigation (3 Task Agents)
+## Session 1: Initial Investigation (2025-11-17)
 
-### 1. Supabase Investigation (debugger agent) ✅
-**Root Cause Identified:**
+### Root Cause #1: Missing pg_net Extension ✅
 - PostgreSQL extension `pg_net` was missing
-- Cron job failing for 8 consecutive days (since 2025-11-10)
-- Error: `ERROR: schema "net" does not exist`
+- Supabase cron job failing for 8 consecutive days
+- **Solution Applied**:
+  ```sql
+  CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA net;
+  SELECT cron.schedule('daily-reminder-processing', '0 7 * * *', $$...');
+  ```
+- **Status**: Fixed, manual test successful (HTTP 200, 1002ms)
 
-**Evidence:**
-```
-Date       | Status | Error Message
------------|--------|--------------------------------
-2025-11-17 | FAILED | ERROR: schema "net" does not exist
-2025-11-16 | FAILED | ERROR: schema "net" does not exist
-2025-11-15 | FAILED | ERROR: schema "net" does not exist
-...8 consecutive failures at 07:00 UTC daily
-```
+### Overdue Reminders Processed ✅
+- 5 reminders overdue by 2-10 days
+- All processed successfully on 2025-11-17
 
-**Overdue Reminders Found (5 total):**
-| Plate       | Expiry Date | Next Notify | Days Overdue |
-|-------------|-------------|-------------|--------------|
-| Gj84xvx     | 2025-11-14  | 2025-11-07  | 10 days ⚠️   |
-| TEST-001    | 2025-11-14  | 2025-11-07  | 10 days ⚠️   |
-| CT 81 BNF   | 2025-11-15  | 2025-11-08  | 9 days ⚠️    |
-| CT-90-BTC   | 2025-11-14  | 2025-11-11  | 6 days ⚠️    |
-| TEST-JT-001 | 2025-11-22  | 2025-11-15  | 2 days ⚠️    |
+---
 
-**Solution Applied:**
-```sql
--- 1. Enabled missing extension
-CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA net;
+## Session 2: New Failure & Complete Fix (2025-11-18)
 
--- 2. Recreated cron job
-SELECT cron.schedule(
-  'daily-reminder-processing',
-  '0 7 * * *',  -- 07:00 UTC = 09:00 Romanian time
-  $$
-  SELECT net.http_post(
-    url := 'https://dnowyodhffqqhmakjupo.supabase.co/functions/v1/process-reminders',
-    body := '{}'::jsonb,
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer [ANON_KEY]'
-    )
+### Root Cause #2: Dual Cron Conflict ✅
+**Discovery**: Both Supabase pg_cron AND Vercel Cron running simultaneously at 07:00 UTC
+- Created race conditions
+- Vercel Cron was primary (Supabase was backup)
+- **Solution**: Disabled Supabase pg_cron completely
+  ```sql
+  SELECT cron.unschedule('daily-reminder-processing');
+  ```
+
+### Root Cause #3: Cookie Access in Cron Context ✅
+**File**: `/src/lib/services/reminder-processor.ts`
+**Problem**: Used `createServerClient()` which requires HTTP cookies
+- Vercel Cron has no cookies → crashes at module load
+- **Solution**: Replace with direct Supabase client
+  ```typescript
+  // BEFORE (BROKEN):
+  const supabase = createServerClient();
+
+  // AFTER (FIXED):
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
   );
-  $$
-);
+  ```
+
+### Root Cause #4: Module-Level Import Issue ✅
+**File**: `/src/lib/services/reminder-processor.ts` (line 7-8)
+**Problem**: Even after removing usage, import statement still loaded problematic code
+- **Solution**: Removed `import { createServerClient } from '@/lib/supabase/server';` entirely
+- Added comment explaining why it's forbidden
+
+### Root Cause #5: Build Errors (Backup Files) ✅
+**Problem**: Old backup files in `audit-reports/backups/` caused TypeScript errors
+- Prevented Vercel deployments from succeeding
+- **Solution**: Deleted `audit-reports/backups/` directory
+- Commit: `7a7d500`
+
+### Root Cause #6: Middleware Running on API Routes ✅
+**File**: `/src/middleware.ts` (line 32)
+**Problem**: Auth middleware ran on ALL routes including `/api/*`
+- Tried to check authentication on cron endpoint
+- Caused HTTP 500 on every API call
+- **Solution**: Exclude `/api/*` from middleware
+  ```typescript
+  // BEFORE:
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|...).*)',]
+
+  // AFTER:
+  matcher: ['/((?!api/|_next/static|_next/image|favicon.ico|...).*)',]
+  ```
+- Commit: `07d660d`
+
+### Successful Test Execution ✅
+**Date**: 2025-11-18 14:11:48 UTC
+**Result**:
+```json
+{
+  "success": true,
+  "message": "Processed 1 reminders (1 sent, 0 failed)",
+  "stats": {
+    "total": 1,
+    "processed": 1,
+    "sent": 1,
+    "failed": 0,
+    "smsOnly": 1
+  },
+  "executionTime": "2614ms"
+}
 ```
 
-**Verification:**
-- ✅ Manual test successful (HTTP 200, execution time: 1002ms)
-- ✅ Cron job active (Job ID: 5)
-- ✅ Next automatic run: 2025-11-18 at 07:00 UTC
+**Notification Verified**:
+- SMS sent to CT16NOI reminder
+- Twilio Message ID: `SMc2d442cf72a7584d03928fca17883ba7`
+- Cost: $0.0075
+- Message: "Salut saispenoiembrie, ITP pentru CT16NOI expiră în 5 zile (23.11.2025)"
+- Database logged correctly in `notification_log`
 
-### 2. Vercel Investigation (devops-troubleshooter agent) ✅
-**Findings:**
-- ✅ Latest deployment: Ready (20h ago)
-- ✅ All environment variables configured correctly:
-  - NOTIFYHUB_URL, NOTIFYHUB_API_KEY
-  - SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL
-  - CRON_SECRET, RESEND_API_KEY
-- ✅ Vercel Cron configured (`vercel.json`):
-  - Schedule: `0 7 * * *` (07:00 UTC)
-  - Path: `/api/cron/process-reminders`
-- ⚠️ API routes returning `text/html` instead of `application/json` (middleware issue)
-- ⚠️ Runtime logs unavailable via CLI (must use Vercel dashboard)
+### Comprehensive Audit (5 Agents) ✅
+**Agents Deployed**:
+1. ✅ security-auditor - Found 3 critical vulnerabilities
+2. ✅ deployment-engineer - Found CRON_SECRET trailing newline issue
+3. ✅ database-optimizer - Database health: A+ grade
+4. ❌ test-automator - Disk space error
+5. ✅ performance-engineer - System performance: Excellent
 
-**Note**: Vercel Cron is a BACKUP mechanism. Primary trigger is Supabase pg_cron (which was failing).
+**Reports Generated**:
+- SECURITY_AUDIT_REPORT.md (26 KB)
+- SECURITY_EXECUTIVE_SUMMARY.md (5 KB)
+- SECURITY_CHECKLIST.md (18 KB)
+- VERCEL_DEPLOYMENT_AUDIT.md (complete deployment analysis)
+- FIX_CRON_SECRET.md (step-by-step fix)
+- DATABASE_HEALTH_AUDIT.md (complete DB audit)
+- PERFORMANCE_AUDIT_REPORT.md (performance & monitoring)
+- fix-env-vars.sh (automated fix script)
 
-### 3. Code Verification (backend-architect agent) ✅
-**Confirmed:**
-- ✅ Edge Function exists: `/supabase/functions/process-reminders/index.ts`
-- ✅ API Route exists: `/src/app/api/cron/process-reminders/route.ts`
-- ✅ NotifyHub client with retry logic: `/src/lib/services/notifyhub.ts`
-- ✅ Email service configured: Resend API
-- ✅ Custom interval logic: [1, 5, 14] days implemented
-- ✅ Quiet hours integration working
-- ✅ GDPR opt-out checking implemented
-
-**No code issues found** - all logic correct.
-
-## Files Created During Investigation
-
-1. `/home/johntuca/Desktop/uitdeitp/fix-cron-job.sql` - SQL migration to fix pg_net
-2. `/home/johntuca/Desktop/uitdeitp/INVESTIGATION_REPORT.md` - Detailed technical analysis (8500 words)
-3. `/home/johntuca/Desktop/uitdeitp/NOTIFICATION_SYSTEM_FIX_SUMMARY.md` - Executive summary
-
-## Previous Work (Earlier in Session)
-
-### Database Schema Fixes (Completed) ✅
-Fixed 3 CRITICAL production blockers from Byzantine audit:
-1. `phone_number` → `guest_phone` (commit: f95b15a)
-2. `itp_expiry_date` → `expiry_date` (commit: f95b15a)
-3. `status` column removal → use `deleted_at` (commit: f95b15a)
-
-### Homepage Redesign (Completed) ✅
-- Implemented via `/prompts/002-homepage-redesign-and-notification-system.md`
-- Google Sign-In as primary CTA
-- Phone verification flow (SMS via NotifyHub)
-- Notification interval picker (1, 5, 14 days)
-- 10 new files created, 3 modified
-- Status: Archived to `/prompts/completed/`
+### Git Commits
+- `f95b15a` - Database schema mismatches fixed
+- `737f419` - Audit documentation added
+- `0e73c11` - Fixed processRemindersForToday to use direct client
+- `8595e14` - Removed createServerClient import
+- `7a7d500` - Remove backup files preventing Vercel build
+- `93befab` - Add minimal test endpoint
+- `07d660d` - Exclude API routes from auth middleware (CRITICAL FIX)
 </work_completed>
 
 <work_remaining>
-## Immediate Actions Required
+## CRITICAL FIXES NEEDED (Next 2 Hours) 🔴
 
-### 1. Process Overdue Reminders (NOW - 5 minutes)
-**Priority**: CRITICAL
-**Impact**: 5 users waiting 2-10 days for notifications
+### 1. Fix CRON_SECRET Trailing Newline (5 minutes) ⚠️
+**Priority**: BLOCKING ISSUE
+**File**: Vercel Environment Variables
+**Problem**: `CRON_SECRET="tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXFfEs=\n"` has `\n`
+**Impact**: Daily Vercel Cron job CANNOT authenticate (returns 401)
+**Result**: Automated daily reminders NOT running
 
-**Execute this SQL in Supabase SQL Editor:**
-```sql
-SELECT net.http_post(
-  url := 'https://dnowyodhffqqhmakjupo.supabase.co/functions/v1/process-reminders',
-  body := '{}'::jsonb,
-  headers := jsonb_build_object(
-    'Content-Type', 'application/json',
-    'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRub3d5b2RoZmZxcWhtYWtqdXBvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEyMzIyNDMsImV4cCI6MjA0NjgwODI0M30.75GNw0hMPvwYPaykU5uVp52M0ohd0oV3rOcE7qB699E'
-  )
-);
+**Manual Fix**:
+1. Go to: https://vercel.com/trollofuns-projects/uitdeitp-app-standalone/settings/environment-variables
+2. Edit `CRON_SECRET` (Production)
+3. Paste: `tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXFfEs=` (NO newline!)
+4. Edit `RESEND_API_KEY` → remove `\n`
+5. Edit `RESEND_FROM_EMAIL` → remove `\n`
+6. Save + Redeploy: `vercel --prod`
+
+**Automated Fix**:
+```bash
+cd /home/johntuca/Desktop/uitdeitp
+chmod +x fix-env-vars.sh
+./fix-env-vars.sh
 ```
 
-**Expected Result**: 5 SMS/emails sent to overdue reminder users
-
-**Verification:**
-```sql
--- Check notification_log for new entries
-SELECT * FROM notification_log
-WHERE created_at > NOW() - INTERVAL '10 minutes'
-ORDER BY created_at DESC;
+**Verification**:
+```bash
+curl -X POST https://uitdeitp.vercel.app/api/cron/process-reminders \
+  -H "Authorization: Bearer tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXFfEs=" \
+  -H "Content-Type: application/json"
+# Expected: {"success":true,...}
 ```
 
-### 2. Monitor Tomorrow's Automatic Run (2025-11-18)
-**Priority**: HIGH
-**Time**: 07:00 UTC (09:00 Romanian time)
+### 2. Rotate Exposed Secrets (15 minutes) 🔴
+**Priority**: SECURITY CRITICAL
+**File**: `.env.vercel.production` (already deleted from git)
+**Problem**: Production secrets were committed to repository
+**Exposed**:
+- CRON_SECRET
+- NOTIFYHUB_API_KEY
+- RESEND_API_KEY
 
-**Steps:**
-1. Check Supabase logs at 07:05 UTC for cron execution
-2. Verify cron job status:
-   ```sql
-   SELECT * FROM cron.job_run_details
-   WHERE jobid = 5
-   ORDER BY start_time DESC
-   LIMIT 5;
-   ```
-3. Confirm notifications sent successfully
+**Fix Steps**:
+```bash
+# 1. Generate new secrets
+NEW_CRON_SECRET=$(openssl rand -base64 32)
 
-### 3. Fix API Route Content-Type Issue (Optional)
-**Priority**: MEDIUM
-**Issue**: API routes returning `text/html` instead of `application/json`
+# 2. Update Vercel env vars
+vercel env rm CRON_SECRET production
+vercel env add CRON_SECRET production
+# Paste: $NEW_CRON_SECRET
 
-**File to investigate:** `/src/middleware.ts`
-**Fix**: Ensure `/api/*` routes are excluded from SSR/redirect logic
+# 3. Update NotifyHub API key (from NotifyHub dashboard)
+vercel env rm NOTIFYHUB_API_KEY production
+vercel env add NOTIFYHUB_API_KEY production
 
-### 4. Set Up Monitoring (Recommended)
-**Priority**: MEDIUM
-**Prevents future silent failures**
+# 4. Update Resend API key (from Resend dashboard)
+vercel env rm RESEND_API_KEY production
+vercel env add RESEND_API_KEY production
 
-**Options:**
-1. **Cron job failure alerts** - Email/SMS if cron fails
-2. **Health check dashboard** - Display last cron run status in admin panel
-3. **Manual trigger button** - Admin panel to process reminders on demand
-4. **Backup cron job** - Secondary cron at 12:00 UTC as failsafe
+# 5. Update vercel.json with new CRON_SECRET
+# Edit vercel.json cron Authorization header
 
-## Optional Enhancements
+# 6. Redeploy
+vercel --prod
+```
 
-### 5. Complete Homepage Deployment
-The homepage redesign is code-complete but not yet deployed:
-- Verify NotifyHub env vars in Vercel
-- Deploy to production: `vercel --prod`
-- Test phone verification flow end-to-end
-- Monitor phone verification SMS delivery rates
+### 3. Fix Middleware for Admin Routes (1 hour) 🟠
+**Priority**: HIGH SECURITY RISK
+**File**: `/src/middleware.ts`
+**Problem**: Excluding `/api/*` means admin endpoints have NO middleware protection
+**Current**: `'/((?!api/|_next/static|...'` - TOO BROAD
+**Solution**: Explicitly protect admin routes
 
-### 6. Create Admin Monitoring Dashboard
-Display in `/admin/notifications`:
+**Recommended Fix**:
+```typescript
+// src/middleware.ts
+export const config = {
+  matcher: [
+    // Exclude public API routes
+    '/((?!api/cron/|api/kiosk/|api/test-|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+};
+```
+
+This allows:
+- ✅ `/api/cron/*` - No auth (has CRON_SECRET)
+- ✅ `/api/kiosk/*` - No auth (public)
+- ✅ `/api/test-*` - No auth (testing)
+- ❌ `/api/admin/*` - Protected by middleware
+- ❌ `/api/reminders/*` - Protected by middleware
+
+### 4. Add Rate Limiting (30 minutes) 🟠
+**Priority**: HIGH SECURITY RISK
+**File**: `/src/app/api/cron/process-reminders/route.ts`
+**Problem**: No rate limiting on cron endpoint (brute-force vulnerable)
+
+**Solution** (from SECURITY_CHECKLIST.md):
+```typescript
+// Add Vercel KV rate limiting
+import { Ratelimit } from "@upstash/ratelimit";
+import { kv } from "@vercel/kv";
+
+const ratelimit = new Ratelimit({
+  redis: kv,
+  limiter: Ratelimit.slidingWindow(10, "1 h"),
+});
+
+export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for") || "anonymous";
+  const { success } = await ratelimit.limit(ip);
+
+  if (!success) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429 }
+    );
+  }
+
+  // ... existing code
+}
+```
+
+## HIGH PRIORITY (Next 24 Hours) 🟡
+
+### 5. Configure External Monitoring (15 minutes)
+**Priority**: PREVENT FUTURE SILENT FAILURES
+**Tools**: UptimeRobot (free tier)
+
+**Setup**:
+1. Create account: https://uptimerobot.com
+2. Add HTTP(s) monitor:
+   - URL: `https://uitdeitp.vercel.app/api/cron/process-reminders`
+   - Method: GET (health check)
+   - Interval: Every 30 minutes
+   - Alert: Email when down for >5 minutes
+
+### 6. Add Duplicate Notification Check (1 hour)
+**File**: `/src/lib/services/reminder-processor.ts`
+**Problem**: Manual re-runs could send duplicate notifications
+**Solution**: Check notification_log before sending
+
+```typescript
+// Before sending SMS, check if already sent today
+const { data: recentNotification } = await supabase
+  .from('notification_log')
+  .select('id')
+  .eq('reminder_id', reminder.id)
+  .gte('created_at', new Date().toISOString().split('T')[0])
+  .single();
+
+if (recentNotification) {
+  console.log(`[Processor] Notification already sent today for ${reminder.id}`);
+  return { success: false, error: 'Already sent today' };
+}
+```
+
+### 7. Configure Vercel Cron Job (5 minutes)
+**Priority**: ENSURE DAILY EXECUTION
+**Location**: Vercel Dashboard
+
+**Verify Configuration**:
+1. Go to: https://vercel.com/trollofuns-projects/uitdeitp-app-standalone/settings/cron
+2. Should see:
+   - Path: `/api/cron/process-reminders`
+   - Schedule: `0 7 * * *`
+   - Status: Active
+
+**If missing**, add via `vercel.json` (already configured):
+```json
+{
+  "crons": [{
+    "path": "/api/cron/process-reminders",
+    "schedule": "0 7 * * *"
+  }]
+}
+```
+
+## MEDIUM PRIORITY (Next Week) 🟢
+
+### 8. Add Timeout Protection
+**File**: `/src/lib/services/reminder-processor.ts`
+**Problem**: Function can silently fail if execution exceeds 60s
+**Solution**: Implement batch processing with timeout checks
+
+### 9. Setup Better Stack Logging
+**Problem**: No centralized log aggregation
+**Solution**: Integrate Better Stack for log monitoring
+
+### 10. Build Admin Cost Dashboard
+**Location**: `/src/app/admin/notifications`
+**Features**:
 - Last cron run timestamp
 - Success/failure status
-- Notification delivery stats (sent/failed)
-- SMS cost tracking
+- SMS delivery stats
+- Cost tracking
 </work_remaining>
 
 <context>
-## Root Cause Summary
+## Current System Status
 
-**Problem**: Supabase cron job silently failing for 8 days
-**Cause**: Missing PostgreSQL extension `pg_net`
-**Impact**: 5 reminders overdue by 2-10 days, no notifications sent
-**Solution**: `CREATE EXTENSION pg_net` + recreated cron job
-**Status**: ✅ Fixed and verified (manual test successful)
+**Notification System**: ✅ FUNCTIONAL (with critical caveats)
+- Manual test successful (2025-11-18 14:11:48 UTC)
+- SMS sent and logged correctly
+- Database health: A+ grade
+- Performance: Excellent (2.6s execution)
 
-## Technical Details
+**BUT**: Automated daily cron job BLOCKED by CRON_SECRET trailing newline issue
 
-### Cron Job Configuration
-- **Schedule**: `0 7 * * *` (07:00 UTC = 09:00 EET Romanian time)
-- **Job ID**: 5 (recreated 2025-11-17)
-- **Endpoint**: `https://dnowyodhffqqhmakjupo.supabase.co/functions/v1/process-reminders`
-- **Authentication**: Supabase anon key in Authorization header
+**Overall Grade**: B- (Functional but insecure)
+- Database: A+
+- Performance: A
+- Security: C+ (3 critical vulnerabilities)
+- Deployment: B- (works but has config issues)
+- Monitoring: F (no external monitoring)
 
-### Dual Trigger System
-1. **Primary**: Supabase pg_cron (fixed now) ✅
-2. **Backup**: Vercel Cron at `/api/cron/process-reminders` ✅
+## Critical Technical Decisions
 
-### Database Schema (Verified)
-- `reminders.notification_intervals`: JSONB array `[1, 5, 14]`
-- `reminders.next_notification_date`: DATE (triggers when <= today)
-- `user_profiles.phone_verified`: BOOLEAN (for phone verification)
-- `notification_log`: Tracks sent notifications (type, status, error_message)
+### 1. Migration from Supabase to Vercel Cron
+**Reason**: Simplify architecture, reduce Supabase dependency
+**Implementation**:
+- Disabled Supabase pg_cron (was causing conflicts)
+- Using Vercel Cron as PRIMARY trigger
+- Endpoint: `/api/cron/process-reminders`
+- Schedule: `0 7 * * *` (07:00 UTC = 09:00 EET)
+
+### 2. Direct Supabase Client in Cron Context
+**File**: `/src/lib/services/reminder-processor.ts:363-374`
+**Reason**: `createServerClient()` requires cookies (not available in cron)
+**Implementation**:
+```typescript
+const { createClient } = await import('@supabase/supabase-js');
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
+```
+**IMPORTANT**: NEVER import `createServerClient` in this file - causes module load crash
+
+### 3. Middleware API Route Exclusion
+**File**: `/src/middleware.ts:32`
+**Pattern**: `'/((?!api/|_next/static|...'`
+**Reason**: Auth middleware was blocking cron endpoint (causing HTTP 500)
+**Trade-off**: ALL `/api/*` routes now bypass auth middleware
+**Risk**: Admin endpoints vulnerable if not protected in-route
+**TODO**: Narrow exclusion to only public routes
+
+### 4. Romanian Timezone Handling
+**Implementation**: Uses `Europe/Bucharest` timezone for date calculations
+```typescript
+const today = formatInTimeZone(new Date(), 'Europe/Bucharest', 'yyyy-MM-dd');
+```
+**Reason**: Ensures reminders process at correct local time
+
+## Production URLs
+
+- **Production**: `https://uitdeitp.vercel.app` (Active)
+- **Production (alternate)**: `https://uitdeitp-app-standalone.vercel.app`
+- **Custom domain**: Not yet configured (www.uitdeitp.ro planned)
+- **Supabase URL**: `https://dnowyodhffqqhmakjupo.supabase.co`
+- **NotifyHub**: `https://ntf.uitdeitp.ro`
+
+## Environment Variables
+
+**Vercel Production** (12 variables set):
+- ✅ `NEXT_PUBLIC_SUPABASE_URL`
+- ✅ `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- ✅ `SUPABASE_SERVICE_ROLE_KEY`
+- ⚠️ `CRON_SECRET` - HAS TRAILING NEWLINE (MUST FIX)
+- ✅ `NOTIFYHUB_URL`
+- ✅ `NOTIFYHUB_API_KEY`
+- ⚠️ `RESEND_API_KEY` - HAS TRAILING NEWLINE
+- ⚠️ `RESEND_FROM_EMAIL` - HAS TRAILING NEWLINE
+- ✅ `NEXT_PUBLIC_APP_URL`
+
+## Database Schema (Verified Correct)
+
+**Tables**:
+- `reminders`: 44 rows, 216 KB
+  - `notification_intervals`: JSONB (e.g., `[5]`, `[7, 3, 1]`)
+  - `notification_channels`: JSONB (`{"sms": true, "email": false}`)
+  - `next_notification_date`: DATE (triggers when <= today)
+  - `source`: 'user' | 'kiosk'
+  - `station_id`: UUID (for custom SMS templates)
+
+- `notification_log`: 2 rows, 128 KB
+  - Tracks all sent notifications
+  - Includes: type, status, provider, cost, message_body
+
+- `user_profiles`: User data with phone_verified flag
+- `kiosk_stations`: Station configurations
 - `global_opt_outs`: GDPR opt-out list
 
-### Environment Variables (All Configured)
-- ✅ `NOTIFYHUB_URL` = https://ntf.uitdeitp.ro
-- ✅ `NOTIFYHUB_API_KEY` = local-test-key-uitdeitp-2025
-- ✅ `RESEND_API_KEY` = re_A7fxkWFB_...
-- ✅ `CRON_SECRET` = tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXFfEs=
-- ✅ All Supabase keys configured
+**Indexes**: 12 strategic indexes (all critical queries covered)
 
-## Key Files Modified This Session
+## Key Files Modified
 
-**Audit Reports:**
-- `/audit-reports/production-readiness-audit-2025-01-16.md` (complete audit)
-- `/audit-reports/EXECUTIVE-SUMMARY.md` (business summary)
-- `/audit-reports/fix-scripts/*.sh` (automated fix scripts)
+**Critical Fixes**:
+- `/src/lib/services/reminder-processor.ts` - Direct Supabase client, no createServerClient
+- `/src/middleware.ts` - Exclude `/api/*` from auth middleware
+- `/src/app/api/cron/process-reminders/route.ts` - Main cron endpoint
 
-**Database Fixes:**
-- `/src/app/api/reminders/create/route.ts` (schema alignment)
-- `/src/app/api/reminders/[id]/route.ts` (schema alignment)
-- `/src/app/api/notifications/send-bulk-sms/route.ts` (schema alignment)
-- `/src/app/api/reminders/route.ts` (soft delete pattern)
+**Deleted**:
+- `audit-reports/backups/` - Was causing build errors
 
-**Git Commits:**
-- `f95b15a` - Database schema mismatches fixed
-- `737f419` - Audit documentation added
+**Added**:
+- `/src/app/api/test-simple/route.ts` - Minimal test endpoint
+
+**Reports**:
+- `SECURITY_AUDIT_REPORT.md`
+- `SECURITY_EXECUTIVE_SUMMARY.md`
+- `SECURITY_CHECKLIST.md`
+- `VERCEL_DEPLOYMENT_AUDIT.md`
+- `FIX_CRON_SECRET.md`
+- `DATABASE_HEALTH_AUDIT.md`
+- `PERFORMANCE_AUDIT_REPORT.md`
+- `fix-env-vars.sh`
 
 ## Gotchas & Warnings
 
-1. **Silent Cron Failures**: No automatic alerts when pg_cron fails (set up monitoring!)
-2. **pg_net Extension**: Required for `net.http_post()` in Supabase cron jobs
-3. **Test Data**: Database has 5 real overdue reminders - process them immediately
-4. **Dual Cron Jobs**: Both Supabase + Vercel crons configured (prevents single point of failure)
-5. **API Content-Type**: Middleware may be interfering with `/api/*` routes (minor issue)
+1. **NEVER import `createServerClient` in reminder-processor.ts** - Causes module load crash in cron context
+2. **CRON_SECRET trailing newline** - Blocks all automated cron execution (fix immediately!)
+3. **Middleware excludes ALL `/api/*`** - Admin routes vulnerable (must fix)
+4. **No external monitoring** - Silent failures can last 8+ days
+5. **Manual test succeeded** - But automated daily cron WON'T work until CRON_SECRET fixed
+6. **Secrets exposed in git** - Rotate all production secrets ASAP
+7. **pg_cron is DISABLED** - Vercel Cron is now primary (not Supabase)
+8. **Test data in production** - CT16NOI reminder is real test data
+
+## Test Results
+
+**Last Successful Manual Test**: 2025-11-18 14:11:48 UTC
+- Endpoint: `https://uitdeitp.vercel.app/api/cron/process-reminders`
+- Method: POST with `Authorization: Bearer tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXFfEs=`
+- Result: 1 SMS sent successfully (CT16NOI reminder)
+- Execution time: 2,614ms
+- Database: Notification logged correctly
+- Cost: $0.0075
+
+**Automated Cron Status**: ❌ BLOCKED
+- Reason: CRON_SECRET trailing newline prevents authentication
+- Impact: Daily reminders NOT running automatically
+- Fix required: Remove `\n` from environment variable
 
 ## Next Session Priorities
 
-**If continuing this work:**
-1. Verify manual processing of 5 overdue reminders succeeded
-2. Monitor automatic cron execution tomorrow (2025-11-18 07:00 UTC)
-3. Set up alerts for future cron failures
-4. Deploy homepage redesign to production
-5. Create admin monitoring dashboard
+**If continuing this work**:
+1. ⚠️ Fix CRON_SECRET trailing newline (5 min) - BLOCKING
+2. 🔴 Rotate exposed secrets (15 min) - CRITICAL SECURITY
+3. 🟠 Fix middleware admin route protection (1 hour)
+4. 🟠 Add rate limiting (30 min)
+5. 🟡 Configure UptimeRobot monitoring (15 min)
 
-**If starting new work:**
-- All critical production blockers resolved ✅
-- Notification system operational ✅
-- Safe to work on new features
+**If starting new work**:
+- Manual notification system works ✅
+- Automated daily cron BLOCKED until CRON_SECRET fixed ⚠️
+- Database and performance excellent ✅
+- Security vulnerabilities need attention 🔴
 
 ## Documentation References
 
-- **Investigation Report**: `/home/johntuca/Desktop/uitdeitp/INVESTIGATION_REPORT.md`
-- **Fix Summary**: `/home/johntuca/Desktop/uitdeitp/NOTIFICATION_SYSTEM_FIX_SUMMARY.md`
-- **Audit Report**: `/audit-reports/production-readiness-audit-2025-01-16.md`
-- **Homepage Redesign**: `/prompts/completed/002-homepage-redesign-and-notification-system.md`
-- **Phone Verification Guide**: `/docs/PHONE-VERIFICATION.md`
-- **Notification Intervals Guide**: `/docs/NOTIFICATION-INTERVALS.md`
+**Security**:
+- `/home/johntuca/Desktop/uitdeitp/SECURITY_AUDIT_REPORT.md`
+- `/home/johntuca/Desktop/uitdeitp/SECURITY_CHECKLIST.md`
+- `/home/johntuca/Desktop/uitdeitp/FIX_CRON_SECRET.md`
+
+**Deployment**:
+- `/home/johntuca/Desktop/uitdeitp/VERCEL_DEPLOYMENT_AUDIT.md`
+- `/home/johntuca/Desktop/uitdeitp/fix-env-vars.sh`
+
+**Database**:
+- `/home/johntuca/Desktop/uitdeitp/DATABASE_HEALTH_AUDIT.md`
+
+**Performance**:
+- `/home/johntuca/Desktop/uitdeitp/PERFORMANCE_AUDIT_REPORT.md`
+
+**Previous Investigation**:
+- `/home/johntuca/Desktop/uitdeitp/INVESTIGATION_REPORT.md`
+- `/home/johntuca/Desktop/uitdeitp/NOTIFICATION_SYSTEM_FIX_SUMMARY.md`
 </context>

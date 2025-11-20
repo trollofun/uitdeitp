@@ -22,6 +22,8 @@ import { KioskLayout, type StationConfig } from '@/components/kiosk/KioskLayout'
 import { StepIndicator } from '@/components/kiosk/StepIndicator';
 import KioskIdleState from '@/components/kiosk/KioskIdleState';
 import { PhoneVerificationStep } from '@/components/kiosk/PhoneVerificationStep';
+import { Numpad } from '@/components/kiosk/Numpad';
+import { PlateKeyboard } from '@/components/kiosk/PlateKeyboard';
 import {
   validateName,
   validatePhoneNumber,
@@ -34,6 +36,8 @@ import {
 } from '@/lib/kiosk/validation';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { format } from 'date-fns';
+import { ro } from 'date-fns/locale';
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -353,107 +357,109 @@ export default function KioskPage() {
             </motion.div>
           )}
 
-          {/* Step 3: Phone Input */}
+          {/* Step 3: Phone Input - iPad Split Layout with Custom Numpad */}
           {step === 3 && (
             <motion.div
               key="step3"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: '100%', scale: 0.95, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, x: '-100%', scale: 0.95, filter: 'blur(10px)' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
             >
-              <motion.h3
-                className="text-3xl font-bold text-gray-900 mb-8 text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                Numărul tău de telefon?
-              </motion.h3>
-
-              <div className="relative mb-4">
-                <div className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl text-gray-500 pointer-events-none">
-                  +40
-                </div>
-                <motion.input
-                  type="tel"
-                  value={formData.phone.replace('+40', '')}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '');
-                    let normalizedPhone = '';
-
-                    if (value.length === 10 && value.startsWith('0')) {
-                      // 10 digits starting with 0 (domestic format) - remove leading 0
-                      normalizedPhone = `+40${value.substring(1)}`;
-                    } else if (value.length > 0) {
-                      // 9 digits OR still typing - just add +40 prefix (E.164 format)
-                      normalizedPhone = `+40${value}`;
-                    }
-
-                    setFormData(prev => ({
-                      ...prev,
-                      phone: normalizedPhone
-                    }));
-                    updateActivity();
-                  }}
-                  onKeyDown={(e) => {
-                    updateActivity();
-                    if (e.key === 'Enter') handleNext('phone');
-                  }}
-                  onFocus={updateActivity}
-                  placeholder="712345678"
-                  className="w-full pl-20 pr-16 py-6 text-2xl border-2 rounded-xl focus:outline-none transition-all"
-                  style={{
-                    borderColor: errors.phone ? '#ef4444' : formData.phone && !errors.phone ? primaryColor : '#d1d5db',
-                  }}
-                  whileFocus={{
-                    scale: 1.02,
-                    boxShadow: `0 0 0 4px ${primaryColor}20`
-                  }}
-                  transition={{ duration: 0.2 }}
+              {/* Left Column: Display */}
+              <div className="space-y-6">
+                <motion.h3
+                  className="text-3xl lg:text-4xl font-bold text-gray-900 text-center lg:text-left"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  maxLength={9}
-                  autoFocus
-                />
-                {formData.phone && !errors.phone && (
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2"
+                  transition={{ delay: 0.1 }}
+                >
+                  Numărul tău de telefon?
+                </motion.h3>
+
+                <motion.div
+                  className="relative bg-gradient-to-br from-white to-gray-50/50 backdrop-blur border-2 rounded-2xl p-8 shadow-lg"
+                  style={{
+                    borderColor: errors.phone ? '#ef4444' : formData.phone.length >= 12 ? primaryColor : '#e5e7eb',
+                  }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <div className="text-5xl lg:text-6xl font-mono text-center tracking-wider">
+                    <span className="text-gray-500">+40</span>
+                    <span className="ml-2 text-gray-900">
+                      {formData.phone.replace('+40', '') || '---'}
+                    </span>
+                  </div>
+
+                  {formData.phone.length >= 12 && !errors.phone && (
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      className="absolute -top-3 -right-3"
+                    >
+                      <CheckCircle2 className="w-12 h-12 text-green-500 bg-white rounded-full" />
+                    </motion.div>
+                  )}
+                </motion.div>
+
+                {errors.phone && (
+                  <motion.p
+                    initial={{ x: 0 }}
+                    animate={{ x: [-10, 10, -10, 10, 0] }}
+                    transition={{ duration: 0.4 }}
+                    className="text-red-600 text-lg text-center lg:text-left"
                   >
-                    <CheckCircle2 className="w-8 h-8 text-green-500" />
-                  </motion.div>
+                    {errors.phone}
+                  </motion.p>
                 )}
+
+                <motion.button
+                  onClick={() => {
+                    updateActivity();
+                    handleNext('phone');
+                  }}
+                  disabled={formData.phone.length < 12}
+                  className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  style={{ backgroundColor: primaryColor }}
+                  whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
+                  whileTap={{ scale: 0.98 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  Continuă →
+                </motion.button>
               </div>
 
-              {errors.phone && (
-                <motion.p
-                  initial={{ x: 0 }}
-                  animate={{ x: [-10, 10, -10, 10, 0] }}
-                  transition={{ duration: 0.4 }}
-                  className="text-red-600 text-lg mb-4"
-                >
-                  {errors.phone}
-                </motion.p>
-              )}
-
-              <motion.button
-                onClick={() => {
-                  updateActivity();
-                  handleNext('phone');
-                }}
-                disabled={!formData.phone}
-                className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                style={{ backgroundColor: primaryColor }}
-                whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              {/* Right Column: Custom Numpad */}
+              <motion.div
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                onClick={updateActivity}
               >
-                Continuă →
-              </motion.button>
+                <Numpad
+                  onInput={(digit) => {
+                    const currentDigits = formData.phone.replace('+40', '');
+                    if (currentDigits.length < 9) {
+                      const newPhone = `+40${currentDigits}${digit}`;
+                      setFormData(prev => ({ ...prev, phone: newPhone }));
+                      updateActivity();
+                    }
+                  }}
+                  onDelete={() => {
+                    const currentDigits = formData.phone.replace('+40', '');
+                    if (currentDigits.length > 0) {
+                      const newPhone = `+40${currentDigits.slice(0, -1)}`;
+                      setFormData(prev => ({ ...prev, phone: newPhone }));
+                      updateActivity();
+                    }
+                  }}
+                />
+              </motion.div>
             </motion.div>
           )}
 
@@ -479,17 +485,18 @@ export default function KioskPage() {
             </div>
           )}
 
-          {/* Step 5: Plate Number */}
+          {/* Step 5: Plate Number - Euroband Visual + Custom Keyboard */}
           {step === 5 && (
             <motion.div
               key="step5"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: '100%', scale: 0.95, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, x: '-100%', scale: 0.95, filter: 'blur(10px)' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="space-y-8"
             >
               <motion.h3
-                className="text-3xl font-bold text-gray-900 mb-8 text-center"
+                className="text-3xl lg:text-4xl font-bold text-gray-900 mb-8 text-center"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
@@ -497,65 +504,77 @@ export default function KioskPage() {
                 Numărul de înmatriculare?
               </motion.h3>
 
-              <div className="relative mb-4">
-                <motion.input
-                  type="text"
-                  value={formData.plateNumber}
-                  onChange={(e) => {
-                    const value = e.target.value.toUpperCase();
-                    setFormData(prev => ({ ...prev, plateNumber: value }));
-                    updateActivity();
-                  }}
-                  onKeyDown={(e) => {
-                    updateActivity();
-                    if (e.key === 'Enter') handleNext('plateNumber');
-                  }}
-                  onFocus={updateActivity}
-                  placeholder="B123ABC sau B-123-ABC"
-                  className="w-full px-6 py-6 text-2xl text-center font-mono border-2 rounded-xl focus:outline-none transition-all uppercase"
-                  style={{
-                    borderColor: errors.plateNumber ? '#ef4444' : formData.plateNumber && !errors.plateNumber ? primaryColor : '#d1d5db',
-                  }}
-                  whileFocus={{
-                    scale: 1.02,
-                    boxShadow: `0 0 0 4px ${primaryColor}20`
-                  }}
-                  transition={{ duration: 0.2 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  maxLength={15}
-                  autoFocus
-                />
+              {/* Euroband License Plate Visual */}
+              <motion.div
+                className="flex items-center justify-center bg-white border-4 border-black rounded-lg overflow-hidden shadow-2xl max-w-[600px] mx-auto"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2, type: "spring" }}
+                style={{ height: '140px' }}
+              >
+                {/* EU Blue Band */}
+                <div className="w-20 h-full bg-[#003399] flex flex-col items-center justify-center text-white">
+                  <div className="text-xs mb-1">⭐⭐⭐</div>
+                  <div className="text-xs mb-1">⭐ ⭐</div>
+                  <div className="text-xs mb-1">⭐⭐⭐</div>
+                  <div className="text-xs mb-1">⭐ ⭐</div>
+                  <div className="text-xs mb-2">⭐⭐⭐</div>
+                  <div className="font-bold text-lg">RO</div>
+                </div>
+
+                {/* Plate Number Display */}
+                <div className="flex-1 flex items-center justify-center bg-white px-6">
+                  <span className="text-6xl lg:text-7xl font-mono font-black tracking-wider uppercase text-gray-900">
+                    {formData.plateNumber || 'B12ABC'}
+                  </span>
+                </div>
+
                 {formData.plateNumber && !errors.plateNumber && (
                   <motion.div
                     initial={{ scale: 0, rotate: -180 }}
                     animate={{ scale: 1, rotate: 0 }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2"
+                    className="absolute -top-4 -right-4"
                   >
-                    <CheckCircle2 className="w-8 h-8 text-green-500" />
+                    <CheckCircle2 className="w-14 h-14 text-green-500 bg-white rounded-full shadow-lg" />
                   </motion.div>
                 )}
-              </div>
-
-              <motion.p
-                className="text-gray-600 text-center mb-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                Scrie în orice format: B123ABC, B-123-ABC sau B 123 ABC
-              </motion.p>
+              </motion.div>
 
               {errors.plateNumber && (
                 <motion.p
                   initial={{ x: 0 }}
                   animate={{ x: [-10, 10, -10, 10, 0] }}
                   transition={{ duration: 0.4 }}
-                  className="text-red-600 text-lg text-center mb-4"
+                  className="text-red-600 text-lg text-center"
                 >
                   {errors.plateNumber}
                 </motion.p>
               )}
+
+              {/* Custom QWERTY Keyboard */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                onClick={updateActivity}
+              >
+                <PlateKeyboard
+                  onInput={(key) => {
+                    if (formData.plateNumber.length < 15) {
+                      const newPlate = (formData.plateNumber + key).toUpperCase();
+                      setFormData(prev => ({ ...prev, plateNumber: newPlate }));
+                      updateActivity();
+                    }
+                  }}
+                  onDelete={() => {
+                    if (formData.plateNumber.length > 0) {
+                      const newPlate = formData.plateNumber.slice(0, -1);
+                      setFormData(prev => ({ ...prev, plateNumber: newPlate }));
+                      updateActivity();
+                    }
+                  }}
+                />
+              </motion.div>
 
               <motion.button
                 onClick={() => {
@@ -569,33 +588,110 @@ export default function KioskPage() {
                 whileTap={{ scale: 0.98 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                transition={{ delay: 0.4 }}
               >
                 Continuă →
               </motion.button>
             </motion.div>
           )}
 
-          {/* Step 6: Expiry Date */}
+          {/* Step 6: Expiry Date - iPad Split Layout with Enhanced Calendar */}
           {step === 6 && (
             <motion.div
               key="step6"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: '100%', scale: 0.95, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, x: '-100%', scale: 0.95, filter: 'blur(10px)' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
             >
-              <motion.h3
-                className="text-3xl font-bold text-gray-900 mb-8 text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                Când expiră ITP-ul?
-              </motion.h3>
+              {/* Left Column: Selected Date Display */}
+              <div className="space-y-6">
+                <motion.h3
+                  className="text-3xl lg:text-4xl font-bold text-gray-900 text-center lg:text-left"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  Când expiră ITP-ul?
+                </motion.h3>
 
+                <motion.div
+                  className="relative bg-gradient-to-br from-white to-blue-50/30 backdrop-blur border-2 rounded-2xl p-10 shadow-lg"
+                  style={{
+                    borderColor: errors.expiryDate ? '#ef4444' : formData.expiryDate ? primaryColor : '#e5e7eb',
+                  }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  {formData.expiryDate ? (
+                    <>
+                      <div className="text-center">
+                        <div className="text-6xl lg:text-7xl font-bold text-gray-900 mb-2">
+                          {format(formData.expiryDate, 'dd', { locale: ro })}
+                        </div>
+                        <div className="text-2xl lg:text-3xl text-gray-600 mb-1">
+                          {format(formData.expiryDate, 'MMMM', { locale: ro })}
+                        </div>
+                        <div className="text-xl lg:text-2xl text-gray-500">
+                          {format(formData.expiryDate, 'yyyy', { locale: ro })}
+                        </div>
+                      </div>
+                      <motion.div
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        className="absolute -top-3 -right-3"
+                      >
+                        <CheckCircle2 className="w-12 h-12 text-green-500 bg-white rounded-full" />
+                      </motion.div>
+                    </>
+                  ) : (
+                    <div className="text-center text-gray-400 text-3xl py-8">
+                      Selectează data →
+                    </div>
+                  )}
+                </motion.div>
+
+                {errors.expiryDate && (
+                  <motion.p
+                    initial={{ x: 0 }}
+                    animate={{ x: [-10, 10, -10, 10, 0] }}
+                    transition={{ duration: 0.4 }}
+                    className="text-red-600 text-lg text-center lg:text-left"
+                  >
+                    {errors.expiryDate}
+                  </motion.p>
+                )}
+
+                <motion.button
+                  onClick={() => {
+                    updateActivity();
+                    handleSubmit();
+                  }}
+                  disabled={!formData.expiryDate || submitting}
+                  className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3"
+                  style={{ backgroundColor: primaryColor }}
+                  whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
+                  whileTap={{ scale: 0.98 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      <span>Se salvează...</span>
+                    </>
+                  ) : (
+                    'Salvează Reminder-ul ✓'
+                  )}
+                </motion.button>
+              </div>
+
+              {/* Right Column: Enhanced Calendar */}
               <motion.div
-                className="flex justify-center mb-6"
+                className="flex justify-center"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.2, duration: 0.3 }}
@@ -609,47 +705,30 @@ export default function KioskPage() {
                     updateActivity();
                   }}
                   disabled={(date) => date < new Date()}
-                  className="rounded-xl border-2 p-4"
+                  className="rounded-2xl border-2 p-6 bg-white shadow-lg scale-110"
                   classNames={{
-                    day_selected: 'bg-blue-600 text-white hover:bg-blue-700'
+                    months: 'space-y-4',
+                    month: 'space-y-4',
+                    caption: 'flex justify-center pt-1 relative items-center text-xl font-semibold',
+                    caption_label: 'text-2xl font-bold',
+                    nav: 'space-x-1 flex items-center',
+                    nav_button: 'h-12 w-12 bg-transparent hover:bg-gray-100 p-0 rounded-lg transition-colors',
+                    nav_button_previous: 'absolute left-1',
+                    nav_button_next: 'absolute right-1',
+                    table: 'w-full border-collapse space-y-1',
+                    head_row: 'flex',
+                    head_cell: 'text-gray-500 rounded-md w-14 font-semibold text-lg',
+                    row: 'flex w-full mt-2',
+                    cell: 'h-14 w-14 text-center text-xl p-0 relative',
+                    day: 'h-14 w-14 p-0 font-semibold rounded-xl hover:bg-gray-100 transition-all',
+                    day_selected: `bg-blue-600 text-white hover:bg-blue-700 scale-110 shadow-lg`,
+                    day_today: 'bg-gray-100 text-gray-900 font-bold',
+                    day_outside: 'text-gray-300 opacity-50',
+                    day_disabled: 'text-gray-300 opacity-30 cursor-not-allowed',
+                    day_hidden: 'invisible',
                   }}
                 />
               </motion.div>
-
-              {errors.expiryDate && (
-                <motion.p
-                  initial={{ x: 0 }}
-                  animate={{ x: [-10, 10, -10, 10, 0] }}
-                  transition={{ duration: 0.4 }}
-                  className="text-red-600 text-lg text-center mb-4"
-                >
-                  {errors.expiryDate}
-                </motion.p>
-              )}
-
-              <motion.button
-                onClick={() => {
-                  updateActivity();
-                  handleSubmit();
-                }}
-                disabled={!formData.expiryDate || submitting}
-                className="w-full py-6 text-xl font-semibold text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3"
-                style={{ backgroundColor: primaryColor }}
-                whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)" }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    <span>Se salvează...</span>
-                  </>
-                ) : (
-                  'Salvează Reminder-ul ✓'
-                )}
-              </motion.button>
             </motion.div>
           )}
 
