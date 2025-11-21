@@ -22,7 +22,31 @@ export function PhoneVerificationStep({
   onBack,
 }: PhoneVerificationStepProps) {
   // Internal state for phone (if not provided as prop)
-  const [phone, setPhone] = useState(phoneProp || '');
+  // Normalize phone prop to 10-digit Romanian format (07XXXXXXXX)
+  const [phone, setPhone] = useState(() => {
+    if (!phoneProp) return '';
+
+    // Remove all non-digits from prop
+    const digits = phoneProp.replace(/\D/g, '');
+
+    // If has country code "40" at start with 12 total digits (e.g., "+40729440132")
+    if (digits.startsWith('40') && digits.length === 12) {
+      return '0' + digits.substring(2); // "40729440132" → "0729440132"
+    }
+
+    // If already has leading 0 with 10 digits (e.g., "0729440132")
+    if (digits.startsWith('0') && digits.length === 10) {
+      return digits; // Already correct format
+    }
+
+    // If 9 digits without leading 0 (e.g., "729440132")
+    if (digits.length === 9 && !digits.startsWith('0')) {
+      return '0' + digits; // "729440132" → "0729440132"
+    }
+
+    // Fallback: return cleaned digits
+    return digits;
+  });
   const [step, setStep] = useState<'phone' | 'code'>(phoneProp ? 'code' : 'phone');
   const [code, setCode] = useState('');
   const [consent, setConsent] = useState(false);
