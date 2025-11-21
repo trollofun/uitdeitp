@@ -22,30 +22,26 @@ export function PhoneVerificationStep({
   onBack,
 }: PhoneVerificationStepProps) {
   // Internal state for phone (if not provided as prop)
-  // Normalize phone prop to 10-digit Romanian format (07XXXXXXXX)
+  // EXPECTED INPUT: 10 digits starting with 0 (e.g., "0729440132")
+  // Kiosk now converts +40729440132 → 0729440132 before passing
   const [phone, setPhone] = useState(() => {
     if (!phoneProp) return '';
 
-    // Remove all non-digits from prop
+    // Remove all non-digits
     const digits = phoneProp.replace(/\D/g, '');
 
-    // If has country code "40" at start with 12 total digits (e.g., "+40729440132")
-    if (digits.startsWith('40') && digits.length === 12) {
-      return '0' + digits.substring(2); // "40729440132" → "0729440132"
-    }
-
-    // If already has leading 0 with 10 digits (e.g., "0729440132")
+    // If already 10 digits with leading 0, use as-is
     if (digits.startsWith('0') && digits.length === 10) {
-      return digits; // Already correct format
+      return digits; // "0729440132" → "0729440132" ✅
     }
 
-    // If 9 digits without leading 0 (e.g., "729440132")
+    // If 9 digits without leading 0, add it
     if (digits.length === 9 && !digits.startsWith('0')) {
-      return '0' + digits; // "729440132" → "0729440132"
+      return '0' + digits; // "729440132" → "0729440132" ✅
     }
 
-    // Fallback: return cleaned digits
-    return digits;
+    // Fallback: assume it's already correct format
+    return phoneProp;
   });
   const [step, setStep] = useState<'phone' | 'code'>(phoneProp ? 'code' : 'phone');
   const [code, setCode] = useState('');
@@ -80,10 +76,15 @@ export function PhoneVerificationStep({
   }, [expiresIn]);
 
   const formatPhoneDisplay = (value: string) => {
-    // Extract only digits (state is already normalized to 10 digits: 0729440132)
+    // Extract only digits (state should be normalized to 10 digits: 0729440132)
     const digits = value.replace(/\D/g, '');
 
-    // Format as "0729 440 132" (no need to check for "40" prefix - state is normalized)
+    // Must start with 0 and be exactly 10 digits
+    if (!digits.startsWith('0') || digits.length !== 10) {
+      return digits; // Return as-is if format unexpected
+    }
+
+    // Format as "0729 440 132"
     if (digits.length <= 4) return digits;
     if (digits.length <= 7) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
     return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7, 10)}`;
@@ -197,8 +198,21 @@ export function PhoneVerificationStep({
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Număr de telefon</label>
-            <Input type="tel" placeholder="07XX XXX XXX" value={formatPhoneDisplay(phone)}
-              onChange={handlePhoneChange} disabled={loading} className="text-lg h-14 text-center" autoFocus />
+            <div className="relative">
+              <Input type="tel" placeholder="07XX XXX XXX" value={formatPhoneDisplay(phone)}
+                onChange={handlePhoneChange} disabled={loading} className="text-lg h-14 text-center" autoFocus />
+              {phone.length === 10 && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -right-3 -top-3"
+                >
+                  <div className="bg-green-500 rounded-full p-2 shadow-lg">
+                    <Check className="w-5 h-5 text-white" />
+                  </div>
+                </motion.div>
+              )}
+            </div>
           </div>
           {error && (<div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg">
             <AlertCircle className="w-5 h-5" /><span className="text-sm">{error}</span></div>)}

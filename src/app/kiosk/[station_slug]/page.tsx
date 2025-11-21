@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { Calendar } from '@/components/ui/calendar';
+import { SimpleDatePicker } from '@/components/kiosk/SimpleDatePicker';
 import { KioskLayout, type StationConfig } from '@/components/kiosk/KioskLayout';
 import { StepIndicator } from '@/components/kiosk/StepIndicator';
 import { PhoneVerificationStep } from '@/components/kiosk/PhoneVerificationStep';
@@ -624,9 +624,9 @@ export default function KioskPage() {
                      className="w-full max-w-lg bg-white/90 backdrop-blur p-6 sm:p-8 rounded-3xl shadow-2xl border border-white"
                    >
                       <PhoneVerificationStep
-                        phone={formData.phone}
+                        phone={formData.phone.replace(/^\+40/, '0')}
                         stationSlug={stationSlug}
-                        onVerified={() => {
+                        onVerified={(verifiedPhone, consent) => {
                           setFormData({...formData, consent: true});
                           nextStep();
                         }}
@@ -738,47 +738,16 @@ export default function KioskPage() {
                              )}
                         </div>
 
-                        {/* CALENDAR - Responsive Fix */}
-                        <div className="flex justify-center">
-                             <div className="bg-white p-4 sm:p-6 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 max-w-md w-full scale-90 md:scale-100 transition-transform">
-                                 <Calendar
-                                    mode="single"
-                                    selected={formData.expiryDate || undefined}
-                                    onSelect={(d) => {
-                                      setFormData({...formData, expiryDate: d || null});
-                                      updateActivity();
-                                    }}
-                                    disabled={(d) => d < new Date()}
-                                    captionLayout="dropdown-buttons"
-                                    fromYear={2025}
-                                    toYear={2030}
-                                    className="rounded-xl p-2"
-                                    classNames={{
-                                        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                                        month: "space-y-4",
-                                        caption: "flex justify-center pt-1 relative items-center",
-                                        caption_label: "text-lg font-semibold hidden",
-                                        caption_dropdowns: "flex gap-2",
-                                        dropdown: "text-lg font-semibold border-2 border-slate-200 rounded-xl px-4 py-3 hover:bg-slate-50 transition-colors",
-                                        nav: "space-x-1 flex items-center",
-                                        nav_button: "h-12 w-12 bg-transparent hover:bg-slate-100 rounded-xl border-2 border-slate-200 transition-colors",
-                                        nav_button_previous: "absolute left-1",
-                                        nav_button_next: "absolute right-1",
-                                        table: "w-full border-collapse space-y-1",
-                                        head_row: "flex",
-                                        head_cell: "text-slate-400 rounded-xl w-14 font-medium text-lg",
-                                        row: "flex w-full mt-2",
-                                        cell: "relative p-0 text-center text-lg focus-within:relative focus-within:z-20",
-                                        day: "h-14 w-14 p-0 font-medium aria-selected:opacity-100 hover:bg-blue-50 rounded-2xl transition-all border-2 border-transparent hover:border-blue-200",
-                                        day_selected: "bg-blue-600 text-white hover:bg-blue-700 font-bold shadow-md scale-110 border-2 border-blue-800",
-                                        day_today: "bg-slate-100 text-slate-900 font-bold border-2 border-blue-400",
-                                        day_outside: "text-slate-300 opacity-50",
-                                        day_disabled: "text-slate-300 opacity-30",
-                                        day_range_middle: "aria-selected:bg-slate-100",
-                                        day_hidden: "invisible",
-                                    }}
-                                 />
-                             </div>
+                        {/* SIMPLE DATE PICKER - Touch-Friendly */}
+                        <div className="flex justify-center md:col-span-1">
+                             <SimpleDatePicker
+                                value={formData.expiryDate}
+                                onChange={(d) => {
+                                  setFormData({...formData, expiryDate: d});
+                                  updateActivity();
+                                }}
+                                minDate={new Date()}
+                             />
                         </div>
 
                         <motion.button

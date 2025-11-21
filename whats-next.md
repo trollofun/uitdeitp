@@ -1,524 +1,251 @@
 <original_task>
-Fix notification system that stopped sending reminders after migration from Supabase Edge Functions to Vercel Cron.
+Fix kiosk phone verification bug where SMS is not being sent after user enters phone number.
 
-**User Report (Session 1)**: "a mai trecut o zi si nu am primit nici o notificare"
-**User Report (Session 2)**: "a mai trecut o zi si nu am primit nici o notificare. foloseste supabase mcp si vercel cli sa verificam logs si sa vedem DE CE NU SE TRIMIT NOTIFICARILE"
+**User Report**: "acum arata numarul corect 0729 440 132 insa tot nu trimite sms-ul de verificare, imi zice ca este invalid, nu cumva trebuia sa il procesezi si cu prefix international?"
 
-**Expected Behavior**: Daily automated reminders sent at 07:00 UTC (09:00 EET)
-**Actual Behavior**: Complete system failure - no notifications for 8+ days, then HTTP 500 on all API routes
+**Context**: This is a continuation from fixing phone display format bug. The display now shows correctly ("0729 440 132"), but the SMS verification API call fails with "invalid" error.
+
+**Expected Behavior**:
+- User enters: `729440132` in kiosk
+- Display shows: `0729 440 132` (formatted with spaces)
+- SMS verification code is sent successfully to phone
+
+**Actual Behavior**:
+- Display shows correctly: `0729 440 132` ✅
+- SMS fails with error: "Te rugăm să introduci un număr valid de telefon" ❌
 </original_task>
 
 <work_completed>
-## Session 1: Initial Investigation (2025-11-17)
+## Investigation Completed ✅
 
-### Root Cause #1: Missing pg_net Extension ✅
-- PostgreSQL extension `pg_net` was missing
-- Supabase cron job failing for 8 consecutive days
-- **Solution Applied**:
-  ```sql
-  CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA net;
-  SELECT cron.schedule('daily-reminder-processing', '0 7 * * *', $$...');
-  ```
-- **Status**: Fixed, manual test successful (HTTP 200, 1002ms)
+### Root Cause Identified:
+**File**: `src/components/kiosk/PhoneVerificationStep.tsx`
 
-### Overdue Reminders Processed ✅
-- 5 reminders overdue by 2-10 days
-- All processed successfully on 2025-11-17
+**Data Flow Analysis**:
+1. **Kiosk stores phone** (`page.tsx` line 627):
+   - `formData.phone = "+40729440132"` (12 characters with `+40` prefix)
+   - Passed to PhoneVerificationStep: `phone={formData.phone}`
 
----
+2. **Component receives prop** (line 25):
+   ```typescript
+   const [phone, setPhone] = useState(phoneProp || '');
+   // If phoneProp = "+40729440132", state becomes "+40729440132"
+   ```
 
-## Session 2: New Failure & Complete Fix (2025-11-18)
+3. **Validation fails** (line 94):
+   ```typescript
+   if (phone.length !== 10) {
+     setError('Te rugăm să introduci un număr valid de telefon');
+     return;
+   }
+   // "+40729440132".length = 12 !== 10 → FAIL ❌
+   ```
 
-### Root Cause #2: Dual Cron Conflict ✅
-**Discovery**: Both Supabase pg_cron AND Vercel Cron running simultaneously at 07:00 UTC
-- Created race conditions
-- Vercel Cron was primary (Supabase was backup)
-- **Solution**: Disabled Supabase pg_cron completely
-  ```sql
-  SELECT cron.unschedule('daily-reminder-processing');
-  ```
+4. **Function returns early** - SMS never sent because validation fails
 
-### Root Cause #3: Cookie Access in Cron Context ✅
-**File**: `/src/lib/services/reminder-processor.ts`
-**Problem**: Used `createServerClient()` which requires HTTP cookies
-- Vercel Cron has no cookies → crashes at module load
-- **Solution**: Replace with direct Supabase client
-  ```typescript
-  // BEFORE (BROKEN):
-  const supabase = createServerClient();
+### Previous Fixes Applied (Session 1):
+1. ✅ Fixed phone display format bug in `formatPhoneDisplay()` (lines 58-75)
+   - Now correctly strips "40" country code for display
+   - Shows "0729 440 132" instead of "4072 944 013"
 
-  // AFTER (FIXED):
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-  ```
+2. ✅ Increased phone input limit from 9 to 10 digits (page.tsx line 598)
 
-### Root Cause #4: Module-Level Import Issue ✅
-**File**: `/src/lib/services/reminder-processor.ts` (line 7-8)
-**Problem**: Even after removing usage, import statement still loaded problematic code
-- **Solution**: Removed `import { createServerClient } from '@/lib/supabase/server';` entirely
-- Added comment explaining why it's forbidden
+3. ✅ Removed QR code feature (page.tsx lines 35, 385-389)
 
-### Root Cause #5: Build Errors (Backup Files) ✅
-**Problem**: Old backup files in `audit-reports/backups/` caused TypeScript errors
-- Prevented Vercel deployments from succeeding
-- **Solution**: Deleted `audit-reports/backups/` directory
-- Commit: `7a7d500`
+4. ✅ Build successful, deployed to Vercel
+   - Commit: `5852352`
+   - Deployment URL: `https://uitdeitp-app-standalone-kp4ntl1wq-trollofuns-projects.vercel.app`
 
-### Root Cause #6: Middleware Running on API Routes ✅
-**File**: `/src/middleware.ts` (line 32)
-**Problem**: Auth middleware ran on ALL routes including `/api/*`
-- Tried to check authentication on cron endpoint
-- Caused HTTP 500 on every API call
-- **Solution**: Exclude `/api/*` from middleware
-  ```typescript
-  // BEFORE:
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|...).*)',]
-
-  // AFTER:
-  matcher: ['/((?!api/|_next/static|_next/image|favicon.ico|...).*)',]
-  ```
-- Commit: `07d660d`
-
-### Successful Test Execution ✅
-**Date**: 2025-11-18 14:11:48 UTC
-**Result**:
-```json
-{
-  "success": true,
-  "message": "Processed 1 reminders (1 sent, 0 failed)",
-  "stats": {
-    "total": 1,
-    "processed": 1,
-    "sent": 1,
-    "failed": 0,
-    "smsOnly": 1
-  },
-  "executionTime": "2614ms"
-}
-```
-
-**Notification Verified**:
-- SMS sent to CT16NOI reminder
-- Twilio Message ID: `SMc2d442cf72a7584d03928fca17883ba7`
-- Cost: $0.0075
-- Message: "Salut saispenoiembrie, ITP pentru CT16NOI expiră în 5 zile (23.11.2025)"
-- Database logged correctly in `notification_log`
-
-### Comprehensive Audit (5 Agents) ✅
-**Agents Deployed**:
-1. ✅ security-auditor - Found 3 critical vulnerabilities
-2. ✅ deployment-engineer - Found CRON_SECRET trailing newline issue
-3. ✅ database-optimizer - Database health: A+ grade
-4. ❌ test-automator - Disk space error
-5. ✅ performance-engineer - System performance: Excellent
-
-**Reports Generated**:
-- SECURITY_AUDIT_REPORT.md (26 KB)
-- SECURITY_EXECUTIVE_SUMMARY.md (5 KB)
-- SECURITY_CHECKLIST.md (18 KB)
-- VERCEL_DEPLOYMENT_AUDIT.md (complete deployment analysis)
-- FIX_CRON_SECRET.md (step-by-step fix)
-- DATABASE_HEALTH_AUDIT.md (complete DB audit)
-- PERFORMANCE_AUDIT_REPORT.md (performance & monitoring)
-- fix-env-vars.sh (automated fix script)
-
-### Git Commits
-- `f95b15a` - Database schema mismatches fixed
-- `737f419` - Audit documentation added
-- `0e73c11` - Fixed processRemindersForToday to use direct client
-- `8595e14` - Removed createServerClient import
-- `7a7d500` - Remove backup files preventing Vercel build
-- `93befab` - Add minimal test endpoint
-- `07d660d` - Exclude API routes from auth middleware (CRITICAL FIX)
+### What DOESN'T Work:
+- The `formatPhoneDisplay()` function only formats for DISPLAY (visual only)
+- The internal `phone` state still contains the raw 12-character string `"+40729440132"`
+- Validation expects exactly 10 digits without prefix
 </work_completed>
 
 <work_remaining>
-## CRITICAL FIXES NEEDED (Next 2 Hours) 🔴
+## Fix Required: Normalize Phone State at Component Initialization
 
-### 1. Fix CRON_SECRET Trailing Newline (5 minutes) ⚠️
-**Priority**: BLOCKING ISSUE
-**File**: Vercel Environment Variables
-**Problem**: `CRON_SECRET="tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXFfEs=\n"` has `\n`
-**Impact**: Daily Vercel Cron job CANNOT authenticate (returns 401)
-**Result**: Automated daily reminders NOT running
+### File to Modify:
+`/home/johntuca/Desktop/uitdeitp/src/components/kiosk/PhoneVerificationStep.tsx`
 
-**Manual Fix**:
-1. Go to: https://vercel.com/trollofuns-projects/uitdeitp-app-standalone/settings/environment-variables
-2. Edit `CRON_SECRET` (Production)
-3. Paste: `tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXFfEs=` (NO newline!)
-4. Edit `RESEND_API_KEY` → remove `\n`
-5. Edit `RESEND_FROM_EMAIL` → remove `\n`
-6. Save + Redeploy: `vercel --prod`
+### Change Needed (Line 25):
 
-**Automated Fix**:
-```bash
-cd /home/johntuca/Desktop/uitdeitp
-chmod +x fix-env-vars.sh
-./fix-env-vars.sh
+**Current (BROKEN)**:
+```typescript
+const [phone, setPhone] = useState(phoneProp || '');
+// Result: phone = "+40729440132" (12 chars) → validation fails
 ```
 
-**Verification**:
-```bash
-curl -X POST https://uitdeitp.vercel.app/api/cron/process-reminders \
-  -H "Authorization: Bearer tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXFfEs=" \
-  -H "Content-Type: application/json"
-# Expected: {"success":true,...}
+**Fixed**:
+```typescript
+const [phone, setPhone] = useState(() => {
+  if (!phoneProp) return '';
+
+  // Normalize to 10 digits (07XXXXXXXX format)
+  const digits = phoneProp.replace(/\D/g, ''); // Remove all non-digits
+
+  // If has country code "40" at start with 12 total digits
+  if (digits.startsWith('40') && digits.length === 12) {
+    return '0' + digits.substring(2); // "40729440132" → "0729440132"
+  }
+
+  // If already has leading 0 with 10 digits
+  if (digits.startsWith('0') && digits.length === 10) {
+    return digits; // "0729440132" → "0729440132"
+  }
+
+  // If 9 digits without leading 0
+  if (digits.length === 9 && !digits.startsWith('0')) {
+    return '0' + digits; // "729440132" → "0729440132"
+  }
+
+  // Fallback: return cleaned digits
+  return digits;
+});
 ```
 
-### 2. Rotate Exposed Secrets (15 minutes) 🔴
-**Priority**: SECURITY CRITICAL
-**File**: `.env.vercel.production` (already deleted from git)
-**Problem**: Production secrets were committed to repository
-**Exposed**:
-- CRON_SECRET
-- NOTIFYHUB_API_KEY
-- RESEND_API_KEY
+### Expected Result After Fix:
+1. Phone state normalized to: `"0729440132"` (10 digits)
+2. Validation passes: `10 === 10` ✅
+3. API receives: `{ phone: "0729440132" }`
+4. Server converts to international format: `"+40729440132"` (via `formatPhoneNumber()`)
+5. SMS sent successfully ✅
 
-**Fix Steps**:
+### Testing Scenarios:
+After implementing the fix, test these inputs from kiosk:
+
+| User Input | Kiosk `formData.phone` | Component `phone` State | Validation | SMS Sent |
+|------------|------------------------|-------------------------|------------|----------|
+| `729440132` | `"+40729440132"` (12) | `"0729440132"` (10) | ✅ PASS | ✅ YES |
+| `0729440132` | `"+400729440132"` (13) | `"0729440132"` (10) | ✅ PASS | ✅ YES |
+
+### Files to Commit:
+- `src/components/kiosk/PhoneVerificationStep.tsx` (line 25 modification)
+
+### Build & Deploy:
 ```bash
-# 1. Generate new secrets
-NEW_CRON_SECRET=$(openssl rand -base64 32)
-
-# 2. Update Vercel env vars
-vercel env rm CRON_SECRET production
-vercel env add CRON_SECRET production
-# Paste: $NEW_CRON_SECRET
-
-# 3. Update NotifyHub API key (from NotifyHub dashboard)
-vercel env rm NOTIFYHUB_API_KEY production
-vercel env add NOTIFYHUB_API_KEY production
-
-# 4. Update Resend API key (from Resend dashboard)
-vercel env rm RESEND_API_KEY production
-vercel env add RESEND_API_KEY production
-
-# 5. Update vercel.json with new CRON_SECRET
-# Edit vercel.json cron Authorization header
-
-# 6. Redeploy
+npm run build  # Verify 0 errors
+git add src/components/kiosk/PhoneVerificationStep.tsx
+git commit -m "fix: Normalize phone prop to 10-digit format for SMS verification"
+git push
 vercel --prod
 ```
 
-### 3. Fix Middleware for Admin Routes (1 hour) 🟠
-**Priority**: HIGH SECURITY RISK
-**File**: `/src/middleware.ts`
-**Problem**: Excluding `/api/*` means admin endpoints have NO middleware protection
-**Current**: `'/((?!api/|_next/static|...'` - TOO BROAD
-**Solution**: Explicitly protect admin routes
-
-**Recommended Fix**:
-```typescript
-// src/middleware.ts
-export const config = {
-  matcher: [
-    // Exclude public API routes
-    '/((?!api/cron/|api/kiosk/|api/test-|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
-};
-```
-
-This allows:
-- ✅ `/api/cron/*` - No auth (has CRON_SECRET)
-- ✅ `/api/kiosk/*` - No auth (public)
-- ✅ `/api/test-*` - No auth (testing)
-- ❌ `/api/admin/*` - Protected by middleware
-- ❌ `/api/reminders/*` - Protected by middleware
-
-### 4. Add Rate Limiting (30 minutes) 🟠
-**Priority**: HIGH SECURITY RISK
-**File**: `/src/app/api/cron/process-reminders/route.ts`
-**Problem**: No rate limiting on cron endpoint (brute-force vulnerable)
-
-**Solution** (from SECURITY_CHECKLIST.md):
-```typescript
-// Add Vercel KV rate limiting
-import { Ratelimit } from "@upstash/ratelimit";
-import { kv } from "@vercel/kv";
-
-const ratelimit = new Ratelimit({
-  redis: kv,
-  limiter: Ratelimit.slidingWindow(10, "1 h"),
-});
-
-export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for") || "anonymous";
-  const { success } = await ratelimit.limit(ip);
-
-  if (!success) {
-    return NextResponse.json(
-      { error: "Rate limit exceeded" },
-      { status: 429 }
-    );
-  }
-
-  // ... existing code
-}
-```
-
-## HIGH PRIORITY (Next 24 Hours) 🟡
-
-### 5. Configure External Monitoring (15 minutes)
-**Priority**: PREVENT FUTURE SILENT FAILURES
-**Tools**: UptimeRobot (free tier)
-
-**Setup**:
-1. Create account: https://uptimerobot.com
-2. Add HTTP(s) monitor:
-   - URL: `https://uitdeitp.vercel.app/api/cron/process-reminders`
-   - Method: GET (health check)
-   - Interval: Every 30 minutes
-   - Alert: Email when down for >5 minutes
-
-### 6. Add Duplicate Notification Check (1 hour)
-**File**: `/src/lib/services/reminder-processor.ts`
-**Problem**: Manual re-runs could send duplicate notifications
-**Solution**: Check notification_log before sending
-
-```typescript
-// Before sending SMS, check if already sent today
-const { data: recentNotification } = await supabase
-  .from('notification_log')
-  .select('id')
-  .eq('reminder_id', reminder.id)
-  .gte('created_at', new Date().toISOString().split('T')[0])
-  .single();
-
-if (recentNotification) {
-  console.log(`[Processor] Notification already sent today for ${reminder.id}`);
-  return { success: false, error: 'Already sent today' };
-}
-```
-
-### 7. Configure Vercel Cron Job (5 minutes)
-**Priority**: ENSURE DAILY EXECUTION
-**Location**: Vercel Dashboard
-
-**Verify Configuration**:
-1. Go to: https://vercel.com/trollofuns-projects/uitdeitp-app-standalone/settings/cron
-2. Should see:
-   - Path: `/api/cron/process-reminders`
-   - Schedule: `0 7 * * *`
-   - Status: Active
-
-**If missing**, add via `vercel.json` (already configured):
-```json
-{
-  "crons": [{
-    "path": "/api/cron/process-reminders",
-    "schedule": "0 7 * * *"
-  }]
-}
-```
-
-## MEDIUM PRIORITY (Next Week) 🟢
-
-### 8. Add Timeout Protection
-**File**: `/src/lib/services/reminder-processor.ts`
-**Problem**: Function can silently fail if execution exceeds 60s
-**Solution**: Implement batch processing with timeout checks
-
-### 9. Setup Better Stack Logging
-**Problem**: No centralized log aggregation
-**Solution**: Integrate Better Stack for log monitoring
-
-### 10. Build Admin Cost Dashboard
-**Location**: `/src/app/admin/notifications`
-**Features**:
-- Last cron run timestamp
-- Success/failure status
-- SMS delivery stats
-- Cost tracking
+### Verification:
+1. Open kiosk: `http://localhost:3000/kiosk/euro-auto-service`
+2. Enter phone: `729440132`
+3. Click "Continuă"
+4. **Expected**: SMS verification code sent successfully
+5. Check browser console for: `DEBUG: Phone state: { phone: "0729440132", length: 10 }`
 </work_remaining>
 
 <context>
-## Current System Status
+## Technical Context
 
-**Notification System**: ✅ FUNCTIONAL (with critical caveats)
-- Manual test successful (2025-11-18 14:11:48 UTC)
-- SMS sent and logged correctly
-- Database health: A+ grade
-- Performance: Excellent (2.6s execution)
+### Phone Number Format Standards:
+- **Romanian Format**: 10 digits starting with `0` (e.g., `0729440132`)
+- **International Format**: 12 characters with `+40` prefix (e.g., `+40729440132`)
+- **Kiosk Storage**: Always stores with `+40` prefix (12 characters)
+- **Component Expectation**: Always expects 10 digits without prefix
+- **API Expectation**: Accepts 10-digit format, converts to international internally
 
-**BUT**: Automated daily cron job BLOCKED by CRON_SECRET trailing newline issue
+### Key Function Locations:
+1. **Phone Display Formatting**: `PhoneVerificationStep.tsx:58-75`
+   - Function: `formatPhoneDisplay()`
+   - Purpose: VISUAL ONLY (adds spaces for display)
+   - Input: `"0729440132"` → Output: `"0729 440 132"`
 
-**Overall Grade**: B- (Functional but insecure)
-- Database: A+
-- Performance: A
-- Security: C+ (3 critical vulnerabilities)
-- Deployment: B- (works but has config issues)
-- Monitoring: F (no external monitoring)
+2. **Phone State Initialization**: `PhoneVerificationStep.tsx:25`
+   - **THIS IS WHERE THE BUG IS** ⚠️
+   - Currently: `useState(phoneProp || '')` - uses raw prop value
+   - Needed: Normalize to 10 digits
 
-## Critical Technical Decisions
+3. **Phone Validation**: `PhoneVerificationStep.tsx:94`
+   - Checks: `phone.length !== 10`
+   - Expects exactly 10 digits (no prefix, no formatting)
 
-### 1. Migration from Supabase to Vercel Cron
-**Reason**: Simplify architecture, reduce Supabase dependency
-**Implementation**:
-- Disabled Supabase pg_cron (was causing conflicts)
-- Using Vercel Cron as PRIMARY trigger
-- Endpoint: `/api/cron/process-reminders`
-- Schedule: `0 7 * * *` (07:00 UTC = 09:00 EET)
+4. **API Conversion**: Server-side `formatPhoneNumber()` function
+   - Converts `"0729440132"` → `"+40729440132"` for Twilio/NotifyHub
+   - Located in: `src/lib/services/phone.ts` (estimated)
 
-### 2. Direct Supabase Client in Cron Context
-**File**: `/src/lib/services/reminder-processor.ts:363-374`
-**Reason**: `createServerClient()` requires cookies (not available in cron)
-**Implementation**:
+### Why Previous Fix Didn't Solve This:
+The `formatPhoneDisplay()` fix (lines 58-75) only affects DISPLAY, not the internal state:
 ```typescript
-const { createClient } = await import('@supabase/supabase-js');
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+// Display function (VISUAL ONLY)
+const formatPhoneDisplay = (value: string) => {
+  // Strips "40", adds leading "0", formats with spaces
+  return "0729 440 132"; // This is ONLY for showing in input field
+};
+
+// But the STATE still has:
+phone = "+40729440132" // ❌ 12 chars → validation fails
 ```
-**IMPORTANT**: NEVER import `createServerClient` in this file - causes module load crash
 
-### 3. Middleware API Route Exclusion
-**File**: `/src/middleware.ts:32`
-**Pattern**: `'/((?!api/|_next/static|...'`
-**Reason**: Auth middleware was blocking cron endpoint (causing HTTP 500)
-**Trade-off**: ALL `/api/*` routes now bypass auth middleware
-**Risk**: Admin endpoints vulnerable if not protected in-route
-**TODO**: Narrow exclusion to only public routes
+### Critical Distinction:
+- **`formatPhoneDisplay()`**: For **rendering** the input field visually
+- **`phone` state**: For **validation** and **API calls**
+- These are separate! Fixing display doesn't fix the state.
 
-### 4. Romanian Timezone Handling
-**Implementation**: Uses `Europe/Bucharest` timezone for date calculations
-```typescript
-const today = formatInTimeZone(new Date(), 'Europe/Bucharest', 'yyyy-MM-dd');
+### Kiosk Phone Input Flow:
 ```
-**Reason**: Ensures reminders process at correct local time
+User types "729440132"
+  ↓
+page.tsx numpad handler (line 596-601)
+  ↓
+formData.phone = "+40" + digits → "+40729440132"
+  ↓
+Passed to PhoneVerificationStep (line 627)
+  ↓
+phone={formData.phone} → phone="+40729440132"
+  ↓
+Component state: phone = "+40729440132" (12 chars)
+  ↓
+Validation: 12 !== 10 → FAIL ❌
+```
 
-## Production URLs
+### After Fix, Expected Flow:
+```
+User types "729440132"
+  ↓
+page.tsx: formData.phone = "+40729440132"
+  ↓
+Component initialization (NEW LOGIC):
+  - Receives phoneProp = "+40729440132"
+  - Strips non-digits: "40729440132"
+  - Detects "40" prefix with 12 digits
+  - Converts: "0" + "729440132" = "0729440132"
+  ↓
+Component state: phone = "0729440132" (10 chars)
+  ↓
+Validation: 10 === 10 → PASS ✅
+  ↓
+API call: { phone: "0729440132" }
+  ↓
+Server: formatPhoneNumber("0729440132") → "+40729440132"
+  ↓
+SMS sent successfully ✅
+```
 
-- **Production**: `https://uitdeitp.vercel.app` (Active)
-- **Production (alternate)**: `https://uitdeitp-app-standalone.vercel.app`
-- **Custom domain**: Not yet configured (www.uitdeitp.ro planned)
-- **Supabase URL**: `https://dnowyodhffqqhmakjupo.supabase.co`
-- **NotifyHub**: `https://ntf.uitdeitp.ro`
+### Important Gotchas:
+1. **Don't modify `formatPhoneDisplay()`** - it's working correctly for display
+2. **Don't modify kiosk phone storage** - `+40` prefix is correct there
+3. **Only normalize at component state initialization** - line 25 is the perfect place
+4. **Test both 9-digit and 10-digit inputs** - normalization should handle both
 
-## Environment Variables
+### Files Previously Modified (Session 1):
+- `src/components/kiosk/PhoneVerificationStep.tsx:58-75` (formatPhoneDisplay fix)
+- `src/app/kiosk/[station_slug]/page.tsx:598` (10-digit limit)
+- `src/app/kiosk/[station_slug]/page.tsx:35,385-389` (QR code removal)
 
-**Vercel Production** (12 variables set):
-- ✅ `NEXT_PUBLIC_SUPABASE_URL`
-- ✅ `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- ✅ `SUPABASE_SERVICE_ROLE_KEY`
-- ⚠️ `CRON_SECRET` - HAS TRAILING NEWLINE (MUST FIX)
-- ✅ `NOTIFYHUB_URL`
-- ✅ `NOTIFYHUB_API_KEY`
-- ⚠️ `RESEND_API_KEY` - HAS TRAILING NEWLINE
-- ⚠️ `RESEND_FROM_EMAIL` - HAS TRAILING NEWLINE
-- ✅ `NEXT_PUBLIC_APP_URL`
+### Build Status:
+- ✅ Last build: Successful (0 errors)
+- ✅ Kiosk page: 15.8 kB (286 kB total)
+- ✅ Deployed to Vercel production
+- ⏳ Phone verification: Blocked until this fix applied
 
-## Database Schema (Verified Correct)
-
-**Tables**:
-- `reminders`: 44 rows, 216 KB
-  - `notification_intervals`: JSONB (e.g., `[5]`, `[7, 3, 1]`)
-  - `notification_channels`: JSONB (`{"sms": true, "email": false}`)
-  - `next_notification_date`: DATE (triggers when <= today)
-  - `source`: 'user' | 'kiosk'
-  - `station_id`: UUID (for custom SMS templates)
-
-- `notification_log`: 2 rows, 128 KB
-  - Tracks all sent notifications
-  - Includes: type, status, provider, cost, message_body
-
-- `user_profiles`: User data with phone_verified flag
-- `kiosk_stations`: Station configurations
-- `global_opt_outs`: GDPR opt-out list
-
-**Indexes**: 12 strategic indexes (all critical queries covered)
-
-## Key Files Modified
-
-**Critical Fixes**:
-- `/src/lib/services/reminder-processor.ts` - Direct Supabase client, no createServerClient
-- `/src/middleware.ts` - Exclude `/api/*` from auth middleware
-- `/src/app/api/cron/process-reminders/route.ts` - Main cron endpoint
-
-**Deleted**:
-- `audit-reports/backups/` - Was causing build errors
-
-**Added**:
-- `/src/app/api/test-simple/route.ts` - Minimal test endpoint
-
-**Reports**:
-- `SECURITY_AUDIT_REPORT.md`
-- `SECURITY_EXECUTIVE_SUMMARY.md`
-- `SECURITY_CHECKLIST.md`
-- `VERCEL_DEPLOYMENT_AUDIT.md`
-- `FIX_CRON_SECRET.md`
-- `DATABASE_HEALTH_AUDIT.md`
-- `PERFORMANCE_AUDIT_REPORT.md`
-- `fix-env-vars.sh`
-
-## Gotchas & Warnings
-
-1. **NEVER import `createServerClient` in reminder-processor.ts** - Causes module load crash in cron context
-2. **CRON_SECRET trailing newline** - Blocks all automated cron execution (fix immediately!)
-3. **Middleware excludes ALL `/api/*`** - Admin routes vulnerable (must fix)
-4. **No external monitoring** - Silent failures can last 8+ days
-5. **Manual test succeeded** - But automated daily cron WON'T work until CRON_SECRET fixed
-6. **Secrets exposed in git** - Rotate all production secrets ASAP
-7. **pg_cron is DISABLED** - Vercel Cron is now primary (not Supabase)
-8. **Test data in production** - CT16NOI reminder is real test data
-
-## Test Results
-
-**Last Successful Manual Test**: 2025-11-18 14:11:48 UTC
-- Endpoint: `https://uitdeitp.vercel.app/api/cron/process-reminders`
-- Method: POST with `Authorization: Bearer tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXFfEs=`
-- Result: 1 SMS sent successfully (CT16NOI reminder)
-- Execution time: 2,614ms
-- Database: Notification logged correctly
-- Cost: $0.0075
-
-**Automated Cron Status**: ❌ BLOCKED
-- Reason: CRON_SECRET trailing newline prevents authentication
-- Impact: Daily reminders NOT running automatically
-- Fix required: Remove `\n` from environment variable
-
-## Next Session Priorities
-
-**If continuing this work**:
-1. ⚠️ Fix CRON_SECRET trailing newline (5 min) - BLOCKING
-2. 🔴 Rotate exposed secrets (15 min) - CRITICAL SECURITY
-3. 🟠 Fix middleware admin route protection (1 hour)
-4. 🟠 Add rate limiting (30 min)
-5. 🟡 Configure UptimeRobot monitoring (15 min)
-
-**If starting new work**:
-- Manual notification system works ✅
-- Automated daily cron BLOCKED until CRON_SECRET fixed ⚠️
-- Database and performance excellent ✅
-- Security vulnerabilities need attention 🔴
-
-## Documentation References
-
-**Security**:
-- `/home/johntuca/Desktop/uitdeitp/SECURITY_AUDIT_REPORT.md`
-- `/home/johntuca/Desktop/uitdeitp/SECURITY_CHECKLIST.md`
-- `/home/johntuca/Desktop/uitdeitp/FIX_CRON_SECRET.md`
-
-**Deployment**:
-- `/home/johntuca/Desktop/uitdeitp/VERCEL_DEPLOYMENT_AUDIT.md`
-- `/home/johntuca/Desktop/uitdeitp/fix-env-vars.sh`
-
-**Database**:
-- `/home/johntuca/Desktop/uitdeitp/DATABASE_HEALTH_AUDIT.md`
-
-**Performance**:
-- `/home/johntuca/Desktop/uitdeitp/PERFORMANCE_AUDIT_REPORT.md`
-
-**Previous Investigation**:
-- `/home/johntuca/Desktop/uitdeitp/INVESTIGATION_REPORT.md`
-- `/home/johntuca/Desktop/uitdeitp/NOTIFICATION_SYSTEM_FIX_SUMMARY.md`
+### Next Session Priority:
+**URGENT**: Fix phone state normalization (5-10 minutes)
+- This is blocking the entire kiosk verification flow
+- All other kiosk features are working correctly
+- After this fix, Phase 2 (Enhanced Slider Animations) can begin
 </context>
