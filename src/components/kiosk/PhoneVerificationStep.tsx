@@ -80,19 +80,10 @@ export function PhoneVerificationStep({
   }, [expiresIn]);
 
   const formatPhoneDisplay = (value: string) => {
-    let digits = value.replace(/\D/g, '');
+    // Extract only digits (state is already normalized to 10 digits: 0729440132)
+    const digits = value.replace(/\D/g, '');
 
-    // Remove "40" country code if present at start
-    if (digits.startsWith('40') && digits.length > 10) {
-      digits = digits.substring(2);
-    }
-
-    // Add leading 0 if missing (9 digits → 0729440132)
-    if (digits.length === 9 && !digits.startsWith('0')) {
-      digits = '0' + digits;
-    }
-
-    // Format as "0729 440 132"
+    // Format as "0729 440 132" (no need to check for "40" prefix - state is normalized)
     if (digits.length <= 4) return digits;
     if (digits.length <= 7) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
     return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7, 10)}`;
