@@ -15,7 +15,7 @@
  * - Numpad h-24 fix (mobile-friendly)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Calendar } from '@/components/ui/calendar';
 import { KioskLayout, type StationConfig } from '@/components/kiosk/KioskLayout';
@@ -32,7 +32,7 @@ import {
 } from '@/lib/kiosk/validation';
 import {
   CheckCircle2, Loader2, AlertTriangle,
-  Lock, ChevronRight, ShieldCheck, Sparkles, QrCode, BellRing
+  Lock, ChevronRight, ShieldCheck, Sparkles, QrCode, BellRing, Zap
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { format, subDays } from 'date-fns';
@@ -113,7 +113,7 @@ const pageVariants = {
     x: direction > 0 ? 1000 : -1000,
     opacity: 0,
     scale: 0.8,
-    rotateY: direction > 0 ? 20 : -20,
+    rotateY: direction > 0 ? 25 : -25,
     z: -500
   }),
   animate: {
@@ -124,19 +124,56 @@ const pageVariants = {
     z: 0,
     transition: {
       type: "spring" as const,
-      stiffness: 200,
-      damping: 25,
-      mass: 0.5
+      stiffness: 180,
+      damping: 20,
+      mass: 0.7
     },
   },
   exit: (direction: number) => ({
     x: direction < 0 ? 1000 : -1000,
     opacity: 0,
     scale: 0.8,
-    rotateY: direction < 0 ? 20 : -20,
+    rotateY: direction < 0 ? 25 : -25,
     transition: { duration: 0.4 }
   })
 };
+
+// --- IDLE SLIDER MESSAGES (Attractor Screen) ---
+const IDLE_SLIDES = [
+  {
+    id: 1,
+    icon: AlertTriangle,
+    iconSize: 48,
+    badge: "Atenție: Amenzi ITP Mărite",
+    badgeColor: "bg-red-100 text-red-700",
+    title: <>Nu lăsa statul să-ți ia <br/><span className="text-red-600 underline decoration-red-200">3.000 LEI</span></>,
+    desc: "Înscrie-te la alertă și scapă de griji.",
+    buttonText: "Vreau Protecție Gratuită",
+    color: "from-red-50 to-white"
+  },
+  {
+    id: 2,
+    icon: Zap,
+    iconSize: 48,
+    badge: "Rapid & Ușor",
+    badgeColor: "bg-yellow-100 text-yellow-700",
+    title: <>Gata în doar <br/><span className="text-yellow-600">30 de Secunde</span></>,
+    desc: "Fără conturi. Fără parole. Doar numărul tău.",
+    buttonText: "Start Rapid",
+    color: "from-yellow-50 to-white"
+  },
+  {
+    id: 3,
+    icon: ShieldCheck,
+    iconSize: 48,
+    badge: "100% Gratuit & Sigur",
+    badgeColor: "bg-blue-100 text-blue-700",
+    title: <>Un singur <br/><span className="text-blue-600">SMS pe an</span></>,
+    desc: "Zero Spam. Datele tale sunt în siguranță.",
+    buttonText: "Activează Gratuit",
+    color: "from-blue-50 to-white"
+  }
+];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -200,6 +237,7 @@ export default function KioskPage() {
   const [submitting, setSubmitting] = useState(false);
   const [lastActivity, setLastActivity] = useState(0); // Prevent hydration mismatch
   const [mounted, setMounted] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(0); // For idle slider rotation
 
   const updateActivity = useCallback(() => setLastActivity(Date.now()), []);
 
@@ -248,6 +286,17 @@ export default function KioskPage() {
       return () => clearInterval(timer);
     }
   }, [step, lastActivity]);
+
+  // IDLE SLIDER AUTO-ROTATION (8 seconds)
+  useEffect(() => {
+    if (step !== 1) return;
+
+    const interval = setInterval(() => {
+      setSlideIndex((prev) => (prev + 1) % IDLE_SLIDES.length);
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [step]);
 
   // NAVIGATION
   const nextStep = () => {
@@ -359,59 +408,64 @@ export default function KioskPage() {
         <div className="flex-1 flex items-center justify-center p-4 w-full max-w-7xl mx-auto overflow-y-auto sm:overflow-visible perspective-[1000px]">
             <AnimatePresence mode="wait" custom={dir} initial={false}>
 
-                {/* STEP 1: IDLE (The Hook) */}
+                {/* STEP 1: IDLE SLIDER (Attractor Screen) */}
                 {step === 1 && (
                     <motion.div
-                        key="s1"
-                        custom={dir}
-                        variants={pageVariants}
-                        initial="initial"
-                        animate="animate"
-                        exit="exit"
-                        className="text-center cursor-pointer w-full max-w-3xl mx-auto bg-white/90 backdrop-blur-xl rounded-[2rem] sm:rounded-[3rem] shadow-2xl p-8 sm:p-12 border-4 border-white/50 my-auto"
-                        onClick={() => nextStep()}
+                        key="step1"
+                        exit={{ opacity: 0, scale: 1.1, filter: 'blur(10px)', transition: { duration: 0.5 } }}
+                        className="w-full max-w-4xl mx-auto"
                     >
-                        <motion.div
-                          className="inline-flex items-center gap-2 bg-red-100 text-red-700 px-4 sm:px-6 py-2 rounded-full font-black text-xs sm:text-sm uppercase tracking-wider mb-6 sm:mb-8 border border-red-200"
-                          animate={{ scale: [1, 1.05, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        >
-                            <AlertTriangle size={18} /> Atenție: Amenzi ITP mărite
-                        </motion.div>
-
-                        <h1 className="text-4xl sm:text-7xl font-black text-slate-900 mb-4 sm:mb-6 leading-[1.1]">
-                            Nu lăsa statul să-ți ia <br className="hidden sm:block"/>
-                            <span className="text-red-600 decoration-4 underline decoration-red-200 underline-offset-4 sm:underline-offset-8">3.000 LEI</span>
-                        </h1>
-
-                        <p className="text-lg sm:text-2xl text-slate-500 font-medium mb-8 sm:mb-12 max-w-xl mx-auto leading-normal">
-                            Înscrie-te în sistemul nostru de alertă. <br/>
-                            <strong className="text-slate-900">Este 100% Gratuit și durează 30 secunde.</strong>
-                        </p>
-
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="w-full bg-blue-600 text-white py-6 sm:py-8 rounded-2xl sm:rounded-3xl text-2xl sm:text-3xl font-bold shadow-[0_20px_50px_-12px_rgba(37,99,235,0.5)] flex items-center justify-center gap-4 hover:bg-blue-700 transition-all group relative overflow-hidden"
-                        >
-                            <span className="relative z-10">Vreau Protecție Gratuită</span>
-                            <ChevronRight className="w-8 h-8 sm:w-10 sm:h-10 relative z-10 group-hover:translate-x-2 transition-transform" />
-                            {/* Shimmer Effect */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                        </motion.button>
-
-                        <div className="mt-8 grid grid-cols-3 gap-2 text-center">
-                            {['100% Gratuit', 'Zero Spam', 'Securizat'].map((text, i) => (
+                        <div className="relative h-[600px] flex items-center justify-center">
+                            <AnimatePresence mode="wait">
                                 <motion.div
-                                  key={i}
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ delay: 0.5 + (i * 0.1) }}
-                                  className="bg-slate-50 rounded-lg p-2 text-xs font-bold text-slate-400 border border-slate-100"
+                                    key={slideIndex}
+                                    initial={{ opacity: 0, x: 100, rotateY: -10 }}
+                                    animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                                    exit={{ opacity: 0, x: -100, rotateY: 10 }}
+                                    transition={{ type: "spring", stiffness: 100, damping: 20 }}
+                                    onClick={() => nextStep()}
+                                    className={`cursor-pointer w-full bg-gradient-to-br ${IDLE_SLIDES[slideIndex].color} rounded-[3rem] shadow-2xl p-8 sm:p-16 border-4 border-white/50 text-center relative overflow-hidden group`}
                                 >
-                                    {text}
+                                    {/* Floating Badge */}
+                                    <motion.div
+                                        initial={{ y: -20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        className={`inline-flex items-center gap-2 px-6 py-2 rounded-full font-black text-sm uppercase tracking-wider mb-10 ${IDLE_SLIDES[slideIndex].badgeColor}`}
+                                    >
+                                        {React.createElement(IDLE_SLIDES[slideIndex].icon, { size: IDLE_SLIDES[slideIndex].iconSize })}
+                                        {IDLE_SLIDES[slideIndex].badge}
+                                    </motion.div>
+
+                                    <h1 className="text-5xl sm:text-7xl font-black text-slate-900 mb-8 leading-[1.1]">
+                                        {IDLE_SLIDES[slideIndex].title}
+                                    </h1>
+
+                                    <p className="text-2xl text-slate-600 font-medium mb-12 max-w-xl mx-auto">
+                                        {IDLE_SLIDES[slideIndex].desc}
+                                    </p>
+
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        className="w-full bg-slate-900 text-white py-8 rounded-3xl text-3xl font-bold shadow-2xl flex items-center justify-center gap-4 group-hover:bg-blue-600 transition-colors duration-500"
+                                    >
+                                        {IDLE_SLIDES[slideIndex].buttonText}
+                                        <ChevronRight className="w-8 h-8" />
+                                    </motion.button>
+
+                                    {/* Slide Indicators */}
+                                    <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2">
+                                        {IDLE_SLIDES.map((_, i) => (
+                                            <div
+                                                key={i}
+                                                className={`h-2 rounded-full transition-all duration-500 ${
+                                                    i === slideIndex ? 'w-8 bg-slate-900' : 'w-2 bg-slate-300'
+                                                }`}
+                                            />
+                                        ))}
+                                    </div>
                                 </motion.div>
-                            ))}
+                            </AnimatePresence>
                         </div>
                     </motion.div>
                 )}
@@ -540,13 +594,19 @@ export default function KioskPage() {
                             <div className="bg-white/80 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl border border-white w-full max-w-[450px]">
                                 <ResponsiveNumpad
                                     onInput={(d) => {
-                                        if(formData.phone.replace('+40','').length < 9) {
-                                            setFormData({...formData, phone: normalizePhoneNumber(formData.phone + d)});
+                                        const currentDigits = formData.phone.replace('+40', '');
+                                        if(currentDigits.length < 9) {
+                                            setFormData({...formData, phone: '+40' + currentDigits + d});
                                             updateActivity();
                                         }
                                     }}
                                     onDelete={() => {
-                                        setFormData({...formData, phone: normalizePhoneNumber(formData.phone.slice(0, -1))});
+                                        const currentDigits = formData.phone.replace('+40', '');
+                                        if(currentDigits.length > 0) {
+                                            setFormData({...formData, phone: '+40' + currentDigits.slice(0, -1)});
+                                        } else {
+                                            setFormData({...formData, phone: ''});
+                                        }
                                         updateActivity();
                                     }}
                                 />
