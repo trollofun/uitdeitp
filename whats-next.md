@@ -1,251 +1,156 @@
 <original_task>
-Fix kiosk phone verification bug where SMS is not being sent after user enters phone number.
+Fix kiosk UX issues identified during testing:
+1. Phone input - last 2 characters hidden by check icon
+2. Calendar picker - difficult to use, needs Romanian date order (Ziua/Luna/Anul), month as number (1-12) instead of names
+3. Idle timeout - too aggressive after phone verification, needs pause or refresh button
 
-**User Report**: "acum arata numarul corect 0729 440 132 insa tot nu trimite sms-ul de verificare, imi zice ca este invalid, nu cumva trebuia sa il procesezi si cu prefix international?"
-
-**Context**: This is a continuation from fixing phone display format bug. The display now shows correctly ("0729 440 132"), but the SMS verification API call fails with "invalid" error.
-
-**Expected Behavior**:
-- User enters: `729440132` in kiosk
-- Display shows: `0729 440 132` (formatted with spaces)
-- SMS verification code is sent successfully to phone
-
-**Actual Behavior**:
-- Display shows correctly: `0729 440 132` ✅
-- SMS fails with error: "Te rugăm să introduci un număr valid de telefon" ❌
+User feedback (Romanian): "numarul de telefon cand il scriu tot nu se vad ultimele 2 caractere (arata inestetic), iar calendarul arata execrabil. nu pot selecta usor nici luna, anul imi iese din chenar si este foarte dificil sa selectez si anul si luna. vreau sa facem un pas in spate sa ne gandim cum il implementam usor. imi place cum seletam numarul de masina, aceasta sa nu il strici. dupa ce un om reuseste sa isi verifice numarul de telefon, ar trebui sa ne gandim ca nu se misca foarte repede si sa pauzam switch to idle sau macar un buton de refresh daca vin altul."
 </original_task>
 
 <work_completed>
-## Investigation Completed ✅
+## ✅ Completed Tasks:
 
-### Root Cause Identified:
-**File**: `src/components/kiosk/PhoneVerificationStep.tsx`
+### 1. Phone Input Check Icon Fix
+**File**: `/home/johntuca/Desktop/uitdeitp/src/components/kiosk/PhoneVerificationStep.tsx` (lines 199-216)
+- Moved check icon ABOVE the input field (position: absolute, top-right corner)
+- No longer covers the last 2 digits
+- Uses motion.div with scale animation
+- Green circular badge with white check mark
 
-**Data Flow Analysis**:
-1. **Kiosk stores phone** (`page.tsx` line 627):
-   - `formData.phone = "+40729440132"` (12 characters with `+40` prefix)
-   - Passed to PhoneVerificationStep: `phone={formData.phone}`
+### 2. SimpleDatePicker Component Created
+**File**: `/home/johntuca/Desktop/uitdeitp/src/components/kiosk/SimpleDatePicker.tsx` (NEW)
+- **Romanian order**: Ziua → Luna → Anul (not Luna → Ziua → Anul)
+- **Month as number**: 1-12 format (not "Ianuarie", "Februarie", etc.)
+- **Clear labels**: Each column has label badge ("Ziua", "Luna", "Anul")
+- **Touch-friendly**: Large buttons with ChevronUp/ChevronDown
+- **Visual clarity**: Border-2 borders, rounded-xl corners, slate-100 label backgrounds
+- **Display preview**: Shows formatted date "dd MMMM yyyy" in Romanian locale
 
-2. **Component receives prop** (line 25):
-   ```typescript
-   const [phone, setPhone] = useState(phoneProp || '');
-   // If phoneProp = "+40729440132", state becomes "+40729440132"
-   ```
+### 3. Kiosk Page Updated
+**File**: `/home/johntuca/Desktop/uitdeitp/src/app/kiosk/[station_slug]/page.tsx`
+- Line 20: Changed import from `Calendar` to `SimpleDatePicker`
+- Lines 741-751: Replaced old Calendar component with SimpleDatePicker
 
-3. **Validation fails** (line 94):
-   ```typescript
-   if (phone.length !== 10) {
-     setError('Te rugăm să introduci un număr valid de telefon');
-     return;
-   }
-   // "+40729440132".length = 12 !== 10 → FAIL ❌
-   ```
-
-4. **Function returns early** - SMS never sent because validation fails
-
-### Previous Fixes Applied (Session 1):
-1. ✅ Fixed phone display format bug in `formatPhoneDisplay()` (lines 58-75)
-   - Now correctly strips "40" country code for display
-   - Shows "0729 440 132" instead of "4072 944 013"
-
-2. ✅ Increased phone input limit from 9 to 10 digits (page.tsx line 598)
-
-3. ✅ Removed QR code feature (page.tsx lines 35, 385-389)
-
-4. ✅ Build successful, deployed to Vercel
-   - Commit: `5852352`
-   - Deployment URL: `https://uitdeitp-app-standalone-kp4ntl1wq-trollofuns-projects.vercel.app`
-
-### What DOESN'T Work:
-- The `formatPhoneDisplay()` function only formats for DISPLAY (visual only)
-- The internal `phone` state still contains the raw 12-character string `"+40729440132"`
-- Validation expects exactly 10 digits without prefix
+### 4. Git Committed (NOT YET DEPLOYED)
+- Commit: `a01012f` - "fix: Improve kiosk UX - phone input check icon and touch-friendly date picker"
+- Push: ✅ Successful to main branch
+- Vercel deployment: ⏳ In progress (background task e1f801)
 </work_completed>
 
 <work_remaining>
-## Fix Required: Normalize Phone State at Component Initialization
+## 🔧 Tasks NOT Yet Completed:
 
-### File to Modify:
-`/home/johntuca/Desktop/uitdeitp/src/components/kiosk/PhoneVerificationStep.tsx`
+### 1. Verify Vercel Deployment Status
+- Background deployment (bash e1f801) was running
+- Need to check if deployment succeeded
+- URL to verify: Check latest Vercel deployment
 
-### Change Needed (Line 25):
+### 2. Fix Idle Timeout After Phone Verification
+**Problem**: After phone verification, kiosk returns to idle too quickly
+**Solution Options**:
+1. **Pause idle timer** after successful phone verification until user moves to next step
+2. **Add refresh/restart button** on success screen for next customer
+3. **Increase timeout** specifically after verification step
 
-**Current (BROKEN)**:
+**File to modify**: `/home/johntuca/Desktop/uitdeitp/src/app/kiosk/[station_slug]/page.tsx`
+- **Where**: `updateActivity()` function or idle timer logic
+- **Current behavior**: Fixed 60-second idle timeout (IDLE_TIMEOUT constant)
+- **Needed change**: Conditional timeout or pause after step 4 (phone verification)
+
+**Implementation approach**:
 ```typescript
-const [phone, setPhone] = useState(phoneProp || '');
-// Result: phone = "+40729440132" (12 chars) → validation fails
+// Option 1: Pause timer after verification
+const [pauseIdle, setPauseIdle] = useState(false);
+
+// In phone verification success callback:
+onVerified={(verifiedPhone, consent) => {
+  setFormData({...formData, consent: true});
+  setPauseIdle(true); // Pause idle until user continues
+  nextStep();
+}}
+
+// Option 2: Add "Start Next Customer" button after success
+// Step 7 (success screen) - add button to reset flow
 ```
 
-**Fixed**:
+### 3. Test Complete Flow on Production
+After deployment completes:
+1. Navigate to: `https://uitdeitp.ro/kiosk/euro-auto-service` (or latest deployment URL)
+2. Test phone verification flow:
+   - Enter phone: `729440132`
+   - Verify check icon is visible above input (not covering digits)
+   - Verify SMS is sent successfully
+3. Test date picker:
+   - Order should be: **Ziua (01-31) | Luna (01-12) | Anul (2025+)**
+   - Labels should be clear
+   - Touch buttons should work smoothly
+4. Test idle timeout:
+   - After phone verification, observe if timeout is appropriate
+   - Should NOT kick user out too quickly
+
+### 4. Fix Date Preview Display Bug
+**File**: `/home/johntuca/Desktop/uitdeitp/src/components/kiosk/SimpleDatePicker.tsx` (line 85)
+**Current code**:
 ```typescript
-const [phone, setPhone] = useState(() => {
-  if (!phoneProp) return '';
-
-  // Normalize to 10 digits (07XXXXXXXX format)
-  const digits = phoneProp.replace(/\D/g, ''); // Remove all non-digits
-
-  // If has country code "40" at start with 12 total digits
-  if (digits.startsWith('40') && digits.length === 12) {
-    return '0' + digits.substring(2); // "40729440132" → "0729440132"
-  }
-
-  // If already has leading 0 with 10 digits
-  if (digits.startsWith('0') && digits.length === 10) {
-    return digits; // "0729440132" → "0729440132"
-  }
-
-  // If 9 digits without leading 0
-  if (digits.length === 9 && !digits.startsWith('0')) {
-    return '0' + digits; // "729440132" → "0729440132"
-  }
-
-  // Fallback: return cleaned digits
-  return digits;
-});
+{format(new Date(year, month, day), 'dd MMMM yyyy', { locale: ro })}
 ```
-
-### Expected Result After Fix:
-1. Phone state normalized to: `"0729440132"` (10 digits)
-2. Validation passes: `10 === 10` ✅
-3. API receives: `{ phone: "0729440132" }`
-4. Server converts to international format: `"+40729440132"` (via `formatPhoneNumber()`)
-5. SMS sent successfully ✅
-
-### Testing Scenarios:
-After implementing the fix, test these inputs from kiosk:
-
-| User Input | Kiosk `formData.phone` | Component `phone` State | Validation | SMS Sent |
-|------------|------------------------|-------------------------|------------|----------|
-| `729440132` | `"+40729440132"` (12) | `"0729440132"` (10) | ✅ PASS | ✅ YES |
-| `0729440132` | `"+400729440132"` (13) | `"0729440132"` (10) | ✅ PASS | ✅ YES |
-
-### Files to Commit:
-- `src/components/kiosk/PhoneVerificationStep.tsx` (line 25 modification)
-
-### Build & Deploy:
-```bash
-npm run build  # Verify 0 errors
-git add src/components/kiosk/PhoneVerificationStep.tsx
-git commit -m "fix: Normalize phone prop to 10-digit format for SMS verification"
-git push
-vercel --prod
+**Bug**: Month is 1-12 but `new Date()` expects 0-11
+**Fix needed**:
+```typescript
+{format(new Date(year, month - 1, day), 'dd MMMM yyyy', { locale: ro })}
 ```
-
-### Verification:
-1. Open kiosk: `http://localhost:3000/kiosk/euro-auto-service`
-2. Enter phone: `729440132`
-3. Click "Continuă"
-4. **Expected**: SMS verification code sent successfully
-5. Check browser console for: `DEBUG: Phone state: { phone: "0729440132", length: 10 }`
+This is a **CRITICAL BUG** - date preview will show wrong month!
 </work_remaining>
 
 <context>
-## Technical Context
+## Technical Context:
 
-### Phone Number Format Standards:
-- **Romanian Format**: 10 digits starting with `0` (e.g., `0729440132`)
-- **International Format**: 12 characters with `+40` prefix (e.g., `+40729440132`)
-- **Kiosk Storage**: Always stores with `+40` prefix (12 characters)
-- **Component Expectation**: Always expects 10 digits without prefix
-- **API Expectation**: Accepts 10-digit format, converts to international internally
+### Phone Number Format Flow (WORKING):
+- Kiosk stores: `+40729440132` (E.164 format, 12 chars)
+- Converts before passing to component: `.replace(/^\+40/, '0')` → `0729440132` (10 digits)
+- PhoneVerificationStep expects: 10 digits starting with 0
+- Display format: `0729 440 132` (with spaces)
+- API expects: 10-digit format, converts internally to E.164
 
-### Key Function Locations:
-1. **Phone Display Formatting**: `PhoneVerificationStep.tsx:58-75`
-   - Function: `formatPhoneDisplay()`
-   - Purpose: VISUAL ONLY (adds spaces for display)
-   - Input: `"0729440132"` → Output: `"0729 440 132"`
+### SimpleDatePicker State Management:
+- **State values**:
+  - `day`: 1-31
+  - `month`: 1-12 (NOT 0-11)
+  - `year`: 2025+
+- **Date construction**: `new Date(year, month - 1, day)` (subtract 1 for JS Date)
+- **Romanian order**: Ziua → Luna → Anul (natural reading order for Romanians)
+- **Validation**: `daysInMonth` calculated as `new Date(year, month, 0).getDate()`
 
-2. **Phone State Initialization**: `PhoneVerificationStep.tsx:25`
-   - **THIS IS WHERE THE BUG IS** ⚠️
-   - Currently: `useState(phoneProp || '')` - uses raw prop value
-   - Needed: Normalize to 10 digits
+### Idle Timer Mechanism (page.tsx):
+- **Current timeout**: 60 seconds (IDLE_TIMEOUT constant)
+- **Trigger**: `updateActivity()` called on every user interaction
+- **Behavior**: Returns to step 1 (idle slides) after timeout
+- **Problem**: User barely has time to continue after phone verification
+- **Solution needed**: Conditional pause or longer timeout after step 4
 
-3. **Phone Validation**: `PhoneVerificationStep.tsx:94`
-   - Checks: `phone.length !== 10`
-   - Expects exactly 10 digits (no prefix, no formatting)
-
-4. **API Conversion**: Server-side `formatPhoneNumber()` function
-   - Converts `"0729440132"` → `"+40729440132"` for Twilio/NotifyHub
-   - Located in: `src/lib/services/phone.ts` (estimated)
-
-### Why Previous Fix Didn't Solve This:
-The `formatPhoneDisplay()` fix (lines 58-75) only affects DISPLAY, not the internal state:
-```typescript
-// Display function (VISUAL ONLY)
-const formatPhoneDisplay = (value: string) => {
-  // Strips "40", adds leading "0", formats with spaces
-  return "0729 440 132"; // This is ONLY for showing in input field
-};
-
-// But the STATE still has:
-phone = "+40729440132" // ❌ 12 chars → validation fails
-```
-
-### Critical Distinction:
-- **`formatPhoneDisplay()`**: For **rendering** the input field visually
-- **`phone` state**: For **validation** and **API calls**
-- These are separate! Fixing display doesn't fix the state.
-
-### Kiosk Phone Input Flow:
-```
-User types "729440132"
-  ↓
-page.tsx numpad handler (line 596-601)
-  ↓
-formData.phone = "+40" + digits → "+40729440132"
-  ↓
-Passed to PhoneVerificationStep (line 627)
-  ↓
-phone={formData.phone} → phone="+40729440132"
-  ↓
-Component state: phone = "+40729440132" (12 chars)
-  ↓
-Validation: 12 !== 10 → FAIL ❌
-```
-
-### After Fix, Expected Flow:
-```
-User types "729440132"
-  ↓
-page.tsx: formData.phone = "+40729440132"
-  ↓
-Component initialization (NEW LOGIC):
-  - Receives phoneProp = "+40729440132"
-  - Strips non-digits: "40729440132"
-  - Detects "40" prefix with 12 digits
-  - Converts: "0" + "729440132" = "0729440132"
-  ↓
-Component state: phone = "0729440132" (10 chars)
-  ↓
-Validation: 10 === 10 → PASS ✅
-  ↓
-API call: { phone: "0729440132" }
-  ↓
-Server: formatPhoneNumber("0729440132") → "+40729440132"
-  ↓
-SMS sent successfully ✅
-```
+### Files Modified This Session:
+1. `/home/johntuca/Desktop/uitdeitp/src/components/kiosk/PhoneVerificationStep.tsx`
+   - Lines 199-216: Check icon positioning fix
+2. `/home/johntuca/Desktop/uitdeitp/src/components/kiosk/SimpleDatePicker.tsx`
+   - NEW FILE: Complete rewrite of date picker
+3. `/home/johntuca/Desktop/uitdeitp/src/app/kiosk/[station_slug]/page.tsx`
+   - Line 20: Import change
+   - Lines 741-751: Component replacement
 
 ### Important Gotchas:
-1. **Don't modify `formatPhoneDisplay()`** - it's working correctly for display
-2. **Don't modify kiosk phone storage** - `+40` prefix is correct there
-3. **Only normalize at component state initialization** - line 25 is the perfect place
-4. **Test both 9-digit and 10-digit inputs** - normalization should handle both
+1. **Month indexing**: JavaScript Date uses 0-11, but we display 1-12 (must subtract 1 when constructing Date)
+2. **Date validation**: Must check `daysInMonth` before setting day (e.g., Feb 30 invalid)
+3. **Idle timeout**: Affects user experience significantly - too short = frustration
+4. **Check icon positioning**: Must be `absolute` positioned OUTSIDE input to avoid overlap
 
-### Files Previously Modified (Session 1):
-- `src/components/kiosk/PhoneVerificationStep.tsx:58-75` (formatPhoneDisplay fix)
-- `src/app/kiosk/[station_slug]/page.tsx:598` (10-digit limit)
-- `src/app/kiosk/[station_slug]/page.tsx:35,385-389` (QR code removal)
-
-### Build Status:
-- ✅ Last build: Successful (0 errors)
-- ✅ Kiosk page: 15.8 kB (286 kB total)
-- ✅ Deployed to Vercel production
-- ⏳ Phone verification: Blocked until this fix applied
+### Design Decisions:
+- **Why Romanian order?** Romanians naturally think: "ziua 15 luna 11 anul 2025" (day → month → year)
+- **Why month as number?** Faster to recognize "11" than read "Noiembrie" on touch screen
+- **Why clear labels?** Users need to know which column is which (especially month/year confusion)
+- **Why inspired by license plate picker?** User explicitly said "imi place cum seletam numarul de masina"
 
 ### Next Session Priority:
-**URGENT**: Fix phone state normalization (5-10 minutes)
-- This is blocking the entire kiosk verification flow
-- All other kiosk features are working correctly
-- After this fix, Phase 2 (Enhanced Slider Animations) can begin
+1. **CRITICAL**: Fix date display bug (month - 1)
+2. **HIGH**: Implement idle timeout pause after phone verification
+3. **MEDIUM**: Test complete flow on production after deployment
 </context>
