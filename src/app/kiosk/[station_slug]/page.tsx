@@ -1,16 +1,18 @@
 'use client';
 
 /**
- * Kiosk Mode - Guest Registration Flow
+ * Kiosk Mode - Motion 3D Ultimate Edition
  *
- * 7-Step Workflow (Simplified per Gestalt Pragnanz Law):
- * 1. Idle Screen
- * 2. Name Input
- * 3. Phone Input
- * 4. Phone Verification (SMS Code + GDPR Consent)
- * 5. Plate Number
- * 6. Expiry Date
- * 7. Success Screen
+ * Integrated features:
+ * - 3D page transitions with rotateY perspective
+ * - Animated numpad with spring physics
+ * - Plate shimmer effect
+ * - Atmospheric background mesh
+ * - Dancing digits with LayoutGroup
+ * - Phone verification (preserved from original)
+ * - Station branding (preserved from original)
+ * - Calendar responsive (no overflow)
+ * - Numpad h-24 fix (mobile-friendly)
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -18,39 +20,108 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Calendar } from '@/components/ui/calendar';
 import { KioskLayout, type StationConfig } from '@/components/kiosk/KioskLayout';
 import { StepIndicator } from '@/components/kiosk/StepIndicator';
-import KioskIdleState from '@/components/kiosk/KioskIdleState';
 import { PhoneVerificationStep } from '@/components/kiosk/PhoneVerificationStep';
-import { Numpad } from '@/components/kiosk/Numpad';
-import { PlateKeyboard } from '@/components/kiosk/PlateKeyboard';
 import {
   validateName,
   validatePhoneNumber,
   validatePlateNumber,
-  validateExpiryDate,
-  validateConsent,
   normalizePhoneNumber,
   normalizePlateNumber,
   type KioskFormData,
   type ValidationResult
 } from '@/lib/kiosk/validation';
-import { CheckCircle2, Loader2, Sparkles, Car, ChevronRight, AlertTriangle, ShieldCheck, Lock, BellRing } from 'lucide-react';
+import {
+  CheckCircle2, Loader2, AlertTriangle,
+  Lock, ChevronRight, ShieldCheck, Sparkles, QrCode, BellRing
+} from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { format, subDays } from 'date-fns';
 import { ro } from 'date-fns/locale';
 
-// --- ANIMATIONS CONFIG ---
+// --- INLINE COMPONENTS (Motion 3D Style) ---
+
+// Tastatura Numerică (h-24 fix aplicat)
+const ResponsiveNumpad = ({ onInput, onDelete }: { onInput: (v: string) => void, onDelete: () => void }) => (
+  <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full max-w-[400px] mx-auto select-none">
+    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+      <motion.button
+        key={num}
+        whileTap={{ scale: 0.9, backgroundColor: "#e2e8f0" }}
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: num * 0.03 }}
+        onClick={() => onInput(num.toString())}
+        className="h-20 sm:h-24 text-3xl sm:text-4xl font-bold bg-white rounded-xl sm:rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.05)] border border-slate-200 text-slate-800 active:shadow-none active:translate-y-1 transition-all"
+      >
+        {num}
+      </motion.button>
+    ))}
+    <div className="h-20 sm:h-24" />
+    <motion.button
+      whileTap={{ scale: 0.9 }}
+      onClick={() => onInput('0')}
+      className="h-20 sm:h-24 text-3xl sm:text-4xl font-bold bg-white rounded-xl sm:rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.05)] border border-slate-200 text-slate-800 active:shadow-none active:translate-y-1 transition-all"
+    >
+      0
+    </motion.button>
+    <motion.button
+      whileTap={{ scale: 0.9 }}
+      onClick={onDelete}
+      className="h-20 sm:h-24 flex items-center justify-center bg-red-50 rounded-xl sm:rounded-2xl shadow-[0_4px_0_0_#fee2e2] border border-red-100 text-red-500 active:shadow-none active:translate-y-1 transition-all text-2xl sm:text-3xl"
+    >
+      ⌫
+    </motion.button>
+  </div>
+);
+
+// Tastatura QWERTY (Optimizată pt Plate Number)
+const ResponsivePlateKeyboard = ({ onInput, onDelete }: { onInput: (v: string) => void, onDelete: () => void }) => {
+  const rows = [['1','2','3','4','5','6','7','8','9','0'], ['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L'], ['Z','X','C','V','B','N','M']];
+  return (
+    <div className="flex flex-col gap-1.5 sm:gap-2 w-full select-none">
+      {rows.map((row, i) => (
+        <div key={i} className="flex justify-center gap-1 sm:gap-1.5">
+          {row.map((k) => (
+            <motion.button
+              key={k}
+              whileTap={{ scale: 0.85, backgroundColor: "#cbd5e1" }}
+              onClick={() => onInput(k)}
+              className="w-8 h-12 sm:w-12 sm:h-16 text-lg sm:text-2xl font-bold bg-white rounded-lg sm:rounded-xl shadow-sm border-b-2 sm:border-b-4 border-slate-200 text-slate-900 active:border-b-0 active:translate-y-[2px] sm:active:translate-y-[4px]"
+            >
+              {k}
+            </motion.button>
+          ))}
+        </div>
+      ))}
+      <div className="flex justify-center mt-3">
+         <motion.button
+           whileTap={{ scale: 0.95 }}
+           onClick={onDelete}
+           className="px-8 sm:px-10 py-3 bg-red-100 text-red-600 rounded-xl font-bold text-sm sm:text-lg uppercase tracking-wider shadow-sm"
+         >
+            ȘTERGE
+         </motion.button>
+      </div>
+    </div>
+  );
+};
+
+// --- ANIMATIONS CONFIG (3D WOW EFFECT) ---
+
 const pageVariants = {
   initial: (direction: number) => ({
     x: direction > 0 ? 1000 : -1000,
     opacity: 0,
-    scale: 0.9,
-    rotateY: direction > 0 ? 15 : -15, // 3D effect
+    scale: 0.8,
+    rotateY: direction > 0 ? 20 : -20,
+    z: -500
   }),
   animate: {
     x: 0,
     opacity: 1,
     scale: 1,
     rotateY: 0,
+    z: 0,
     transition: {
       type: "spring" as const,
       stiffness: 200,
@@ -61,39 +132,49 @@ const pageVariants = {
   exit: (direction: number) => ({
     x: direction < 0 ? 1000 : -1000,
     opacity: 0,
-    scale: 0.9,
-    rotateY: direction < 0 ? 15 : -15,
-    transition: { duration: 0.3 }
+    scale: 0.8,
+    rotateY: direction < 0 ? 20 : -20,
+    transition: { duration: 0.4 }
   })
 };
 
-const digitVariants = {
-  initial: { y: 20, opacity: 0, scale: 0.5 },
-  animate: { y: 0, opacity: 1, scale: 1, transition: { type: "spring" as const, stiffness: 500, damping: 15 } },
-  exit: { y: -20, opacity: 0, transition: { duration: 0.1 } }
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
+    }
+  }
 };
 
-// Componentă simplă de fundal animat
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  show: { y: 0, opacity: 1, transition: { type: "spring" as const, stiffness: 300 } }
+};
+
+// Atmospheric Background Mesh
 const BackgroundMesh = ({ color }: { color: string }) => (
   <div className="absolute inset-0 overflow-hidden -z-10 pointer-events-none">
     <motion.div
       animate={{
         scale: [1, 1.2, 1],
         rotate: [0, 10, -10, 0],
-        opacity: [0.3, 0.5, 0.3]
+        opacity: [0.2, 0.4, 0.2]
       }}
       transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-      className="absolute -top-[20%] -right-[20%] w-[800px] h-[800px] rounded-full blur-[100px] opacity-30 mix-blend-multiply"
+      className="absolute -top-[20%] -right-[20%] w-[800px] h-[800px] rounded-full blur-[120px] mix-blend-multiply"
       style={{ backgroundColor: color }}
     />
     <motion.div
       animate={{
         scale: [1, 1.5, 1],
         x: [0, 50, 0],
-        opacity: [0.2, 0.4, 0.2]
+        opacity: [0.1, 0.3, 0.1]
       }}
       transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-      className="absolute -bottom-[20%] -left-[20%] w-[600px] h-[600px] rounded-full blur-[80px] opacity-20 bg-blue-300 mix-blend-multiply"
+      className="absolute -bottom-[20%] -left-[20%] w-[600px] h-[600px] rounded-full blur-[100px] bg-indigo-200 mix-blend-multiply"
     />
   </div>
 );
@@ -104,11 +185,11 @@ export default function KioskPage() {
   const params = useParams();
   const stationSlug = params.station_slug as string;
 
+  // STATE
   const [station, setStation] = useState<StationConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<Step>(1);
-  const [direction, setDirection] = useState(1); // Pentru direcția animației
-
+  const [dir, setDir] = useState(1);
   const [formData, setFormData] = useState<KioskFormData>({
     name: '',
     phone: '',
@@ -116,21 +197,19 @@ export default function KioskPage() {
     expiryDate: null,
     consent: false
   });
-  const [errors, setErrors] = useState<Partial<Record<keyof KioskFormData, string>>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [lastActivity, setLastActivity] = useState(Date.now());
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [lastActivity, setLastActivity] = useState(0); // Prevent hydration mismatch
+  const [mounted, setMounted] = useState(false);
 
-  // Helpers
   const updateActivity = useCallback(() => setLastActivity(Date.now()), []);
 
-  const changeStep = (newStep: Step) => {
-    setDirection(newStep > step ? 1 : -1);
-    setStep(newStep);
-    updateActivity();
-  };
+  // Initialize after mount
+  useEffect(() => {
+    setMounted(true);
+    setLastActivity(Date.now());
+  }, []);
 
-  // Fetch station
+  // FETCH STATION
   useEffect(() => {
     async function fetchStation() {
       try {
@@ -148,7 +227,7 @@ export default function KioskPage() {
     fetchStation();
   }, [stationSlug]);
 
-  // Auto-reset logic (Simplified)
+  // AUTO-RESET
   useEffect(() => {
     if (step === 7) {
       const timer = setTimeout(() => {
@@ -157,32 +236,35 @@ export default function KioskPage() {
       }, 30000);
       return () => clearTimeout(timer);
     }
-  }, [step]);
 
-  // Validation & Navigation
-  const handleNext = (field: keyof KioskFormData) => {
-    let validationResult: ValidationResult = { valid: true };
-
-    switch (field) {
-      case 'name': validationResult = validateName(formData.name); break;
-      case 'phone':
-        validationResult = validatePhoneNumber(formData.phone);
-        if (validationResult.valid) setFormData(p => ({...p, phone: normalizePhoneNumber(p.phone)}));
-        break;
-      case 'plateNumber':
-        validationResult = validatePlateNumber(formData.plateNumber);
-        if (validationResult.valid) setFormData(p => ({...p, plateNumber: normalizePlateNumber(p.plateNumber)}));
-        break;
+    // Inactivity timeout (steps 2-6 only)
+    if (step > 1 && step < 7) {
+      const timer = setInterval(() => {
+        if (Date.now() - lastActivity > (step === 4 ? 600000 : 45000)) {
+          setStep(1);
+          setFormData({ name: '', phone: '', plateNumber: '', expiryDate: null, consent: false });
+        }
+      }, 1000);
+      return () => clearInterval(timer);
     }
+  }, [step, lastActivity]);
 
-    if (!validationResult.valid) {
-      setErrors(prev => ({ ...prev, [field]: validationResult.error }));
-      // Shake animation logic could go here
-      return;
-    }
+  // NAVIGATION
+  const nextStep = () => {
+    setDir(1);
+    setStep(s => (s + 1) as Step);
+    updateActivity();
+  };
 
-    setErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
-    changeStep((step + 1) as Step);
+  const prevStep = () => {
+    setDir(-1);
+    setStep(s => (s - 1) as Step);
+    updateActivity();
+  };
+
+  const handleNameChange = (val: string) => {
+    setFormData({...formData, name: val.replace(/\b\w/g, l => l.toUpperCase())});
+    updateActivity();
   };
 
   const handleSubmit = async () => {
@@ -203,519 +285,561 @@ export default function KioskPage() {
         })
       });
 
-      if (response.ok) changeStep(7);
-      else alert('Eroare la salvare.');
-    } catch (e) { console.error(e); }
+      if (response.ok) {
+        setDir(1);
+        setStep(7);
+      }
+    } catch (e) {
+      console.error(e);
+    }
     finally { setSubmitting(false); }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-blue-600" /></div>;
-  if (!station) return <div className="min-h-screen flex items-center justify-center">Stație indisponibilă</div>;
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-blue-600 w-12 h-12"/>
+      </div>
+    );
+  }
 
-  const primaryColor = station.primary_color || '#2563eb';
+  if (!station) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <p className="text-slate-500">Stație indisponibilă</p>
+      </div>
+    );
+  }
+
+  const themeColor = station.primary_color || '#2563eb';
 
   return (
-    <KioskLayout station={station} showHeader={step !== 1 && step !== 7}>
-      {/* Container Principal cu perspectivă pentru efecte 3D */}
-      <div className="relative bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-12 w-full h-[85vh] flex flex-col overflow-hidden border border-white/50">
+    <KioskLayout station={station} showHeader={false}>
+      <div className="relative w-full min-h-[100dvh] bg-slate-50/80 overflow-hidden flex flex-col font-sans text-slate-900 perspective-[1000px]">
 
-        <BackgroundMesh color={primaryColor} />
+        <BackgroundMesh color={themeColor} />
 
-        {step !== 1 && step !== 7 && (
-          <div className="mb-6 shrink-0">
-            <StepIndicator currentStep={step} totalSteps={7} primaryColor={primaryColor} />
-          </div>
-        )}
-
-        <div className="flex-1 relative flex flex-col justify-center">
-          <AnimatePresence mode="wait" custom={direction} initial={false}>
-
-            {/* Step 1: Idle Screen - Conversion-Optimized with Fear Hook */}
-            {step === 1 && (
-              <motion.div
-                key="step1"
-                className="absolute inset-0 z-50 flex items-center justify-center"
-                exit={{ opacity: 0, scale: 1.1, filter: 'blur(10px)' }}
-              >
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="text-center w-full max-w-3xl mx-auto bg-white rounded-[3rem] shadow-2xl p-8 sm:p-12"
-                  onClick={() => changeStep(2)}
-                >
-                  {/* Fear Hook - Loss Aversion */}
-                  <motion.div
-                    initial={{ y: -20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                    className="inline-flex items-center gap-2 bg-red-50 text-red-700 px-5 py-2 rounded-full font-bold text-sm uppercase tracking-wide mb-6 border border-red-100"
-                  >
-                    <AlertTriangle size={18} /> Risc: Amendă ITP
-                  </motion.div>
-
-                  <h1 className="text-4xl sm:text-6xl font-black text-slate-900 mb-4 leading-tight">
-                    Nu uita când expiră <br className="hidden sm:block" />
-                    <span style={{ color: primaryColor }}>ITP-ul mașinii tale</span>
-                  </h1>
-
-                  <p className="text-xl sm:text-2xl text-slate-600 font-medium mb-8">
-                    Înscrie-te <strong className="text-slate-900">gratuit</strong> și primești reminder automat prin SMS.
-                  </p>
-
-                  {/* Trust Signals - Reduce Friction with Pulsing Animation */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-                    <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{
-                        scale: [1, 1.05, 1],
-                        opacity: 1
-                      }}
-                      transition={{
-                        scale: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.3 },
-                        opacity: { delay: 0.3 }
-                      }}
-                      className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl"
-                    >
-                      <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0" />
-                      <span className="text-sm font-semibold text-slate-700">100% Gratuit</span>
-                    </motion.div>
-                    <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{
-                        scale: [1, 1.05, 1],
-                        opacity: 1
-                      }}
-                      transition={{
-                        scale: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.4 },
-                        opacity: { delay: 0.4 }
-                      }}
-                      className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl"
-                    >
-                      <Lock className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                      <span className="text-sm font-semibold text-slate-700">Zero Spam</span>
-                    </motion.div>
-                    <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{
-                        scale: [1, 1.05, 1],
-                        opacity: 1
-                      }}
-                      transition={{
-                        scale: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
-                        opacity: { delay: 0.5 }
-                      }}
-                      className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl"
-                    >
-                      <BellRing className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                      <span className="text-sm font-semibold text-slate-700">1 SMS/an</span>
-                    </motion.div>
-                  </div>
-
-                  {/* Strong CTA with Pulse Animation */}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    animate={{
-                      scale: [1, 1.02, 1]
-                    }}
-                    transition={{
-                      scale: { duration: 2.5, repeat: Infinity, ease: "easeInOut" }
-                    }}
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-6 sm:py-8 rounded-3xl text-2xl sm:text-3xl font-bold shadow-lg transition-all"
-                    style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
-                  >
-                    Începe Acum
-                  </motion.button>
-                </motion.div>
-              </motion.div>
-            )}
-
-            {/* Step 2: Name Input */}
-            {step === 2 && (
-              <motion.div
-                key="step2"
-                custom={direction}
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="w-full max-w-2xl mx-auto text-center"
-              >
-                <motion.h3
-                  initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                  className="text-4xl font-bold text-gray-900 mb-8"
-                >
-                  Cum te numești?
-                </motion.h3>
-
-                <div className="relative mb-8 group">
-                  <motion.input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => { setFormData(p => ({ ...p, name: e.target.value })); updateActivity(); }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleNext('name')}
-                    placeholder="Ion Popescu"
-                    autoFocus
-                    className="w-full px-8 py-8 text-4xl text-center font-medium border-b-4 bg-gray-50/50 focus:bg-white rounded-t-2xl focus:outline-none transition-all"
-                    style={{ borderColor: errors.name ? '#ef4444' : formData.name ? primaryColor : '#e5e7eb' }}
-                  />
-                  {/* Animated Underline */}
-                  <motion.div
-                    className="absolute bottom-0 left-0 h-1 bg-blue-500"
-                    initial={{ width: "0%" }}
-                    animate={{ width: "100%" }}
-                    style={{ backgroundColor: primaryColor }}
-                  />
-                </div>
-
+        {/* HEADER */}
+        <div className="px-4 sm:px-6 pt-4 sm:pt-6 flex justify-between items-center z-20 h-16 sm:h-20 shrink-0">
+            {step > 1 && step < 7 ? (
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleNext('name')}
-                  disabled={!formData.name.trim()}
-                  className="px-12 py-6 text-2xl font-bold text-white rounded-full shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-3 mx-auto"
-                  style={{ backgroundColor: primaryColor }}
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  onClick={prevStep}
+                  className="text-slate-500 hover:text-slate-800 font-bold text-base sm:text-lg flex items-center gap-1 px-3 sm:px-4 py-2 bg-white/50 backdrop-blur rounded-xl shadow-sm active:scale-95 transition-all"
                 >
-                  Continuă <ChevronRight size={32} />
+                   &larr; Înapoi
                 </motion.button>
-              </motion.div>
-            )}
+            ) : <div />}
 
-            {/* Step 3: Phone Input - FIX LAYOUT (md:grid-cols-2) */}
-            {step === 3 && (
-              <motion.div
-                key="step3"
-                custom={direction}
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="h-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center content-center"
-              >
-                {/* Left: Display */}
-                <div className="flex flex-col justify-center space-y-6">
-                  <h3 className="text-3xl font-bold text-gray-900">Numărul de telefon?</h3>
+            {/* STEP INDICATOR */}
+            <div className="absolute left-1/2 -translate-x-1/2 top-4 sm:top-6 cursor-default select-none z-50">
+                {step > 1 && step < 7 && (
+                  <StepIndicator currentStep={step} totalSteps={7} primaryColor={themeColor} />
+                )}
+                {step === 1 && (
+                    <motion.div
+                      initial={{ y: -20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      className="hidden md:flex items-center gap-3 bg-white/80 backdrop-blur border border-blue-100 p-2 pr-4 rounded-2xl shadow-sm"
+                    >
+                        <div className="bg-blue-100 p-2 rounded-xl">
+                          <QrCode className="w-5 h-5 text-blue-700" />
+                        </div>
+                        <div className="text-left">
+                            <p className="text-[10px] text-slate-500 font-semibold leading-tight">Grăbit?</p>
+                            <p className="text-xs text-blue-700 font-bold leading-tight">Scanează cu telefonul</p>
+                        </div>
+                    </motion.div>
+                )}
+            </div>
+        </div>
 
-                  {/* Anti-Spam Messaging - Build Trust */}
-                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                    <p className="text-sm font-semibold text-blue-900 flex items-center gap-2">
-                      <Lock className="w-4 h-4" />
-                      Garantăm: <strong>1 singur SMS</strong>, 7 zile înainte de expirare
-                    </p>
-                  </div>
+        {/* MAIN CONTENT */}
+        <div className="flex-1 flex items-center justify-center p-4 w-full max-w-7xl mx-auto overflow-y-auto sm:overflow-visible perspective-[1000px]">
+            <AnimatePresence mode="wait" custom={dir} initial={false}>
 
-                  <div className={`
-                    relative p-8 rounded-3xl border-2 bg-white/80 backdrop-blur-sm shadow-xl transition-all duration-300
-                    ${formData.phone.length >= 12 ? 'border-green-500 ring-4 ring-green-100' : 'border-gray-200'}
-                  `}>
-                    <div className="flex justify-center items-center gap-1 text-5xl font-mono font-bold tracking-wider h-20">
-                      <span className="text-gray-400 select-none">+40</span>
-
-                      {/* Animated Digits */}
-                      <LayoutGroup>
-                        {formData.phone.replace('+40', '').split('').map((digit, i) => (
-                          <motion.span
-                            key={i}
-                            layoutId={`digit-${i}`}
-                            variants={digitVariants}
-                            initial="initial"
-                            animate="animate"
-                            className="text-gray-900"
-                          >
-                            {digit}
-                          </motion.span>
-                        ))}
-                        {/* Cursor */}
+                {/* STEP 1: IDLE (The Hook) */}
+                {step === 1 && (
+                    <motion.div
+                        key="s1"
+                        custom={dir}
+                        variants={pageVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        className="text-center cursor-pointer w-full max-w-3xl mx-auto bg-white/90 backdrop-blur-xl rounded-[2rem] sm:rounded-[3rem] shadow-2xl p-8 sm:p-12 border-4 border-white/50 my-auto"
+                        onClick={() => nextStep()}
+                    >
                         <motion.div
-                          animate={{ opacity: [1, 0] }}
-                          transition={{ repeat: Infinity, duration: 0.8 }}
-                          className="w-1 h-12 bg-blue-600 ml-1"
-                        />
-                      </LayoutGroup>
-                    </div>
+                          className="inline-flex items-center gap-2 bg-red-100 text-red-700 px-4 sm:px-6 py-2 rounded-full font-black text-xs sm:text-sm uppercase tracking-wider mb-6 sm:mb-8 border border-red-200"
+                          animate={{ scale: [1, 1.05, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                            <AlertTriangle size={18} /> Atenție: Amenzi ITP mărite
+                        </motion.div>
 
-                    {formData.phone.length >= 12 && (
-                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-4 -right-4 bg-white rounded-full">
-                         <CheckCircle2 className="w-12 h-12 text-green-500 shadow-lg rounded-full" />
-                       </motion.div>
-                    )}
-                  </div>
+                        <h1 className="text-4xl sm:text-7xl font-black text-slate-900 mb-4 sm:mb-6 leading-[1.1]">
+                            Nu lăsa statul să-ți ia <br className="hidden sm:block"/>
+                            <span className="text-red-600 decoration-4 underline decoration-red-200 underline-offset-4 sm:underline-offset-8">3.000 LEI</span>
+                        </h1>
 
-                  {errors.phone && <p className="text-red-500 text-lg font-medium animate-pulse">{errors.phone}</p>}
+                        <p className="text-lg sm:text-2xl text-slate-500 font-medium mb-8 sm:mb-12 max-w-xl mx-auto leading-normal">
+                            Înscrie-te în sistemul nostru de alertă. <br/>
+                            <strong className="text-slate-900">Este 100% Gratuit și durează 30 secunde.</strong>
+                        </p>
 
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleNext('phone')}
-                    disabled={formData.phone.length < 12}
-                    className="hidden md:block w-full py-6 text-xl font-bold text-white rounded-2xl shadow-md disabled:opacity-50"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    Trimite SMS
-                  </motion.button>
-                </div>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="w-full bg-blue-600 text-white py-6 sm:py-8 rounded-2xl sm:rounded-3xl text-2xl sm:text-3xl font-bold shadow-[0_20px_50px_-12px_rgba(37,99,235,0.5)] flex items-center justify-center gap-4 hover:bg-blue-700 transition-all group relative overflow-hidden"
+                        >
+                            <span className="relative z-10">Vreau Protecție Gratuită</span>
+                            <ChevronRight className="w-8 h-8 sm:w-10 sm:h-10 relative z-10 group-hover:translate-x-2 transition-transform" />
+                            {/* Shimmer Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                        </motion.button>
 
-                {/* Right: Numpad (Always visible on side in md+) */}
-                <div className="flex justify-center w-full">
-                  <div className="bg-gray-100/50 p-6 rounded-[2rem] shadow-inner w-full max-w-[350px]">
-                    <Numpad
-                      onInput={(d) => {
-                        const curr = formData.phone.replace('+40', '');
-                        if (curr.length < 9) { setFormData(p => ({ ...p, phone: `+40${curr}${d}` })); updateActivity(); }
-                      }}
-                      onDelete={() => {
-                        const curr = formData.phone.replace('+40', '');
-                        if (curr.length > 0) { setFormData(p => ({ ...p, phone: `+40${curr.slice(0, -1)}` })); updateActivity(); }
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Mobile-only button */}
-                <button className="md:hidden w-full py-4 bg-blue-600 text-white font-bold rounded-xl mt-4">Continuă</button>
-              </motion.div>
-            )}
-
-            {/* Step 4: Verification */}
-            {step === 4 && (
-              <motion.div key="step4" custom={direction} variants={pageVariants} initial="initial" animate="animate" exit="exit" className="h-full">
-                <PhoneVerificationStep
-                  phone={formData.phone.replace('+40', '0')}
-                  stationSlug={stationSlug}
-                  onVerified={(phone, consent) => {
-                    const e164 = phone.startsWith('0') ? `+40${phone.substring(1)}` : `+40${phone}`;
-                    setFormData(p => ({ ...p, phone: e164, consent }));
-                    setPhoneVerified(true); changeStep(5);
-                  }}
-                  onBack={() => changeStep(3)}
-                />
-              </motion.div>
-            )}
-
-            {/* Step 5: Plate Number - Shiny Plate Effect */}
-            {step === 5 && (
-              <motion.div
-                key="step5"
-                custom={direction}
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="flex flex-col items-center justify-center h-full space-y-8"
-              >
-                <h3 className="text-3xl font-bold text-gray-900">Numărul de înmatriculare?</h3>
-
-                {/* Realistic Plate with Shimmer */}
-                <div className="relative group">
-                    <motion.div
-                      className="relative flex items-center w-[340px] sm:w-[500px] h-[110px] bg-white border-[6px] border-black rounded-lg overflow-hidden shadow-2xl"
-                      whileHover={{ scale: 1.02 }}
-                    >
-                        {/* Shimmer Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-full h-full -skew-x-12 translate-x-[-200%] animate-[shimmer_3s_infinite]" />
-
-                        <div className="w-20 h-full bg-[#003399] flex flex-col items-center justify-center text-white border-r-2 border-white z-10">
-                            <div className="grid grid-cols-6 gap-0.5 mb-2 w-10">{[...Array(12)].map((_,i)=><div key={i} className="w-1 h-1 bg-yellow-400 rounded-full"/>)}</div>
-                            <span className="font-bold text-2xl">RO</span>
-                        </div>
-
-                        <div className="flex-1 flex justify-center items-center z-10">
-                            <span className="text-5xl sm:text-6xl font-mono font-bold tracking-[0.2em] uppercase text-gray-900">
-                                {formData.plateNumber || <span className="opacity-20">B12ABC</span>}
-                            </span>
+                        <div className="mt-8 grid grid-cols-3 gap-2 text-center">
+                            {['100% Gratuit', 'Zero Spam', 'Securizat'].map((text, i) => (
+                                <motion.div
+                                  key={i}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: 0.5 + (i * 0.1) }}
+                                  className="bg-slate-50 rounded-lg p-2 text-xs font-bold text-slate-400 border border-slate-100"
+                                >
+                                    {text}
+                                </motion.div>
+                            ))}
                         </div>
                     </motion.div>
-                </div>
+                )}
 
-                {/* Custom Keyboard Overlay */}
-                <div className="w-full max-w-3xl bg-gray-100/80 backdrop-blur-md p-4 rounded-3xl shadow-xl border border-white/50">
-                  <PlateKeyboard
-                    onInput={(k) => {
-                      if (formData.plateNumber.length < 15) {
-                        setFormData(p => ({ ...p, plateNumber: (p.plateNumber + k).toUpperCase() }));
-                        updateActivity();
-                      }
-                    }}
-                    onDelete={() => {
-                      setFormData(p => ({ ...p, plateNumber: p.plateNumber.slice(0, -1) }));
-                      updateActivity();
-                    }}
-                  />
-                </div>
-
-                <motion.button
-                   whileTap={{ scale: 0.95 }}
-                   onClick={() => handleNext('plateNumber')}
-                   disabled={!formData.plateNumber}
-                   className="px-16 py-4 text-xl font-bold text-white rounded-full shadow-lg transition-all disabled:opacity-50"
-                   style={{ backgroundColor: primaryColor }}
-                >
-                  Confirmă
-                </motion.button>
-              </motion.div>
-            )}
-
-            {/* Step 6: Calendar - Scaled & Friendly */}
-            {step === 6 && (
-              <motion.div
-                key="step6"
-                custom={direction}
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="h-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
-              >
-                 <div className="space-y-6 text-center md:text-left pl-4">
-                    <h3 className="text-4xl font-bold text-gray-900">Când expiră?</h3>
-                    <div className="bg-white p-6 rounded-2xl border shadow-sm inline-block min-w-[250px]">
-                        <p className="text-sm text-gray-500 uppercase font-bold tracking-wider">Data Selectată</p>
-                        <p className="text-4xl font-bold text-blue-900 mt-2">
-                          {formData.expiryDate ? format(formData.expiryDate, 'dd MMMM yyyy', { locale: ro }) : '---'}
-                        </p>
-                    </div>
-
-                    {/* Reminder Preview - Immediate Reward Visualization */}
-                    {formData.expiryDate && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-2xl border-2 border-green-200 shadow-md"
-                      >
-                        <div className="flex items-start gap-3">
-                          <BellRing className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
-                          <div>
-                            <p className="font-bold text-green-900 text-lg">Vei primi SMS pe:</p>
-                            <p className="text-2xl font-black text-green-700 mt-1">
-                              {format(subDays(formData.expiryDate, 7), 'dd MMMM yyyy', { locale: ro })}
-                            </p>
-                            <p className="text-sm text-green-700 mt-2">
-                              (cu 7 zile înainte de expirare)
-                            </p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    <div>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={handleSubmit}
-                          disabled={!formData.expiryDate || submitting}
-                          className="w-full md:w-auto px-12 py-6 text-xl font-bold text-white rounded-2xl shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
-                          style={{ backgroundColor: primaryColor }}
-                        >
-                          {submitting ? <Loader2 className="animate-spin" /> : 'Finalizează'}
-                        </motion.button>
-                    </div>
-                 </div>
-
-                 <div className="flex justify-center w-full">
-                    <div className="w-full max-w-md bg-white p-4 rounded-3xl shadow-2xl border-2 border-gray-300 scale-90 md:scale-100">
-                        <Calendar
-                            mode="single"
-                            selected={formData.expiryDate || undefined}
-                            onSelect={(d) => { setFormData(p => ({...p, expiryDate: d || null})); updateActivity(); }}
-                            disabled={(d) => d < new Date()}
-                            captionLayout="dropdown-buttons"
-                            fromYear={2025}
-                            toYear={2030}
-                            className="p-2 rounded-2xl"
-                            classNames={{
-                                day_selected: "bg-blue-600 text-white font-bold border-2 border-blue-800 rounded-lg hover:bg-blue-700 scale-105 shadow-md transition-all duration-200",
-                                day: "h-14 w-14 p-0 font-semibold text-lg rounded-md border border-gray-300 hover:bg-gray-100 aria-selected:opacity-100",
-                                day_today: "bg-blue-50 font-bold border-2 border-blue-400",
-                                head_cell: "text-gray-500 w-14 font-semibold",
-                                caption: "mb-4",
-                                caption_label: "text-xl font-bold text-gray-800",
-                                caption_dropdowns: "flex gap-3 justify-center",
-                                dropdown: "px-4 py-3 text-lg font-semibold border-2 border-gray-300 rounded-lg bg-white hover:bg-gray-50 cursor-pointer",
-                                nav_button: "h-12 w-12 border-2 border-gray-300 rounded-lg hover:bg-gray-100"
-                            }}
-                        />
-                    </div>
-                 </div>
-              </motion.div>
-            )}
-
-            {/* Step 7: Success - Confetti & Stamp */}
-            {step === 7 && (
-              <motion.div
-                key="step7"
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="flex flex-col items-center justify-center h-full text-center"
-              >
-                {/* CSS-based Confetti Particles (Simplificat, fără librărie externă) */}
-                {[...Array(12)].map((_, i) => (
-                   <motion.div
-                     key={i}
-                     initial={{ x: 0, y: 0, opacity: 1 }}
-                     animate={{
-                        x: (Math.random() - 0.5) * 600,
-                        y: (Math.random() - 0.5) * 600,
-                        opacity: 0,
-                        rotate: Math.random() * 360
-                     }}
-                     transition={{ duration: 1.5, ease: "easeOut" }}
-                     className="absolute w-3 h-3 rounded-sm"
-                     style={{
-                        backgroundColor: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1'][i % 4],
-                        top: '50%', left: '50%'
-                     }}
-                   />
-                ))}
-
-                <motion.div
-                    initial={{ scale: 3, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    className="mb-8"
-                >
-                    <div className="w-40 h-40 bg-green-100 rounded-full flex items-center justify-center mx-auto ring-8 ring-green-50">
-                        <CheckCircle2 className="w-24 h-24 text-green-600" />
-                    </div>
-                </motion.div>
-
-                <h1 className="text-6xl font-black text-gray-900 mb-4 tracking-tight">Gata!</h1>
-                <p className="text-2xl text-gray-600 max-w-lg mx-auto leading-relaxed">
-                   Reminder-ul a fost setat cu succes. Vei primi o notificare înainte de expirare.
-                </p>
-
-                {/* Pro Tip - Additional Value */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border-2 border-blue-200 shadow-lg max-w-md mx-auto"
-                >
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
-                    <div className="text-left">
-                      <p className="font-bold text-blue-900 text-lg mb-2">💡 Pro Tip:</p>
-                      <p className="text-blue-800 text-base">
-                        Creează un cont gratuit pentru a gestiona toate reminder-ele tale (ITP, RCA, Rovinieta) dintr-un singur loc!
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-
-                <div className="mt-12 w-64 h-2 bg-gray-100 rounded-full overflow-hidden mx-auto">
+                {/* STEP 2: NAME */}
+                {step === 2 && (
                     <motion.div
-                        className="h-full bg-green-500"
-                        initial={{ width: "100%" }}
-                        animate={{ width: "0%" }}
-                        transition={{ duration: 30, ease: "linear" }}
-                    />
-                </div>
-                <p className="text-sm text-gray-400 mt-2">Resetare automată...</p>
-              </motion.div>
-            )}
+                      key="s2"
+                      variants={pageVariants}
+                      custom={dir}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      className="w-full max-w-xl text-center mt-[-10vh] sm:mt-0"
+                    >
+                        <motion.div variants={containerVariants} initial="hidden" animate="show">
+                            <motion.h2 variants={itemVariants} className="text-3xl sm:text-4xl font-black text-slate-900 mb-2">
+                              Să facem cunoștință
+                            </motion.h2>
+                            <motion.p variants={itemVariants} className="text-lg sm:text-xl text-slate-500 mb-8 sm:mb-10">
+                              Numele tău este?
+                            </motion.p>
 
-          </AnimatePresence>
+                            <motion.input
+                                variants={itemVariants}
+                                autoFocus
+                                type="text"
+                                value={formData.name}
+                                onChange={e => handleNameChange(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && formData.name && nextStep()}
+                                className="w-full bg-transparent border-b-4 border-slate-200 focus:border-blue-600 py-4 sm:py-6 text-center text-3xl sm:text-4xl font-bold text-slate-900 outline-none transition-all placeholder:text-slate-300 rounded-none mb-10"
+                                placeholder="ex: Andrei"
+                            />
+
+                            <motion.button
+                                variants={itemVariants}
+                                onClick={() => nextStep()}
+                                disabled={!formData.name}
+                                className="w-full bg-slate-900 text-white py-5 sm:py-6 rounded-2xl text-xl sm:text-2xl font-bold disabled:opacity-50 disabled:shadow-none shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+                            >
+                                Încântat de cunoștință &rarr;
+                            </motion.button>
+                        </motion.div>
+                    </motion.div>
+                )}
+
+                {/* STEP 3: PHONE */}
+                {step === 3 && (
+                    <motion.div
+                      key="s3"
+                      variants={pageVariants}
+                      custom={dir}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      className="w-full grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center max-w-5xl h-full content-start md:content-center"
+                    >
+
+                        {/* LEFT */}
+                        <div className="text-center md:text-left space-y-6 sm:space-y-8">
+                            <div>
+                                <h2 className="text-3xl sm:text-4xl font-black text-slate-900">Unde te anunțăm?</h2>
+                                <p className="text-base sm:text-lg text-slate-500 mt-2 font-medium">
+                                  Îți trimitem un SMS doar când expiră ITP-ul.
+                                </p>
+                            </div>
+
+                            <div className="bg-blue-50 border border-blue-100 p-4 sm:p-6 rounded-2xl flex items-start gap-4 text-left">
+                                <div className="bg-white p-2 rounded-full shadow-sm shrink-0">
+                                  <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-blue-900 text-sm sm:text-base">Zero Spam. Promis.</h4>
+                                    <p className="text-blue-700/80 text-xs sm:text-sm leading-tight mt-1">
+                                      Numărul tău este criptat și folosit strict pentru alerta ITP.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Dancing Digits Display */}
+                            <div className={`bg-white rounded-3xl border-4 p-4 sm:p-6 shadow-lg transition-all duration-300 flex items-center justify-center md:justify-between ${formData.phone.length >= 12 ? 'border-green-500 shadow-green-100' : 'border-slate-100'}`}>
+                                <div className="text-3xl sm:text-4xl font-mono font-bold text-slate-800 flex items-center h-10 sm:h-12 overflow-hidden">
+                                    <span className="text-slate-300 mr-2 tracking-tighter select-none">+40</span>
+                                    <LayoutGroup>
+                                        {formData.phone.replace('+40', '').split('').map((digit, i) => (
+                                            <motion.span
+                                              layoutId={`digit-${i}`}
+                                              initial={{ y: 20, opacity: 0 }}
+                                              animate={{ y: 0, opacity: 1 }}
+                                              key={i}
+                                            >
+                                                {digit}
+                                            </motion.span>
+                                        ))}
+                                    </LayoutGroup>
+                                    {formData.phone.length < 12 && (
+                                      <motion.div
+                                        animate={{ opacity: [0, 1, 0] }}
+                                        transition={{ repeat: Infinity, duration: 0.8 }}
+                                        className="w-0.5 sm:w-1 h-6 sm:h-8 bg-blue-600 ml-1"
+                                      />
+                                    )}
+                                </div>
+                                {formData.phone.length >= 12 && (
+                                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                                        <CheckCircle2 className="hidden md:block w-10 h-10 text-green-500" />
+                                    </motion.div>
+                                )}
+                            </div>
+
+                            <motion.button
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => nextStep()}
+                                disabled={formData.phone.length < 12}
+                                className="hidden md:block w-full bg-blue-600 text-white py-6 rounded-2xl text-2xl font-bold shadow-xl shadow-blue-600/30 disabled:opacity-50 hover:bg-blue-700 transition-all"
+                            >
+                                Trimite SMS de Verificare
+                            </motion.button>
+                            <p className="hidden md:block text-xs text-slate-400 text-center">
+                              Prin continuare accepți Termenii și Condițiile.
+                            </p>
+                        </div>
+
+                        {/* RIGHT - NUMPAD */}
+                        <div className="flex flex-col items-center w-full">
+                            <div className="bg-white/80 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl border border-white w-full max-w-[450px]">
+                                <ResponsiveNumpad
+                                    onInput={(d) => {
+                                        if(formData.phone.replace('+40','').length < 9) {
+                                            setFormData({...formData, phone: normalizePhoneNumber(formData.phone + d)});
+                                            updateActivity();
+                                        }
+                                    }}
+                                    onDelete={() => {
+                                        setFormData({...formData, phone: normalizePhoneNumber(formData.phone.slice(0, -1))});
+                                        updateActivity();
+                                    }}
+                                />
+                            </div>
+                            <div className="md:hidden w-full mt-6 space-y-3">
+                                <button
+                                  onClick={() => nextStep()}
+                                  disabled={formData.phone.length < 12}
+                                  className="w-full bg-blue-600 text-white py-5 rounded-2xl text-xl font-bold shadow-xl disabled:opacity-50"
+                                >
+                                  Continuă
+                                </button>
+                                <p className="text-[10px] text-slate-400 text-center px-4">
+                                  Prin apăsarea butonului ești de acord cu prelucrarea datelor cf. GDPR.
+                                </p>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* STEP 4: VERIFICATION (Preserved from original) */}
+                {step === 4 && (
+                   <motion.div
+                     key="s4"
+                     variants={pageVariants}
+                     custom={dir}
+                     initial="initial"
+                     animate="animate"
+                     exit="exit"
+                     className="w-full max-w-lg bg-white/90 backdrop-blur p-6 sm:p-8 rounded-3xl shadow-2xl border border-white"
+                   >
+                      <PhoneVerificationStep
+                        phone={formData.phone}
+                        stationSlug={stationSlug}
+                        onVerified={() => {
+                          setFormData({...formData, consent: true});
+                          nextStep();
+                        }}
+                        onBack={prevStep}
+                      />
+                   </motion.div>
+                )}
+
+                {/* STEP 5: PLATE NUMBER */}
+                {step === 5 && (
+                    <motion.div
+                      key="s5"
+                      variants={pageVariants}
+                      custom={dir}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      className="w-full flex flex-col items-center space-y-6 sm:space-y-8 mt-[-5vh] sm:mt-0"
+                    >
+                        <h2 className="text-3xl sm:text-4xl font-black text-slate-900 text-center">
+                          Ce mașină protejăm?
+                        </h2>
+
+                        {/* PLATE VISUAL with Shimmer */}
+                        <div className="group bg-white border-[4px] sm:border-[6px] border-slate-900 rounded-lg sm:rounded-xl overflow-hidden shadow-2xl w-full max-w-[340px] sm:max-w-[480px] h-20 sm:h-28 relative flex items-center transform hover:scale-105 transition-transform duration-300 shrink-0">
+                            <div className="h-full w-14 sm:w-20 bg-[#003399] flex flex-col items-center justify-center text-white border-r-2 border-white z-10">
+                                <span className="text-[10px] sm:text-xs mb-1">🇪🇺</span>
+                                <span className="font-bold text-lg sm:text-2xl">RO</span>
+                            </div>
+                            <div className="flex-1 flex justify-center items-center bg-white z-10">
+                                <span className="text-4xl sm:text-6xl font-mono font-bold tracking-widest text-slate-900 uppercase truncate px-2">
+                                    {formData.plateNumber || <span className="opacity-10 text-slate-300">B00AAA</span>}
+                                </span>
+                            </div>
+                            {/* CSS Shimmer Animation */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-full h-full -skew-x-12 translate-x-[-200%] group-hover:animate-[shimmer_2s_ease-in-out]"
+                                 style={{
+                                   animation: 'shimmer 3s infinite'
+                                 }}
+                            />
+                        </div>
+
+                        <div className="w-full max-w-3xl bg-white/80 backdrop-blur p-2 sm:p-4 rounded-3xl shadow-xl border border-white">
+                             <ResponsivePlateKeyboard
+                                onInput={(k) => {
+                                    if(formData.plateNumber.length < 9) {
+                                        setFormData({...formData, plateNumber: (formData.plateNumber + k).toUpperCase()});
+                                        updateActivity();
+                                    }
+                                }}
+                                onDelete={() => {
+                                    setFormData({...formData, plateNumber: formData.plateNumber.slice(0, -1)});
+                                    updateActivity();
+                                }}
+                             />
+                        </div>
+
+                        <motion.button
+                             whileTap={{ scale: 0.95 }}
+                             onClick={() => nextStep()}
+                             disabled={formData.plateNumber.length < 5}
+                             className="w-full max-w-md bg-slate-900 text-white py-4 sm:py-5 rounded-2xl text-xl sm:text-2xl font-bold shadow-2xl disabled:opacity-50 hover:bg-slate-800 transition-all"
+                        >
+                            Confirmă Numărul
+                        </motion.button>
+                    </motion.div>
+                )}
+
+                {/* STEP 6: EXPIRY DATE (Calendar Responsive Fixed) */}
+                {step === 6 && (
+                    <motion.div
+                      key="s6"
+                      variants={pageVariants}
+                      custom={dir}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      className="w-full grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 items-center max-w-5xl h-full content-start md:content-center"
+                    >
+                        <div className="space-y-4 sm:space-y-6 text-center md:text-left">
+                             <motion.div
+                               initial={{ opacity: 0, x: -20 }}
+                               animate={{ opacity: 1, x: 0 }}
+                               className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-4 sm:px-5 py-2 rounded-full font-bold text-sm sm:text-base"
+                             >
+                                <BellRing size={18} /> Pasul Final
+                             </motion.div>
+                             <h2 className="text-4xl sm:text-5xl font-black text-slate-900">Când expiră?</h2>
+                             <p className="text-lg sm:text-xl text-slate-500 font-medium">
+                               Uită-te în talon și selectează data.
+                             </p>
+
+                             {formData.expiryDate && (
+                                 <motion.div
+                                   initial={{ opacity: 0, y: 10 }}
+                                   animate={{ opacity: 1, y: 0 }}
+                                   className="bg-white p-6 rounded-3xl border-l-8 border-blue-600 shadow-md text-left"
+                                 >
+                                    <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">
+                                      Vei primi notificare pe:
+                                    </p>
+                                    <p className="text-2xl font-bold text-slate-900">
+                                        {format(subDays(formData.expiryDate, 7), 'dd MMMM yyyy', {locale: ro})}
+                                    </p>
+                                    <p className="text-sm text-blue-600 font-medium mt-1">
+                                      (cu 7 zile înainte de expirare)
+                                    </p>
+                                 </motion.div>
+                             )}
+                        </div>
+
+                        {/* CALENDAR - Responsive Fix */}
+                        <div className="flex justify-center">
+                             <div className="bg-white p-4 sm:p-6 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 max-w-md w-full scale-90 md:scale-100 transition-transform">
+                                 <Calendar
+                                    mode="single"
+                                    selected={formData.expiryDate || undefined}
+                                    onSelect={(d) => {
+                                      setFormData({...formData, expiryDate: d || null});
+                                      updateActivity();
+                                    }}
+                                    disabled={(d) => d < new Date()}
+                                    captionLayout="dropdown-buttons"
+                                    fromYear={2025}
+                                    toYear={2030}
+                                    className="rounded-xl p-2"
+                                    classNames={{
+                                        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                                        month: "space-y-4",
+                                        caption: "flex justify-center pt-1 relative items-center",
+                                        caption_label: "text-lg font-semibold hidden",
+                                        caption_dropdowns: "flex gap-2",
+                                        dropdown: "text-lg font-semibold border-2 border-slate-200 rounded-xl px-4 py-3 hover:bg-slate-50 transition-colors",
+                                        nav: "space-x-1 flex items-center",
+                                        nav_button: "h-12 w-12 bg-transparent hover:bg-slate-100 rounded-xl border-2 border-slate-200 transition-colors",
+                                        nav_button_previous: "absolute left-1",
+                                        nav_button_next: "absolute right-1",
+                                        table: "w-full border-collapse space-y-1",
+                                        head_row: "flex",
+                                        head_cell: "text-slate-400 rounded-xl w-14 font-medium text-lg",
+                                        row: "flex w-full mt-2",
+                                        cell: "relative p-0 text-center text-lg focus-within:relative focus-within:z-20",
+                                        day: "h-14 w-14 p-0 font-medium aria-selected:opacity-100 hover:bg-blue-50 rounded-2xl transition-all border-2 border-transparent hover:border-blue-200",
+                                        day_selected: "bg-blue-600 text-white hover:bg-blue-700 font-bold shadow-md scale-110 border-2 border-blue-800",
+                                        day_today: "bg-slate-100 text-slate-900 font-bold border-2 border-blue-400",
+                                        day_outside: "text-slate-300 opacity-50",
+                                        day_disabled: "text-slate-300 opacity-30",
+                                        day_range_middle: "aria-selected:bg-slate-100",
+                                        day_hidden: "invisible",
+                                    }}
+                                 />
+                             </div>
+                        </div>
+
+                        <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleSubmit}
+                            disabled={!formData.expiryDate || submitting}
+                            className="col-span-1 md:col-span-2 w-full bg-green-600 text-white py-6 rounded-3xl text-3xl font-bold shadow-[0_20px_50px_-12px_rgba(22,163,74,0.5)] disabled:opacity-50 hover:bg-green-700 transition-all flex items-center justify-center gap-3"
+                        >
+                            {submitting ? <Loader2 className="animate-spin w-8 h-8"/> : 'Activează Gratuit Acum'}
+                        </motion.button>
+                    </motion.div>
+                )}
+
+                {/* STEP 7: SUCCESS */}
+                {step === 7 && (
+                    <motion.div
+                      key="s7"
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="text-center space-y-8 max-w-2xl mx-auto relative"
+                    >
+                         {/* Confetti Particles (Deterministic - No Hydration Error) */}
+                         {mounted && [...Array(12)].map((_, i) => {
+                           const angle = (i / 12) * 360;
+                           const distance = 300 + (i % 3) * 100;
+                           const xOffset = Math.cos(angle * Math.PI / 180) * distance;
+                           const yOffset = Math.sin(angle * Math.PI / 180) * distance;
+
+                           return (
+                             <motion.div
+                               key={i}
+                               initial={{ x: 0, y: 0, opacity: 1 }}
+                               animate={{
+                                 x: xOffset,
+                                 y: yOffset,
+                                 opacity: 0,
+                                 rotate: angle
+                               }}
+                               transition={{ duration: 1.5, ease: "easeOut" }}
+                               className="absolute w-3 h-3 rounded-sm"
+                               style={{
+                                 backgroundColor: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1'][i % 4],
+                                 top: '50%',
+                                 left: '50%'
+                               }}
+                             />
+                           );
+                         })}
+
+                        <div className="w-48 h-48 bg-green-100 rounded-full flex items-center justify-center mx-auto shadow-inner animate-[bounce_1s_infinite]">
+                            <CheckCircle2 className="w-28 h-28 text-green-600" />
+                        </div>
+                        <div>
+                            <h2 className="text-6xl font-black text-slate-900 mb-6 tracking-tight">Felicitări!</h2>
+                            <p className="text-2xl text-slate-600 font-medium">Ești protejat împotriva amenzilor.</p>
+                        </div>
+
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.5 }}
+                          className="bg-white border border-blue-100 p-6 rounded-3xl shadow-xl flex items-center gap-4 text-left max-w-md mx-auto"
+                        >
+                             <div className="bg-yellow-100 p-3 rounded-full">
+                               <Sparkles className="w-6 h-6 text-yellow-600" />
+                             </div>
+                             <div>
+                                <p className="font-bold text-slate-800">Sfat Pro:</p>
+                                <p className="text-slate-600 text-sm">
+                                  Salvează numărul nostru. Când primești mesajul, sună-ne direct pentru programare.
+                                </p>
+                             </div>
+                        </motion.div>
+
+                        <button
+                          onClick={() => {
+                            setStep(1);
+                            setFormData({name: '', phone: '', plateNumber: '', expiryDate: null, consent: false});
+                          }}
+                          className="text-slate-400 font-bold py-4 hover:text-slate-600 transition-colors"
+                        >
+                          Închide ecranul
+                        </button>
+
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-4">
+                             <motion.div
+                               initial={{ width: '100%' }}
+                               animate={{ width: '0%' }}
+                               transition={{ duration: 30, ease: 'linear' }}
+                               className="h-full bg-green-500"
+                             />
+                        </div>
+                    </motion.div>
+                )}
+
+            </AnimatePresence>
         </div>
       </div>
+
+      {/* CSS Keyframes for Shimmer */}
+      <style jsx global>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-200%) skewX(-12deg); }
+          100% { transform: translateX(200%) skewX(-12deg); }
+        }
+      `}</style>
     </KioskLayout>
   );
 }
