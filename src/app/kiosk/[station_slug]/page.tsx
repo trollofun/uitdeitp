@@ -33,9 +33,9 @@ import {
   type KioskFormData,
   type ValidationResult
 } from '@/lib/kiosk/validation';
-import { CheckCircle2, Loader2, Sparkles, Car, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Loader2, Sparkles, Car, ChevronRight, AlertTriangle, ShieldCheck, Lock, BellRing } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { ro } from 'date-fns/locale';
 
 // --- ANIMATIONS CONFIG ---
@@ -230,14 +230,80 @@ export default function KioskPage() {
         <div className="flex-1 relative flex flex-col justify-center">
           <AnimatePresence mode="wait" custom={direction} initial={false}>
 
-            {/* Step 1: Idle Screen - Pulsating Effect */}
+            {/* Step 1: Idle Screen - Conversion-Optimized with Fear Hook */}
             {step === 1 && (
               <motion.div
                 key="step1"
                 className="absolute inset-0 z-50 flex items-center justify-center"
                 exit={{ opacity: 0, scale: 1.1, filter: 'blur(10px)' }}
               >
-                <KioskIdleState onStart={() => changeStep(2)} />
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="text-center w-full max-w-3xl mx-auto bg-white rounded-[3rem] shadow-2xl p-8 sm:p-12"
+                  onClick={() => changeStep(2)}
+                >
+                  {/* Fear Hook - Loss Aversion */}
+                  <motion.div
+                    initial={{ y: -20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="inline-flex items-center gap-2 bg-red-50 text-red-700 px-5 py-2 rounded-full font-bold text-sm uppercase tracking-wide mb-6 border border-red-100"
+                  >
+                    <AlertTriangle size={18} /> Risc: Amendă ITP
+                  </motion.div>
+
+                  <h1 className="text-4xl sm:text-6xl font-black text-slate-900 mb-4 leading-tight">
+                    Nu uita când expiră <br className="hidden sm:block" />
+                    <span style={{ color: primaryColor }}>ITP-ul mașinii tale</span>
+                  </h1>
+
+                  <p className="text-xl sm:text-2xl text-slate-600 font-medium mb-8">
+                    Înscrie-te <strong className="text-slate-900">gratuit</strong> și primești reminder automat prin SMS.
+                  </p>
+
+                  {/* Trust Signals - Reduce Friction */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl"
+                    >
+                      <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0" />
+                      <span className="text-sm font-semibold text-slate-700">100% Gratuit</span>
+                    </motion.div>
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl"
+                    >
+                      <Lock className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                      <span className="text-sm font-semibold text-slate-700">Zero Spam</span>
+                    </motion.div>
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                      className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl"
+                    >
+                      <BellRing className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                      <span className="text-sm font-semibold text-slate-700">1 SMS/an</span>
+                    </motion.div>
+                  </div>
+
+                  {/* Strong CTA */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-6 sm:py-8 rounded-3xl text-2xl sm:text-3xl font-bold shadow-lg transition-all"
+                    style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
+                  >
+                    Începe Acum
+                  </motion.button>
+                </motion.div>
               </motion.div>
             )}
 
@@ -306,6 +372,14 @@ export default function KioskPage() {
                 {/* Left: Display */}
                 <div className="flex flex-col justify-center space-y-6">
                   <h3 className="text-3xl font-bold text-gray-900">Numărul de telefon?</h3>
+
+                  {/* Anti-Spam Messaging - Build Trust */}
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <p className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Garantăm: <strong>1 singur SMS</strong>, 7 zile înainte de expirare
+                    </p>
+                  </div>
 
                   <div className={`
                     relative p-8 rounded-3xl border-2 bg-white/80 backdrop-blur-sm shadow-xl transition-all duration-300
@@ -476,6 +550,29 @@ export default function KioskPage() {
                           {formData.expiryDate ? format(formData.expiryDate, 'dd MMMM yyyy', { locale: ro }) : '---'}
                         </p>
                     </div>
+
+                    {/* Reminder Preview - Immediate Reward Visualization */}
+                    {formData.expiryDate && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-2xl border-2 border-green-200 shadow-md"
+                      >
+                        <div className="flex items-start gap-3">
+                          <BellRing className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-bold text-green-900 text-lg">Vei primi SMS pe:</p>
+                            <p className="text-2xl font-black text-green-700 mt-1">
+                              {format(subDays(formData.expiryDate, 7), 'dd MMMM yyyy', { locale: ro })}
+                            </p>
+                            <p className="text-sm text-green-700 mt-2">
+                              (cu 7 zile înainte de expirare)
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
                     <div>
                         <motion.button
                           whileHover={{ scale: 1.05 }}
@@ -554,6 +651,24 @@ export default function KioskPage() {
                 <p className="text-2xl text-gray-600 max-w-lg mx-auto leading-relaxed">
                    Reminder-ul a fost setat cu succes. Vei primi o notificare înainte de expirare.
                 </p>
+
+                {/* Pro Tip - Additional Value */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border-2 border-blue-200 shadow-lg max-w-md mx-auto"
+                >
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                    <div className="text-left">
+                      <p className="font-bold text-blue-900 text-lg mb-2">💡 Pro Tip:</p>
+                      <p className="text-blue-800 text-base">
+                        Creează un cont gratuit pentru a gestiona toate reminder-ele tale (ITP, RCA, Rovinieta) dintr-un singur loc!
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
 
                 <div className="mt-12 w-64 h-2 bg-gray-100 rounded-full overflow-hidden mx-auto">
                     <motion.div
