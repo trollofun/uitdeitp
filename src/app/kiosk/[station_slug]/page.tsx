@@ -263,12 +263,18 @@ export default function KioskPage() {
                     Înscrie-te <strong className="text-slate-900">gratuit</strong> și primești reminder automat prin SMS.
                   </p>
 
-                  {/* Trust Signals - Reduce Friction */}
+                  {/* Trust Signals - Reduce Friction with Pulsing Animation */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
                     <motion.div
                       initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.3 }}
+                      animate={{
+                        scale: [1, 1.05, 1],
+                        opacity: 1
+                      }}
+                      transition={{
+                        scale: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.3 },
+                        opacity: { delay: 0.3 }
+                      }}
                       className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl"
                     >
                       <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0" />
@@ -276,8 +282,14 @@ export default function KioskPage() {
                     </motion.div>
                     <motion.div
                       initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.4 }}
+                      animate={{
+                        scale: [1, 1.05, 1],
+                        opacity: 1
+                      }}
+                      transition={{
+                        scale: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.4 },
+                        opacity: { delay: 0.4 }
+                      }}
                       className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl"
                     >
                       <Lock className="w-5 h-5 text-blue-600 flex-shrink-0" />
@@ -285,8 +297,14 @@ export default function KioskPage() {
                     </motion.div>
                     <motion.div
                       initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.5 }}
+                      animate={{
+                        scale: [1, 1.05, 1],
+                        opacity: 1
+                      }}
+                      transition={{
+                        scale: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
+                        opacity: { delay: 0.5 }
+                      }}
                       className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl"
                     >
                       <BellRing className="w-5 h-5 text-purple-600 flex-shrink-0" />
@@ -294,10 +312,16 @@ export default function KioskPage() {
                     </motion.div>
                   </div>
 
-                  {/* Strong CTA */}
+                  {/* Strong CTA with Pulse Animation */}
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
+                    animate={{
+                      scale: [1, 1.02, 1]
+                    }}
+                    transition={{
+                      scale: { duration: 2.5, repeat: Infinity, ease: "easeInOut" }
+                    }}
                     className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-6 sm:py-8 rounded-3xl text-2xl sm:text-3xl font-bold shadow-lg transition-all"
                     style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
                   >
@@ -587,20 +611,27 @@ export default function KioskPage() {
                     </div>
                  </div>
 
-                 <div className="flex justify-center">
-                    <div className="transform scale-110 origin-center bg-white p-4 rounded-3xl shadow-2xl border-2 border-blue-50">
+                 <div className="flex justify-center w-full">
+                    <div className="w-full max-w-md bg-white p-4 rounded-3xl shadow-2xl border-2 border-gray-300 scale-90 md:scale-100">
                         <Calendar
                             mode="single"
                             selected={formData.expiryDate || undefined}
                             onSelect={(d) => { setFormData(p => ({...p, expiryDate: d || null})); updateActivity(); }}
                             disabled={(d) => d < new Date()}
-                            className="p-2"
+                            captionLayout="dropdown-buttons"
+                            fromYear={2025}
+                            toYear={2030}
+                            className="p-2 rounded-2xl"
                             classNames={{
-                                day_selected: "bg-blue-600 text-white hover:bg-blue-700 scale-110 shadow-md transition-all duration-200",
-                                day: "h-14 w-14 p-0 font-semibold text-lg rounded-xl hover:bg-gray-100 aria-selected:opacity-100",
-                                head_cell: "text-gray-400 w-14 font-normal",
+                                day_selected: "bg-blue-600 text-white font-bold border-2 border-blue-800 rounded-lg hover:bg-blue-700 scale-105 shadow-md transition-all duration-200",
+                                day: "h-14 w-14 p-0 font-semibold text-lg rounded-md border border-gray-300 hover:bg-gray-100 aria-selected:opacity-100",
+                                day_today: "bg-blue-50 font-bold border-2 border-blue-400",
+                                head_cell: "text-gray-500 w-14 font-semibold",
                                 caption: "mb-4",
-                                caption_label: "text-xl font-bold text-gray-800"
+                                caption_label: "text-xl font-bold text-gray-800",
+                                caption_dropdowns: "flex gap-3 justify-center",
+                                dropdown: "px-4 py-3 text-lg font-semibold border-2 border-gray-300 rounded-lg bg-white hover:bg-gray-50 cursor-pointer",
+                                nav_button: "h-12 w-12 border-2 border-gray-300 rounded-lg hover:bg-gray-100"
                             }}
                         />
                     </div>

@@ -32,7 +32,7 @@ export function Numpad({ onInput, onDelete }: NumpadProps) {
           type="button"
           whileTap={{ scale: 0.9, backgroundColor: '#e5e7eb' }}
           onClick={() => onInput(num.toString())}
-          className="h-16 text-3xl font-medium bg-white/80 backdrop-blur shadow-sm rounded-xl hover:bg-white/90 transition-colors active:shadow-inner"
+          className="h-20 text-2xl font-medium bg-white/80 backdrop-blur shadow-sm rounded-xl hover:bg-white/90 transition-colors active:shadow-inner"
           aria-label={`Number ${num}`}
         >
           {num}
@@ -46,7 +46,7 @@ export function Numpad({ onInput, onDelete }: NumpadProps) {
         type="button"
         whileTap={{ scale: 0.9, backgroundColor: '#e5e7eb' }}
         onClick={() => onInput('0')}
-        className="h-16 text-3xl font-medium bg-white/80 backdrop-blur shadow-sm rounded-xl hover:bg-white/90 transition-colors active:shadow-inner"
+        className="h-20 text-2xl font-medium bg-white/80 backdrop-blur shadow-sm rounded-xl hover:bg-white/90 transition-colors active:shadow-inner"
         aria-label="Number 0"
       >
         0
@@ -56,7 +56,7 @@ export function Numpad({ onInput, onDelete }: NumpadProps) {
         type="button"
         whileTap={{ scale: 0.9, backgroundColor: '#fee2e2' }}
         onClick={onDelete}
-        className="h-16 flex items-center justify-center bg-red-50/80 backdrop-blur shadow-sm rounded-xl hover:bg-red-100/90 transition-colors active:shadow-inner"
+        className="h-20 flex items-center justify-center bg-red-50/80 backdrop-blur shadow-sm rounded-xl hover:bg-red-100/90 transition-colors active:shadow-inner"
         aria-label="Delete"
       >
         <Delete className="w-7 h-7 text-red-600" />
