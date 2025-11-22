@@ -15,7 +15,7 @@ import {
   getRateLimitIdentifier,
   addRateLimitHeaders,
 } from '@/lib/api/middleware';
-import { createNotifyHubClient, SMS_TEMPLATES } from '@/lib/clients/notifyhub';
+import { notifyHub } from '@/lib/services/notifyhub';
 import { logger } from '@/lib/logger';
 
 /**

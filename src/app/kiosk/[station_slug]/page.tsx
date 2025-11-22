@@ -21,6 +21,7 @@ import { SimpleDatePicker } from '@/components/kiosk/SimpleDatePicker';
 import { KioskLayout, type StationConfig } from '@/components/kiosk/KioskLayout';
 import { StepIndicator } from '@/components/kiosk/StepIndicator';
 import { PhoneVerificationStep } from '@/components/kiosk/PhoneVerificationStep';
+import KioskIdleState from '@/components/kiosk/KioskIdleState';
 import {
   validateName,
   validatePhoneNumber,
@@ -393,66 +394,14 @@ export default function KioskPage() {
         <div className="flex-1 flex items-center justify-center p-4 w-full max-w-7xl mx-auto overflow-y-auto sm:overflow-visible perspective-[1000px]">
             <AnimatePresence mode="wait" custom={dir} initial={false}>
 
-                {/* STEP 1: IDLE SLIDER (Attractor Screen) */}
+                {/* STEP 1: IDLE STATE - Enhanced Attractor Screen */}
                 {step === 1 && (
-                    <motion.div
-                        key="step1"
-                        exit={{ opacity: 0, scale: 1.1, filter: 'blur(10px)', transition: { duration: 0.5 } }}
-                        className="w-full max-w-4xl mx-auto"
-                    >
-                        <div className="relative h-[600px] flex items-center justify-center">
-                            <AnimatePresence mode="wait">
-                                <motion.div
-                                    key={slideIndex}
-                                    initial={{ opacity: 0, x: 100, rotateY: -10 }}
-                                    animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                                    exit={{ opacity: 0, x: -100, rotateY: 10 }}
-                                    transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                                    onClick={() => nextStep()}
-                                    className={`cursor-pointer w-full bg-gradient-to-br ${IDLE_SLIDES[slideIndex].color} rounded-[3rem] shadow-2xl p-8 sm:p-16 border-4 border-white/50 text-center relative overflow-hidden group`}
-                                >
-                                    {/* Floating Badge */}
-                                    <motion.div
-                                        initial={{ y: -20, opacity: 0 }}
-                                        animate={{ y: 0, opacity: 1 }}
-                                        className={`inline-flex items-center gap-2 px-6 py-2 rounded-full font-black text-sm uppercase tracking-wider mb-10 ${IDLE_SLIDES[slideIndex].badgeColor}`}
-                                    >
-                                        {React.createElement(IDLE_SLIDES[slideIndex].icon, { size: IDLE_SLIDES[slideIndex].iconSize })}
-                                        {IDLE_SLIDES[slideIndex].badge}
-                                    </motion.div>
-
-                                    <h1 className="text-5xl sm:text-7xl font-black text-slate-900 mb-8 leading-[1.1]">
-                                        {IDLE_SLIDES[slideIndex].title}
-                                    </h1>
-
-                                    <p className="text-2xl text-slate-600 font-medium mb-12 max-w-xl mx-auto">
-                                        {IDLE_SLIDES[slideIndex].desc}
-                                    </p>
-
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        className="w-full bg-slate-900 text-white py-8 rounded-3xl text-3xl font-bold shadow-2xl flex items-center justify-center gap-4 group-hover:bg-blue-600 transition-colors duration-500"
-                                    >
-                                        {IDLE_SLIDES[slideIndex].buttonText}
-                                        <ChevronRight className="w-8 h-8" />
-                                    </motion.button>
-
-                                    {/* Slide Indicators */}
-                                    <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2">
-                                        {IDLE_SLIDES.map((_, i) => (
-                                            <div
-                                                key={i}
-                                                className={`h-2 rounded-full transition-all duration-500 ${
-                                                    i === slideIndex ? 'w-8 bg-slate-900' : 'w-2 bg-slate-300'
-                                                }`}
-                                            />
-                                        ))}
-                                    </div>
-                                </motion.div>
-                            </AnimatePresence>
-                        </div>
-                    </motion.div>
+                    <div key="step1" className="fixed inset-0 z-50">
+                        <KioskIdleState
+                            onStart={() => nextStep()}
+                            primaryColor={station?.primary_color || '#3B82F6'}
+                        />
+                    </div>
                 )}
 
                 {/* STEP 2: NAME */}
