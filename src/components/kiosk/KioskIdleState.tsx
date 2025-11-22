@@ -162,7 +162,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
       </div>
 
       {/* Main Content Container */}
-      <div className="relative z-10 flex flex-col items-center justify-center space-y-16 px-12 text-center">
+      <div className="relative z-10 flex flex-col items-center justify-center space-y-8 sm:space-y-12 md:space-y-16 px-4 sm:px-8 md:px-12 text-center">
 
         {/* Brand/Logo Area with Animated Title */}
         <motion.div
@@ -172,7 +172,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
           className="space-y-2"
         >
           <motion.h2
-            className="text-2xl font-semibold text-gray-600"
+            className="text-base sm:text-xl md:text-2xl font-semibold text-gray-600"
             animate={{
               opacity: [0.7, 1, 0.7]
             }}
@@ -185,7 +185,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
             Bine ai venit la
           </motion.h2>
           <motion.h1
-            className="text-6xl font-black tracking-tight"
+            className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight"
             style={{
               background: `linear-gradient(135deg, ${primaryColor} 0%, ${currentMessage.color} 100%)`,
               WebkitBackgroundClip: 'text',
@@ -240,7 +240,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
 
               {/* Emoji */}
               <motion.div
-                className="relative text-[140px] leading-none"
+                className="relative text-7xl sm:text-8xl md:text-9xl leading-none"
                 animate={{
                   scale: [1, 1.12, 1],
                   rotate: [0, 5, -5, 0],
@@ -258,7 +258,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
 
             {/* Title with Gradient */}
             <motion.h2
-              className="text-[52px] font-black leading-tight max-w-3xl"
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-[52px] font-black leading-tight max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-3xl px-2"
               style={{
                 background: `linear-gradient(135deg, #1F2937 0%, ${currentMessage.color} 100%)`,
                 WebkitBackgroundClip: 'text',
@@ -274,7 +274,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
 
             {/* Body */}
             <motion.p
-              className="text-[36px] leading-relaxed text-gray-700 font-medium max-w-2xl"
+              className="text-lg sm:text-xl md:text-2xl lg:text-[36px] leading-relaxed text-gray-700 font-medium max-w-xs sm:max-w-md md:max-w-xl lg:max-w-2xl px-2"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
@@ -286,13 +286,13 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
 
         {/* Horizontal Scrolling Feature Cards */}
         <motion.div
-          className="overflow-hidden w-full max-w-4xl"
+          className="overflow-hidden w-full max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-4xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
           <motion.div
-            className="flex gap-6"
+            className="flex gap-3 sm:gap-4 md:gap-6"
             animate={{
               x: ['0%', '-50%']
             }}
@@ -306,12 +306,12 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
             {[...features, ...features].map((feature, index) => (
               <motion.div
                 key={index}
-                className="flex items-center gap-3 bg-white/80 backdrop-blur-sm px-8 py-4 rounded-2xl shadow-lg border border-gray-100 flex-shrink-0"
+                className="flex items-center gap-2 sm:gap-3 bg-white/80 backdrop-blur-sm px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 flex-shrink-0"
                 whileHover={{ scale: 1.05, y: -5 }}
                 transition={{ duration: 0.2 }}
               >
-                <span className="text-4xl">{feature.emoji}</span>
-                <span className="text-xl font-semibold text-gray-800 whitespace-nowrap">
+                <span className="text-2xl sm:text-3xl md:text-4xl">{feature.emoji}</span>
+                <span className="text-sm sm:text-base md:text-xl font-semibold text-gray-800 whitespace-nowrap">
                   {feature.text}
                 </span>
               </motion.div>
@@ -324,7 +324,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.6 }}
-          className="relative mt-12"
+          className="relative mt-6 sm:mt-8 md:mt-12"
         >
           {/* Pulsing glow behind button */}
           <motion.div
@@ -346,7 +346,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
 
           {/* Button */}
           <motion.div
-            className="relative rounded-3xl bg-white px-14 py-10 shadow-2xl border-2"
+            className="relative rounded-2xl sm:rounded-3xl bg-white px-6 sm:px-10 md:px-14 py-6 sm:py-8 md:py-10 shadow-2xl border-2"
             style={{
               borderColor: primaryColor
             }}
@@ -370,9 +370,9 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
               scale: 0.97
             }}
           >
-            <p className="text-[32px] font-bold text-gray-900 flex items-center gap-4 justify-center">
+            <p className="text-xl sm:text-2xl md:text-3xl lg:text-[32px] font-bold text-gray-900 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 justify-center">
               <motion.span
-                className="text-5xl"
+                className="text-3xl sm:text-4xl md:text-5xl"
                 animate={{
                   y: [0, -12, 0],
                   rotate: [0, 15, -15, 0]
@@ -386,6 +386,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
                 👆
               </motion.span>
               <span
+                className="text-center sm:text-left"
                 style={{
                   background: `linear-gradient(135deg, ${primaryColor} 0%, ${currentMessage.color} 100%)`,
                   WebkitBackgroundClip: 'text',
@@ -399,7 +400,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
 
             {/* Subtitle with shimmer effect */}
             <motion.p
-              className="mt-4 text-[22px] text-gray-600 font-medium"
+              className="mt-3 sm:mt-4 text-base sm:text-lg md:text-xl lg:text-[22px] text-gray-600 font-medium"
               animate={{ opacity: [0.6, 1, 0.6] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
@@ -430,7 +431,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
 
         {/* Enhanced Progress Dots */}
         <motion.div
-          className="flex items-center space-x-5"
+          className="flex items-center space-x-2 sm:space-x-3 md:space-x-5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.7 }}
@@ -462,9 +463,9 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
 
               {/* Progress bar */}
               <div
-                className="relative h-5 rounded-full overflow-hidden shadow-lg"
+                className="relative h-3 sm:h-4 md:h-5 rounded-full overflow-hidden shadow-lg"
                 style={{
-                  width: index === currentIndex ? '80px' : '20px',
+                  width: index === currentIndex ? '60px' : '16px',
                   transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                   backgroundColor: index === currentIndex ? '#E5E7EB' : '#D1D5DB'
                 }}
