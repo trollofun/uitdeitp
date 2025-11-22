@@ -22,6 +22,7 @@ import { KioskLayout, type StationConfig } from '@/components/kiosk/KioskLayout'
 import { StepIndicator } from '@/components/kiosk/StepIndicator';
 import { PhoneVerificationStep } from '@/components/kiosk/PhoneVerificationStep';
 import KioskIdleState from '@/components/kiosk/KioskIdleState';
+import { IdleSlider } from '@/components/kiosk/IdleSlider';
 import {
   validateName,
   validatePhoneNumber,
@@ -136,6 +137,45 @@ const pageVariants = {
     scale: 0.8,
     rotateY: direction < 0 ? 25 : -25,
     transition: { duration: 0.4 }
+  })
+};
+
+// Enhanced slide transition variants with 3D depth
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? '100%' : '-100%',
+    opacity: 0,
+    scale: 0.9,
+    rotateY: direction > 0 ? 15 : -15,
+    z: -200
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    rotateY: 0,
+    z: 0,
+    transition: {
+      x: { type: "spring", stiffness: 300, damping: 30 },
+      opacity: { duration: 0.3 },
+      scale: { duration: 0.3 },
+      rotateY: { duration: 0.4 },
+      z: { duration: 0.4 }
+    }
+  },
+  exit: (direction: number) => ({
+    x: direction < 0 ? '100%' : '-100%',
+    opacity: 0,
+    scale: 0.9,
+    rotateY: direction < 0 ? 15 : -15,
+    z: -200,
+    transition: {
+      x: { type: "spring", stiffness: 300, damping: 30 },
+      opacity: { duration: 0.3 },
+      scale: { duration: 0.3 },
+      rotateY: { duration: 0.4 },
+      z: { duration: 0.4 }
+    }
   })
 };
 
@@ -394,13 +434,21 @@ export default function KioskPage() {
         <div className="flex-1 flex items-center justify-center p-4 w-full max-w-7xl mx-auto overflow-y-auto sm:overflow-visible perspective-[1000px]">
             <AnimatePresence mode="wait" custom={dir} initial={false}>
 
-                {/* STEP 1: IDLE STATE - Enhanced Attractor Screen */}
+                {/* STEP 1: IDLE STATE - Enhanced Attractor Screen with Slider */}
                 {step === 1 && (
                     <div key="step1" className="fixed inset-0 z-50">
                         <KioskIdleState
                             onStart={() => nextStep()}
                             primaryColor={station?.primary_color || '#3B82F6'}
                         />
+                        {/* Animated Slider Component */}
+                        <div className="absolute bottom-32 left-0 right-0 px-4">
+                            <IdleSlider
+                                onStart={() => nextStep()}
+                                autoRotate={true}
+                                rotateInterval={8000}
+                            />
+                        </div>
                     </div>
                 )}
 
