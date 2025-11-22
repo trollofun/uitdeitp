@@ -67,6 +67,23 @@ export function SimpleDatePicker({ value, onChange, minDate, maxDate }: SimpleDa
     handleDateChange(day, month, newYear);
   };
 
+  const setDateToMonthsFromNow = (months: number) => {
+    const today = new Date();
+    const futureDate = new Date(today);
+
+    // Add months to current date
+    futureDate.setMonth(futureDate.getMonth() + months);
+
+    const newDay = futureDate.getDate();
+    const newMonth = futureDate.getMonth() + 1; // Convert to 1-12
+    const newYear = futureDate.getFullYear();
+
+    setDay(newDay);
+    setMonth(newMonth);
+    setYear(newYear);
+    handleDateChange(newDay, newMonth, newYear);
+  };
+
   return (
     <div className="w-full max-w-lg mx-auto space-y-6">
       {/* Preview Display */}
@@ -76,9 +93,9 @@ export function SimpleDatePicker({ value, onChange, minDate, maxDate }: SimpleDa
         className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-3xl border-4 border-blue-100 shadow-lg"
       >
         <div className="flex items-center justify-center gap-3 mb-2">
-          <Calendar className="w-6 h-6 text-blue-600" />
+          <span className="text-2xl">⏰</span>
           <p className="text-sm font-bold text-blue-900 uppercase tracking-wider">
-            Data Expirării ITP
+            Când îți expiră următorul ITP?
           </p>
         </div>
         <p className="text-3xl font-black text-center text-slate-900">
@@ -186,7 +203,7 @@ export function SimpleDatePicker({ value, onChange, minDate, maxDate }: SimpleDa
               key={year}
               initial={{ y: 10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className="text-4xl font-black text-white"
+              className="text-5xl font-black text-white"
             >
               {year}
             </motion.span>
@@ -206,9 +223,57 @@ export function SimpleDatePicker({ value, onChange, minDate, maxDate }: SimpleDa
         </div>
       </div>
 
+      {/* Preset Date Buttons */}
+      <div className="space-y-3">
+        <p className="text-center text-sm text-gray-600 font-medium">
+          sau alege rapid:
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Button 1: 6 months - Taxi/Uber */}
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setDateToMonthsFromNow(6)}
+            className="min-h-[44px] bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+          >
+            <span className="text-2xl">🚕</span>
+            <div className="text-left">
+              <div className="text-sm leading-tight">Taxi/Uber</div>
+              <div className="text-xs opacity-90">6 luni</div>
+            </div>
+          </motion.button>
+
+          {/* Button 2: 1 year - Old vehicles */}
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setDateToMonthsFromNow(12)}
+            className="min-h-[44px] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+          >
+            <span className="text-2xl">🚙</span>
+            <div className="text-left">
+              <div className="text-sm leading-tight">Vechicul vechi</div>
+              <div className="text-xs opacity-90">1 an</div>
+            </div>
+          </motion.button>
+
+          {/* Button 3: 2 years - New vehicles */}
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setDateToMonthsFromNow(24)}
+            className="min-h-[44px] bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+          >
+            <span className="text-2xl">🚗✨</span>
+            <div className="text-left">
+              <div className="text-sm leading-tight">Mașină nouă</div>
+              <div className="text-xs opacity-90">2 ani</div>
+            </div>
+          </motion.button>
+        </div>
+      </div>
+
       {/* Helper Text */}
-      <p className="text-center text-sm text-slate-500">
-        Apasă săgețile pentru a ajusta data
+      <p className="text-center text-xs text-slate-500 mt-4">
+        Apasă săgețile pentru a ajusta manual
       </p>
     </div>
   );
