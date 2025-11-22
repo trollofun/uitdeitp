@@ -717,10 +717,10 @@ export default function KioskPage() {
                                       Vei primi notificare pe:
                                     </p>
                                     <p className="text-2xl font-bold text-slate-900">
-                                        {format(subDays(formData.expiryDate, 7), 'dd MMMM yyyy', {locale: ro})}
+                                        {format(subDays(formData.expiryDate, 5), 'dd MMMM yyyy', {locale: ro})}
                                     </p>
                                     <p className="text-sm text-blue-600 font-medium mt-1">
-                                      (cu 7 zile înainte de expirare)
+                                      (cu 5 zile înainte de expirare)
                                     </p>
                                  </motion.div>
                              )}

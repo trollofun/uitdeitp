@@ -125,7 +125,7 @@ export function ConfirmationStep({
         </h4>
         <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 ml-4 list-disc">
           <li>Vei primi un SMS de confirmare în câteva momente</li>
-          <li>Reminder-e vor fi trimise cu <strong>30 de zile</strong> și <strong>7 zile</strong> înainte de expirare</li>
+          <li>Reminder-ul va fi trimis cu <strong>5 zile</strong> înainte de expirare</li>
           <li>Poți opta oricând să nu mai primești notificări răspunzând cu &ldquo;STOP&rdquo;</li>
         </ul>
       </div>

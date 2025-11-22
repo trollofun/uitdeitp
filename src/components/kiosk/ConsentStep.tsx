@@ -106,8 +106,7 @@ export function ConsentStep({ onNext, onBack }: ConsentStepProps) {
             </label>
             <p className="text-sm text-muted-foreground mt-2">
               Sunt de acord să primesc notificări prin SMS despre expirarea ITP-ului.
-              Voi primi un SMS cu <strong>30 de zile</strong> și{' '}
-              <strong>7 zile</strong> înainte de expirare. Pot opta să nu mai primesc
+              Voi primi un SMS cu <strong>5 zile</strong> înainte de expirare. Pot opta să nu mai primesc
               aceste mesaje în orice moment.
             </p>
           </div>

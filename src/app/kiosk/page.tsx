@@ -123,7 +123,7 @@ export default async function KioskSelectionPage() {
             <div className="text-3xl mb-2">⏰</div>
             <h4 className="font-semibold mb-1">Reminder-e Automate</h4>
             <p className="text-sm text-muted-foreground">
-              Primești SMS cu 30 și 7 zile înainte
+              Primești SMS cu 5 zile înainte
             </p>
           </div>
         </div>
