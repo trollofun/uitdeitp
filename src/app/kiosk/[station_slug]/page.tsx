@@ -22,7 +22,6 @@ import { KioskLayout, type StationConfig } from '@/components/kiosk/KioskLayout'
 import { StepIndicator } from '@/components/kiosk/StepIndicator';
 import { PhoneVerificationStep } from '@/components/kiosk/PhoneVerificationStep';
 import KioskIdleState from '@/components/kiosk/KioskIdleState';
-import { IdleSlider } from '@/components/kiosk/IdleSlider';
 import {
   validateName,
   validatePhoneNumber,
@@ -434,21 +433,13 @@ export default function KioskPage() {
         <div className="flex-1 flex items-center justify-center p-4 w-full max-w-7xl mx-auto overflow-y-auto sm:overflow-visible perspective-[1000px]">
             <AnimatePresence mode="wait" custom={dir} initial={false}>
 
-                {/* STEP 1: IDLE STATE - Enhanced Attractor Screen with Slider */}
+                {/* STEP 1: IDLE STATE - Clean Interface */}
                 {step === 1 && (
                     <div key="step1" className="fixed inset-0 z-50">
                         <KioskIdleState
                             onStart={() => nextStep()}
                             primaryColor={station?.primary_color || '#3B82F6'}
                         />
-                        {/* Animated Slider Component */}
-                        <div className="absolute bottom-32 left-0 right-0 px-4">
-                            <IdleSlider
-                                onStart={() => nextStep()}
-                                autoRotate={true}
-                                rotateInterval={8000}
-                            />
-                        </div>
                     </div>
                 )}
 

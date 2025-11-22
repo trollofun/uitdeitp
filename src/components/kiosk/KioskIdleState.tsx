@@ -35,9 +35,9 @@ const messages: Message[] = [
   },
   {
     id: 4,
-    emoji: '⚠️',
-    title: 'Amendă 1.450 RON',
-    body: 'pentru ITP expirat',
+    emoji: '⚡',
+    title: 'Rapid și simplu',
+    body: 'configurare în 30 de secunde',
     color: '#F59E0B' // Orange/Amber
   }
 ];
