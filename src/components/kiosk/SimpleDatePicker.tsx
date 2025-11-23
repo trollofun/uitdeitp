@@ -205,7 +205,7 @@ export function SimpleDatePicker({ value, onChange, minDate, maxDate }: SimpleDa
               animate={{ y: 0, opacity: 1 }}
               className="text-5xl font-black text-white"
             >
-              {year}
+              {year.toString().slice(-2)}
             </motion.span>
           </div>
 
@@ -218,7 +218,7 @@ export function SimpleDatePicker({ value, onChange, minDate, maxDate }: SimpleDa
           </motion.button>
 
           <p className="text-xs text-center text-slate-500 font-medium">
-            2025+
+            25 - 35
           </p>
         </div>
       </div>
@@ -243,7 +243,7 @@ export function SimpleDatePicker({ value, onChange, minDate, maxDate }: SimpleDa
             </div>
           </motion.button>
 
-          {/* Button 2: 1 year - Old vehicles */}
+          {/* Button 2: 1 year - Annual ITP */}
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => setDateToMonthsFromNow(12)}
@@ -251,7 +251,7 @@ export function SimpleDatePicker({ value, onChange, minDate, maxDate }: SimpleDa
           >
             <span className="text-2xl">🚙</span>
             <div className="text-left">
-              <div className="text-sm leading-tight">Vechicul vechi</div>
+              <div className="text-sm leading-tight">ITP anual</div>
               <div className="text-xs opacity-90">1 an</div>
             </div>
           </motion.button>

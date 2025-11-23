@@ -278,6 +278,7 @@ export default function KioskPage() {
   const [lastActivity, setLastActivity] = useState(0); // Prevent hydration mismatch
   const [mounted, setMounted] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0); // For idle slider rotation
+  const [isEngaged, setIsEngaged] = useState(false); // Track phone verification status
 
   const updateActivity = useCallback(() => setLastActivity(Date.now()), []);
 
@@ -305,27 +306,49 @@ export default function KioskPage() {
     fetchStation();
   }, [stationSlug]);
 
+  // Get adaptive timeout based on engagement status
+  const getTimeoutForStep = (currentStep: Step): number => {
+    if (currentStep === 1) return 60000; // Home: 60s
+    if (currentStep === 7) return 30000; // Success: 30s
+
+    // Pre-engagement (before phone verification): 60s
+    if (!isEngaged) return 60000;
+
+    // Post-engagement (after phone verification): 180s (3 minutes)
+    // User has verified phone (paid SMS), needs time to:
+    // - Get registration document from car (30-60s)
+    // - Read ITP expiry date (10-20s)
+    // - Select date in picker (20-40s)
+    // - Read GDPR consent (30-60s)
+    return 180000;
+  };
+
   // AUTO-RESET
   useEffect(() => {
     if (step === 7) {
+      // Success screen: 30s then full reset
       const timer = setTimeout(() => {
         setStep(1);
         setFormData({ name: '', phone: '', plateNumber: '', expiryDate: null, consent: false });
+        setIsEngaged(false);
       }, 30000);
       return () => clearTimeout(timer);
     }
 
-    // Inactivity timeout (steps 2-6 only)
+    // Inactivity timeout with adaptive timing
     if (step > 1 && step < 7) {
+      const timeout = getTimeoutForStep(step);
       const timer = setInterval(() => {
-        if (Date.now() - lastActivity > (step === 4 ? 600000 : 45000)) {
+        if (Date.now() - lastActivity > timeout) {
+          console.log(`[Kiosk] Timeout triggered - Step: ${step}, Engaged: ${isEngaged}, Timeout: ${timeout}ms`);
           setStep(1);
           setFormData({ name: '', phone: '', plateNumber: '', expiryDate: null, consent: false });
+          setIsEngaged(false);
         }
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [step, lastActivity]);
+  }, [step, lastActivity, isEngaged]);
 
   // IDLE SLIDER AUTO-ROTATION (8 seconds)
   useEffect(() => {
@@ -616,6 +639,8 @@ export default function KioskPage() {
                         stationSlug={stationSlug}
                         onVerified={(verifiedPhone, consent) => {
                           setFormData({...formData, consent: true});
+                          setIsEngaged(true); // Mark user as engaged after phone verification
+                          console.log('[Kiosk] Phone verified - User now engaged, timeout extended to 180s');
                           nextStep();
                         }}
                         onBack={prevStep}
