@@ -4,6 +4,33 @@
 
 ---
 
+## ⚠️ CRITICAL: Correct Vercel Project Information
+
+**IMPORTANT FOR AI ASSISTANTS:**
+
+This repository is linked to **TWO different Vercel projects**, but only ONE is the correct production deployment:
+
+- ❌ **WRONG**: `uitdeitp-app-standalone` - This is an OLD/TEST project, DO NOT USE
+- ✅ **CORRECT**: `uitdeitp` - This is the ACTIVE production project
+
+**Production URLs:**
+- **Correct Vercel URL**: `https://uitdeitp.vercel.app`
+- **Correct Custom Domain**: `https://www.uitdeitp.ro` (may serve cached content)
+- **Correct Project URL**: `https://vercel.com/trollofuns-projects/uitdeitp`
+
+**When verifying deployments, checking cron jobs, or testing endpoints:**
+- ✅ ALWAYS use `uitdeitp.vercel.app` or `vercel ls uitdeitp`
+- ❌ NEVER use `uitdeitp-app-standalone`
+
+**Why the confusion?**
+- The local `.vercel/project.json` file references `uitdeitp-app-standalone` (old linkage)
+- BUT deployments go to the correct `uitdeitp` project via git remote
+- This discrepancy has caused verification errors in the past
+
+**Added**: 2025-11-24 after critical error during cron verification
+
+---
+
 ## 📋 Table of Contents
 
 1. [Project Overview](#project-overview)
