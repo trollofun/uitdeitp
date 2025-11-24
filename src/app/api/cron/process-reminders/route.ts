@@ -100,24 +100,42 @@ export async function GET(req: NextRequest) {
 
   console.log('[Cron] Starting daily reminder processing (GET)...');
 
-  // Verify request comes from Vercel Cron
-  // Vercel automatically sets x-vercel-cron header for scheduled cron jobs
+  // Dual verification: CRON_SECRET (Authorization header) OR x-vercel-cron header
+  const authHeader = req.headers.get('authorization');
   const cronHeader = req.headers.get('x-vercel-cron');
 
-  if (!cronHeader) {
-    console.warn('[Cron] Unauthorized access attempt - missing x-vercel-cron header');
+  // Check if CRON_SECRET is configured
+  if (!process.env.CRON_SECRET) {
+    console.error('[Cron] CRON_SECRET not configured in environment variables');
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Server misconfiguration',
+        message: 'CRON_SECRET not set'
+      },
+      { status: 500 }
+    );
+  }
+
+  // Verify either Authorization header OR x-vercel-cron header
+  const hasValidAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+  const hasValidCronHeader = !!cronHeader;
+
+  if (!hasValidAuth && !hasValidCronHeader) {
+    console.warn('[Cron] Unauthorized access attempt - missing both CRON_SECRET and x-vercel-cron header');
     return NextResponse.json(
       {
         success: false,
         error: 'Unauthorized',
-        message: 'This endpoint can only be accessed by Vercel Cron'
+        message: 'Invalid or missing CRON_SECRET / x-vercel-cron header'
       },
       { status: 401 }
     );
   }
 
-  console.log('[Cron] Verified Vercel Cron request (GET)');
-  console.log('[Cron] x-vercel-cron header:', cronHeader);
+  console.log('[Cron] Verified cron request (GET)');
+  console.log('[Cron] Auth method:', hasValidAuth ? 'CRON_SECRET' : 'x-vercel-cron');
+  if (cronHeader) console.log('[Cron] x-vercel-cron header:', cronHeader);
 
   try {
     // Process all reminders due for today
