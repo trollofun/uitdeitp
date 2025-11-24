@@ -57,29 +57,25 @@ interface KioskIdleStateProps {
 
 export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: KioskIdleStateProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % messages.length);
-      setProgress(0);
     }, 8000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Progress timer
+  // Pause animations when tab is hidden (performance optimization)
   useEffect(() => {
-    setProgress(0);
-    const startTime = Date.now();
-    const progressInterval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const newProgress = Math.min((elapsed / 8000) * 100, 100);
-      setProgress(newProgress);
-    }, 50);
+    const handleVisibilityChange = () => {
+      setIsVisible(!document.hidden);
+    };
 
-    return () => clearInterval(progressInterval);
-  }, [currentIndex]);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   const currentMessage = messages[currentIndex];
 
@@ -91,52 +87,83 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
         background: `linear-gradient(135deg, #f9fafb 0%, ${primaryColor}08 50%, #f9fafb 100%)`
       }}
     >
-      {/* Animated Background - Multiple Layers for Depth */}
+      {/* Animated Background - SVG-optimized orbs for iPad performance */}
       <div className="absolute inset-0">
-        {/* Primary gradient orbs */}
-        <motion.div
-          className="absolute left-1/4 top-1/4 h-[500px] w-[500px] rounded-full blur-3xl opacity-20"
-          style={{ backgroundColor: primaryColor }}
-          animate={{
-            x: [0, 80, -80, 0],
-            y: [0, -50, 50, 0],
-            scale: [1, 1.3, 0.7, 1],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute bottom-1/4 right-1/4 h-[450px] w-[450px] rounded-full bg-green-400 blur-3xl opacity-15"
-          animate={{
-            x: [0, -70, 70, 0],
-            y: [0, 40, -40, 0],
-            scale: [1, 0.7, 1.3, 1],
-          }}
-          transition={{
-            duration: 18,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute top-1/2 left-1/2 h-[350px] w-[350px] rounded-full bg-purple-400 blur-3xl opacity-10"
-          animate={{
-            x: [-40, 40, -40],
-            y: [-40, 40, -40],
-            scale: [0.8, 1.2, 0.8],
-          }}
-          transition={{
-            duration: 22,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
+        {/* SVG with optimized blur filters - much faster on iPad than CSS blur */}
+        <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
+          <defs>
+            {/* Optimized blur filter - lighter than CSS blur-3xl */}
+            <filter id="softBlur">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="8" />
+            </filter>
+          </defs>
 
-        {/* Floating particles */}
-        {[...Array(8)].map((_, i) => (
+          {/* Orb 1 - Primary color */}
+          <motion.circle
+            cx="25%"
+            cy="25%"
+            r="250"
+            fill={primaryColor}
+            opacity="0.3"
+            filter="url(#softBlur)"
+            animate={{
+              cx: ['25%', '27%', '23%', '25%'],
+              cy: ['25%', '23%', '27%', '25%'],
+              r: [250, 325, 175, 250],
+            }}
+            transition={{
+              duration: 20,
+              repeat: isVisible ? Infinity : 0,
+              ease: "easeInOut"
+            }}
+            style={{ willChange: 'transform' }}
+          />
+
+          {/* Orb 2 - Green */}
+          <motion.circle
+            cx="75%"
+            cy="75%"
+            r="225"
+            fill="#10B981"
+            opacity="0.25"
+            filter="url(#softBlur)"
+            animate={{
+              cx: ['75%', '73%', '77%', '75%'],
+              cy: ['75%', '77%', '73%', '75%'],
+              r: [225, 157, 292, 225],
+            }}
+            transition={{
+              duration: 18,
+              repeat: isVisible ? Infinity : 0,
+              ease: "easeInOut"
+            }}
+            style={{ willChange: 'transform' }}
+          />
+
+          {/* Orb 3 - Purple */}
+          <motion.circle
+            cx="50%"
+            cy="50%"
+            r="175"
+            fill="#8B5CF6"
+            opacity="0.2"
+            filter="url(#softBlur)"
+            animate={{
+              cx: ['50%', '52%', '48%'],
+              cy: ['50%', '52%', '48%'],
+              r: [140, 210, 140],
+            }}
+            transition={{
+              duration: 22,
+              repeat: isVisible ? Infinity : 0,
+              ease: "easeInOut"
+            }}
+            style={{ willChange: 'transform' }}
+          />
+        </svg>
+
+        {/* Floating particles - reduced count on iPad for performance */}
+        {[...Array(typeof navigator !== 'undefined' && /iPad/.test(navigator.userAgent) ? 3 : 8)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute rounded-full bg-white opacity-60"
@@ -145,6 +172,8 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
               height: Math.random() * 8 + 4,
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
+              willChange: 'transform, opacity',
+              transform: 'translate3d(0, 0, 0)', // Force GPU layer
             }}
             animate={{
               y: [0, -30, 0],
@@ -153,7 +182,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
             }}
             transition={{
               duration: 3 + Math.random() * 4,
-              repeat: Infinity,
+              repeat: isVisible ? Infinity : 0,
               delay: Math.random() * 2,
               ease: "easeInOut"
             }}
@@ -461,7 +490,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
                 />
               )}
 
-              {/* Progress bar */}
+              {/* Progress bar - CSS transition for 60fps performance */}
               <div
                 className="relative h-3 sm:h-4 md:h-5 rounded-full overflow-hidden shadow-lg"
                 style={{
@@ -470,17 +499,16 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
                   backgroundColor: index === currentIndex ? '#E5E7EB' : '#D1D5DB'
                 }}
               >
-                {/* Fill */}
-                <motion.div
+                {/* Fill - CSS animation for native 60fps */}
+                <div
+                  key={`progress-${currentIndex}-${index}`}
                   className="absolute inset-0"
                   style={{
-                    backgroundColor: index === currentIndex ? msg.color : '#9CA3AF'
+                    backgroundColor: index === currentIndex ? msg.color : '#9CA3AF',
+                    width: index === currentIndex ? '100%' : index < currentIndex ? '100%' : '0%',
+                    transition: index === currentIndex ? 'width 8000ms linear' : 'width 0.3s ease',
+                    willChange: 'width'
                   }}
-                  initial={{ width: '0%' }}
-                  animate={{
-                    width: index === currentIndex ? `${progress}%` : index < currentIndex ? '100%' : '0%'
-                  }}
-                  transition={{ duration: 0.1 }}
                 />
               </div>
             </motion.div>
