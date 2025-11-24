@@ -538,66 +538,170 @@ VALUES ('uuid-here', 'sms', 'sent', 'msg_abc123');
 
 ---
 
-## Supabase Cron Jobs
+## Vercel Cron Jobs
 
 ### Daily Reminder Processing
 
-**Cron Job Configuration:**
+**Cron Job Configuration (vercel.json):**
 
-```sql
--- Schedule daily job at 9:00 AM Romanian time
-SELECT cron.schedule(
-  'daily-itp-reminders',
-  '0 7 * * *',  -- 07:00 UTC = 09:00 EET (Romania)
-  $$
-  SELECT net.http_post(
-    url := 'https://dnowyodhffqqhmakjupo.supabase.co/functions/v1/process-reminders',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer YOUR_ANON_KEY"}'::jsonb,
-    body := '{}'::jsonb
-  );
-  $$
-);
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/process-reminders",
+      "schedule": "0 7 * * *"
+    }
+  ]
+}
 ```
 
-### Edge Function: process-reminders
+**Schedule:** Daily at 07:00 UTC (09:00 Romanian time)
 
-**File**: `supabase/functions/process-reminders/index.ts`
+**Important Vercel Cron Behaviors:**
+- ✅ Vercel Cron sends **GET requests** (not POST)
+- ✅ Automatically sets `x-vercel-cron` header with value "1"
+- ❌ Does NOT send Authorization headers automatically
+- ⚠️ Changes to cron config require new deployment to take effect
 
-**Logic:**
-1. Get all reminders where `next_notification_date <= today`
-2. For each reminder:
-   - Check if user opted out (global_opt_outs table)
-   - Determine notification type (email vs. SMS)
-   - Send notification via appropriate channel
-   - Log notification in notification_log table
-   - Update reminder's next_notification_date (e.g., 7 days → 3 days before expiry)
+### API Route Handler: /api/cron/process-reminders
 
-**Example:**
+**File**: `src/app/api/cron/process-reminders/route.ts`
+
+**Dual Authentication (Security Best Practice):**
+
+The route accepts EITHER:
+1. `Authorization: Bearer ${CRON_SECRET}` header (manual/external triggers)
+2. `x-vercel-cron` header (automatically set by Vercel Cron)
+
+```typescript
+// Dual verification: CRON_SECRET OR x-vercel-cron header
+const authHeader = req.headers.get('authorization');
+const cronHeader = req.headers.get('x-vercel-cron');
+
+const hasValidAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+const hasValidCronHeader = !!cronHeader;
+
+if (!hasValidAuth && !hasValidCronHeader) {
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+}
+```
+
+**Environment Variable Required:**
+```bash
+CRON_SECRET=tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXfEs=
+```
+
+### Processing Logic
+
+**1. Query reminders due for today:**
+```typescript
+const { data: reminders } = await supabase
+  .from('reminders')
+  .select('*')
+  .lte('next_notification_date', today)
+  .is('next_notification_date', 'not null');
+```
+
+**2. For each reminder:**
+- Check if user opted out (global_opt_outs table)
+- Determine notification type (email vs. SMS)
+- Send notification via NotifyHub (SMS) or email service
+- Log notification in notification_log table
+- Update reminder's next_notification_date (e.g., 7 days → 3 days before expiry)
+
+**3. Notification cascade:**
 - Day 1 (7 days before): Email sent, next_notification_date = expiry - 3 days
 - Day 2 (3 days before): Email + SMS sent, next_notification_date = expiry - 1 day
 - Day 3 (1 day before): Email + SMS sent, next_notification_date = NULL
 
 ### Monitoring Cron Jobs
 
-**Check cron job status:**
-```sql
-SELECT * FROM cron.job WHERE jobname = 'daily-itp-reminders';
-```
-
-**Check last run:**
-```sql
-SELECT * FROM cron.job_run_details
-WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = 'daily-itp-reminders')
-ORDER BY start_time DESC
-LIMIT 10;
-```
-
-**Manually trigger (for testing):**
+**Check execution in Vercel logs:**
 ```bash
-curl -X POST https://dnowyodhffqqhmakjupo.supabase.co/functions/v1/process-reminders \
-  -H "Authorization: Bearer YOUR_ANON_KEY" \
-  -H "Content-Type: application/json"
+vercel logs --scope trollofuns-projects uitdeitp
 ```
+
+**Check last execution in database:**
+```sql
+-- Check recent SMS notifications sent
+SELECT
+  nl.id,
+  nl.channel,
+  nl.recipient,
+  nl.status,
+  nl.sent_at,
+  nl.provider_message_id,
+  r.plate_number
+FROM notification_log nl
+LEFT JOIN reminders r ON r.id = nl.reminder_id
+WHERE nl.sent_at >= CURRENT_DATE
+ORDER BY nl.sent_at DESC;
+```
+
+**Check reminders processed today:**
+```sql
+SELECT
+  plate_number,
+  reminder_type,
+  last_notification_sent_at,
+  next_notification_date,
+  updated_at
+FROM reminders
+WHERE last_notification_sent_at >= CURRENT_DATE
+ORDER BY last_notification_sent_at DESC;
+```
+
+**Manual testing (for debugging):**
+```bash
+# Test with CRON_SECRET
+curl -X GET https://uitdeitp.vercel.app/api/cron/process-reminders \
+  -H "Authorization: Bearer tOcDZJ7VkcRHB5g11FAwQfTykHxyNdVOdvdCleXfEs="
+
+# Test health check
+curl https://uitdeitp.vercel.app/api/cron/process-reminders
+```
+
+### Troubleshooting
+
+**Issue: Cron job configured but not executing**
+
+✅ **Check 1:** Verify cron job is defined in vercel.json
+```json
+{
+  "crons": [{
+    "path": "/api/cron/process-reminders",
+    "schedule": "0 7 * * *"
+  }]
+}
+```
+
+✅ **Check 2:** Ensure route uses **GET handler** (Vercel Cron sends GET, not POST)
+```typescript
+export async function GET(req: NextRequest) {
+  // Processing logic here
+}
+```
+
+✅ **Check 3:** Verify CRON_SECRET environment variable is set in Vercel dashboard
+
+✅ **Check 4:** Check Vercel logs for execution:
+```bash
+vercel logs uitdeitp --scope trollofuns-projects
+```
+
+✅ **Check 5:** Verify database has reminders with `next_notification_date <= today`
+
+**Issue: 401 Unauthorized errors**
+
+- Check CRON_SECRET matches exactly (no trailing newlines)
+- Verify x-vercel-cron header logic allows null/undefined for manual testing
+- Check environment variable is set in Vercel project settings
+
+**Issue: "No outgoing requests" in logs**
+
+- This indicates the GET handler returned 200 but didn't call external APIs
+- Verify `processRemindersForToday()` is being called in GET handler
+- Check console logs show reminder processing started
 
 ---
 
