@@ -4,7 +4,7 @@
  * Triggered daily at 07:00 UTC (09:00 Romanian time) by Vercel Cron
  * Replaces: Supabase Edge Function + pg_cron
  *
- * Security: Requires CRON_SECRET header for authorization
+ * Security: Verifies x-vercel-cron header (automatically set by Vercel Cron)
  * Timeout: 60s (Vercel Pro)
  */
 
@@ -22,33 +22,24 @@ export async function POST(req: NextRequest) {
 
   console.log('[Cron] Starting daily reminder processing...');
 
-  // Validate CRON_SECRET for security
-  const authHeader = req.headers.get('authorization');
-  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+  // Verify request comes from Vercel Cron
+  // Vercel automatically sets x-vercel-cron header for scheduled cron jobs
+  const cronHeader = req.headers.get('x-vercel-cron');
 
-  if (!process.env.CRON_SECRET) {
-    console.error('[Cron] CRON_SECRET not configured in environment variables');
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Server misconfiguration',
-        message: 'CRON_SECRET not set'
-      },
-      { status: 500 }
-    );
-  }
-
-  if (authHeader !== expectedAuth) {
-    console.warn('[Cron] Unauthorized access attempt');
+  if (!cronHeader) {
+    console.warn('[Cron] Unauthorized access attempt - missing x-vercel-cron header');
     return NextResponse.json(
       {
         success: false,
         error: 'Unauthorized',
-        message: 'Invalid or missing CRON_SECRET'
+        message: 'This endpoint can only be accessed by Vercel Cron'
       },
       { status: 401 }
     );
   }
+
+  console.log('[Cron] Verified Vercel Cron request');
+  console.log('[Cron] x-vercel-cron header:', cronHeader);
 
   try {
     // Process all reminders due for today
@@ -110,6 +101,6 @@ export async function GET() {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    message: 'Use POST with Authorization header to trigger processing',
+    message: 'This endpoint is triggered automatically by Vercel Cron',
   });
 }
