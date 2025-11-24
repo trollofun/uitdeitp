@@ -92,15 +92,79 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Health check endpoint (optional - for monitoring)
+ * Main cron handler - Vercel Cron sends GET requests
  * GET /api/cron/process-reminders
  */
-export async function GET() {
-  return NextResponse.json({
-    service: 'reminder-processor',
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    message: 'This endpoint is triggered automatically by Vercel Cron',
-  });
+export async function GET(req: NextRequest) {
+  const startTime = Date.now();
+
+  console.log('[Cron] Starting daily reminder processing (GET)...');
+
+  // Verify request comes from Vercel Cron
+  // Vercel automatically sets x-vercel-cron header for scheduled cron jobs
+  const cronHeader = req.headers.get('x-vercel-cron');
+
+  if (!cronHeader) {
+    console.warn('[Cron] Unauthorized access attempt - missing x-vercel-cron header');
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Unauthorized',
+        message: 'This endpoint can only be accessed by Vercel Cron'
+      },
+      { status: 401 }
+    );
+  }
+
+  console.log('[Cron] Verified Vercel Cron request (GET)');
+  console.log('[Cron] x-vercel-cron header:', cronHeader);
+
+  try {
+    // Process all reminders due for today
+    const result = await processRemindersForToday();
+
+    const executionTime = Date.now() - startTime;
+
+    console.log(`[Cron] Processing complete in ${executionTime}ms:`, result.stats);
+
+    // Send heartbeat signal for monitoring (don't fail if heartbeat fails)
+    try {
+      const heartbeatUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://uitdeitp.ro'}/api/cron/heartbeat`;
+      await fetch(heartbeatUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stats: result.stats,
+          executionTime: `${executionTime}ms`,
+        }),
+      });
+      console.log('[Cron] Heartbeat sent successfully');
+    } catch (heartbeatError) {
+      console.warn('[Cron] Failed to send heartbeat:', heartbeatError);
+      // Don't fail the cron job if heartbeat fails
+    }
+
+    // Return execution stats
+    return NextResponse.json({
+      success: true,
+      message: result.message,
+      stats: result.stats,
+      executionTime: `${executionTime}ms`,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const executionTime = Date.now() - startTime;
+
+    console.error('[Cron] Processing failed:', error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        executionTime: `${executionTime}ms`,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 }
+    );
+  }
 }
