@@ -517,10 +517,10 @@ export default function KioskPage() {
                       initial="initial"
                       animate="animate"
                       exit="exit"
-                      className="w-full grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center max-w-5xl h-full content-start md:content-center"
+                      className="w-full grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start max-w-5xl h-full content-start md:content-center"
                     >
 
-                        {/* LEFT */}
+                        {/* LEFT - Info & Button */}
                         <div className="text-center md:text-left space-y-6 sm:space-y-8">
                             <div>
                                 <h2 className="text-3xl sm:text-4xl font-black text-slate-900">Unde te anunțăm?</h2>
@@ -541,37 +541,6 @@ export default function KioskPage() {
                                 </div>
                             </div>
 
-                            {/* Dancing Digits Display */}
-                            <div className={`bg-white rounded-3xl border-4 p-4 sm:p-6 shadow-lg transition-all duration-300 flex items-center justify-center md:justify-between ${formData.phone.length >= 12 ? 'border-green-500 shadow-green-100' : 'border-slate-100'}`}>
-                                <div className="text-3xl sm:text-4xl font-mono font-bold text-slate-800 flex items-center h-10 sm:h-12 overflow-hidden">
-                                    <span className="text-slate-300 mr-2 tracking-tighter select-none">+40</span>
-                                    <LayoutGroup>
-                                        {formData.phone.replace('+40', '').split('').map((digit, i) => (
-                                            <motion.span
-                                              layoutId={`digit-${i}`}
-                                              initial={{ y: 20, opacity: 0 }}
-                                              animate={{ y: 0, opacity: 1 }}
-                                              key={i}
-                                            >
-                                                {digit}
-                                            </motion.span>
-                                        ))}
-                                    </LayoutGroup>
-                                    {formData.phone.length < 12 && (
-                                      <motion.div
-                                        animate={{ opacity: [0, 1, 0] }}
-                                        transition={{ repeat: Infinity, duration: 0.8 }}
-                                        className="w-0.5 sm:w-1 h-6 sm:h-8 bg-blue-600 ml-1"
-                                      />
-                                    )}
-                                </div>
-                                {formData.phone.length >= 12 && (
-                                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                                        <CheckCircle2 className="hidden md:block w-10 h-10 text-green-500" />
-                                    </motion.div>
-                                )}
-                            </div>
-
                             <motion.button
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => nextStep()}
@@ -585,8 +554,43 @@ export default function KioskPage() {
                             </p>
                         </div>
 
-                        {/* RIGHT - NUMPAD */}
-                        <div className="flex flex-col items-center w-full">
+                        {/* RIGHT - Phone Display (above) + Numpad (below) */}
+                        <div className="flex flex-col items-center w-full space-y-6">
+                            {/* Phone Display - Moved above numpad, made wider */}
+                            <div className={`w-full bg-white rounded-3xl border-4 p-6 sm:p-8 shadow-lg transition-all duration-300 ${formData.phone.length >= 12 ? 'border-green-500 shadow-green-100' : 'border-slate-100'}`}>
+                                <div className="flex items-center justify-center gap-3">
+                                    <div className="text-4xl sm:text-5xl font-mono font-bold text-slate-800 flex items-center h-12 sm:h-14">
+                                        <span className="text-slate-300 mr-2 tracking-tighter select-none">+40</span>
+                                        <LayoutGroup>
+                                            {formData.phone.replace('+40', '').split('').map((digit, i) => (
+                                                <motion.span
+                                                  layoutId={`digit-${i}`}
+                                                  initial={{ y: 20, opacity: 0 }}
+                                                  animate={{ y: 0, opacity: 1 }}
+                                                  key={i}
+                                                  className="inline-block"
+                                                >
+                                                    {digit}
+                                                </motion.span>
+                                            ))}
+                                        </LayoutGroup>
+                                        {formData.phone.length < 12 && (
+                                          <motion.div
+                                            animate={{ opacity: [0, 1, 0] }}
+                                            transition={{ repeat: Infinity, duration: 0.8 }}
+                                            className="w-1 h-8 sm:h-10 bg-blue-600 ml-1"
+                                          />
+                                        )}
+                                    </div>
+                                    {formData.phone.length >= 12 && (
+                                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                                            <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 text-green-500" />
+                                        </motion.div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Numpad */}
                             <div className="bg-white/80 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl border border-white w-full max-w-[450px]">
                                 <ResponsiveNumpad
                                     onInput={(d) => {
@@ -607,7 +611,9 @@ export default function KioskPage() {
                                     }}
                                 />
                             </div>
-                            <div className="md:hidden w-full mt-6 space-y-3">
+
+                            {/* Mobile button */}
+                            <div className="md:hidden w-full space-y-3">
                                 <button
                                   onClick={() => nextStep()}
                                   disabled={formData.phone.length < 12}
