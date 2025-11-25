@@ -87,107 +87,24 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
         background: `linear-gradient(135deg, #f9fafb 0%, ${primaryColor}08 50%, #f9fafb 100%)`
       }}
     >
-      {/* Animated Background - SVG-optimized orbs for iPad performance */}
-      <div className="absolute inset-0">
-        {/* SVG with optimized blur filters - much faster on iPad than CSS blur */}
-        <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
-          <defs>
-            {/* Optimized blur filter - lighter than CSS blur-3xl */}
-            <filter id="softBlur">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="8" />
-            </filter>
-          </defs>
+      {/* Animated Background - Pure CSS for 60fps on iPad (Compositor Thread) */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        {/* Blob 1 - Primary color (top-left) */}
+        <div
+          className="absolute top-[-10%] left-[-10%] w-[70vw] h-[70vw] rounded-full blur-3xl gpu-animate-blob-1 mix-blend-multiply"
+          style={{
+            backgroundColor: `${primaryColor}33`, // 20% opacity
+            animationPlayState: isVisible ? 'running' : 'paused'
+          }}
+        />
 
-          {/* Orb 1 - Primary color */}
-          <motion.circle
-            cx="25%"
-            cy="25%"
-            r="250"
-            fill={primaryColor}
-            opacity="0.3"
-            filter="url(#softBlur)"
-            animate={{
-              cx: ['25%', '27%', '23%', '25%'],
-              cy: ['25%', '23%', '27%', '25%'],
-              r: [250, 325, 175, 250],
-            }}
-            transition={{
-              duration: 20,
-              repeat: isVisible ? Infinity : 0,
-              ease: "easeInOut"
-            }}
-            style={{ willChange: 'transform' }}
-          />
-
-          {/* Orb 2 - Green */}
-          <motion.circle
-            cx="75%"
-            cy="75%"
-            r="225"
-            fill="#10B981"
-            opacity="0.25"
-            filter="url(#softBlur)"
-            animate={{
-              cx: ['75%', '73%', '77%', '75%'],
-              cy: ['75%', '77%', '73%', '75%'],
-              r: [225, 157, 292, 225],
-            }}
-            transition={{
-              duration: 18,
-              repeat: isVisible ? Infinity : 0,
-              ease: "easeInOut"
-            }}
-            style={{ willChange: 'transform' }}
-          />
-
-          {/* Orb 3 - Purple */}
-          <motion.circle
-            cx="50%"
-            cy="50%"
-            r="175"
-            fill="#8B5CF6"
-            opacity="0.2"
-            filter="url(#softBlur)"
-            animate={{
-              cx: ['50%', '52%', '48%'],
-              cy: ['50%', '52%', '48%'],
-              r: [140, 210, 140],
-            }}
-            transition={{
-              duration: 22,
-              repeat: isVisible ? Infinity : 0,
-              ease: "easeInOut"
-            }}
-            style={{ willChange: 'transform' }}
-          />
-        </svg>
-
-        {/* Floating particles - reduced count on iPad for performance */}
-        {[...Array(typeof navigator !== 'undefined' && /iPad/.test(navigator.userAgent) ? 3 : 8)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full bg-white opacity-60"
-            style={{
-              width: Math.random() * 8 + 4,
-              height: Math.random() * 8 + 4,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              willChange: 'transform, opacity',
-              transform: 'translate3d(0, 0, 0)', // Force GPU layer
-            }}
-            animate={{
-              y: [0, -30, 0],
-              x: [0, Math.random() * 20 - 10, 0],
-              opacity: [0.3, 0.7, 0.3],
-            }}
-            transition={{
-              duration: 3 + Math.random() * 4,
-              repeat: isVisible ? Infinity : 0,
-              delay: Math.random() * 2,
-              ease: "easeInOut"
-            }}
-          />
-        ))}
+        {/* Blob 2 - Secondary color (bottom-right) */}
+        <div
+          className="absolute bottom-[-10%] right-[-10%] w-[70vw] h-[70vw] bg-indigo-400/20 rounded-full blur-3xl gpu-animate-blob-2 mix-blend-multiply"
+          style={{
+            animationPlayState: isVisible ? 'running' : 'paused'
+          }}
+        />
       </div>
 
       {/* Main Content Container */}
