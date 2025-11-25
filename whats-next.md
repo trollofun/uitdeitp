@@ -1,10 +1,12 @@
-# ✅ VERIFICATION CODE ON-SCREEN NUMPAD DEPLOYED
+# ✅ SMS NOTIFICATION IMPROVEMENTS DEPLOYED
 
 ## Task Summary
 
-Replaced verification code input field with on-screen numpad (same as phone input) to prevent mobile keyboard from taking 50% of screen space.
+Fixed SMS notification formatting issues based on user feedback from kiosk testing.
 
-**Status:** ✅ COMPLETED - Deployed to production (2025-11-25 16:25)
+**Status:** ✅ COMPLETED - Deployed to production (2025-11-25)
+
+**Previous Task:** ✅ Verification code on-screen numpad (2025-11-25 16:25)
 
 **Previous Tasks:**
 - ✅ Kiosk submission error handling (2025-11-25 16:09)
@@ -15,38 +17,68 @@ Replaced verification code input field with on-screen numpad (same as phone inpu
 
 ## Deployment Information
 
-**Commit:** 01e0ff8 - "feat: Replace verification code input with on-screen numpad"
-**Deployed:** 2025-11-25 16:25 Romanian time (13:25 UTC)
-**Production URL:** https://uitdeitp-app-standalone-5cuz3c5md-trollofuns-projects.vercel.app
-**Kiosk URL:** https://uitdeitp-app-standalone-5cuz3c5md-trollofuns-projects.vercel.app/kiosk/euro-auto-service
+**Commit:** a6265d7 - "fix: SMS notification improvements"
+**Deployed:** 2025-11-25 (after 16:25 Romanian time)
+**Production URL:** https://uitdeitp-app-standalone-a6x4n4yjk-trollofuns-projects.vercel.app
+**Kiosk URL:** https://uitdeitp-app-standalone-a6x4n4yjk-trollofuns-projects.vercel.app/kiosk/euro-auto-service
 
 **What Changed:**
-- Step 4 (verification code) now uses on-screen numpad instead of Input field
-- Mobile keyboard no longer takes 50% of screen space
-- Symmetric 6-digit display with animated typing cursor
-- Green border validation when all 6 digits entered
-- Consistent UX with phone input (Step 3)
+1. **SMS Reminder Days Count** - Removed hardcoded "în 7 zile" text
+2. **Phone Verification Code Format** - Code now appears first in SMS message
 
 ---
 
-## Problem Solved
+## Problems Solved
 
-**User Request:** "mai vreau sa modificam la codul de verificare introdus sa punem tastatura tot cum este la numarul de telefon sa nu mai pierdem 50% din afisaj"
+### Issue 1: SMS Shows Wrong Days Count
 
-**Before:**
-- Verification code used `<Input>` field
-- Mobile keyboard appeared and covered 50% of screen
-- Small input field, difficult to see what you're typing
-- Inconsistent with phone input UX
+**User Report:** "S-a trimis astazi un mesaj catre un utilizator kiosk in care: data expirarii arata tot tot 7 zile.. nu 5 cate ar trebui sa fie."
 
-**After:**
-- Same on-screen numpad as phone input (ResponsiveNumpad)
-- Large, touch-friendly buttons (h-20 sm:h-24)
-- Visual 6-digit display with underscores (`_ _ _ _ _ _`)
-- Animated typing cursor (blinking blue line)
-- Green border when all 6 digits entered
-- No mobile keyboard covering the screen
-- Gestalt principles: symmetric, equal spacing, good form
+**Root Cause:**
+- Template `DEFAULT_SMS_TEMPLATES['7d']` had hardcoded text: "expiră în 7 zile"
+- This template is used for ANY reminder >3 days before expiry
+- So a reminder sent 5 days before still said "7 zile" ❌
+
+**Before (notification.ts:80):**
+```typescript
+'7d': 'Bună {name}! ITP pentru {plate} expiră în 7 zile ({date}). Nu uita să programezi o verificare tehnică!',
+```
+
+**After (notification.ts:82):**
+```typescript
+'7d': 'Bună {name}! ITP pentru {plate} expiră pe {date}. Nu uita să programezi o verificare tehnică!',
+```
+
+**Why This Fix:**
+- Removed confusing days count entirely
+- Users see exact expiry date `({date})` which is clearer
+- No more discrepancy between actual days and message text
+- Simpler and more accurate
+
+### Issue 2: SMS Verification Code Not Visible in Notifications
+
+**User Request:** "mi s-a recomandat la SMS-ul codul sa fie printre primele astfel incat sa se vada la preview sms pe ceas sau pe telefon in notificari, ma gandeam la Cod xxxxxx pentru etc UI/UX friendly"
+
+**Root Cause:**
+- SMS message started with "Codul tău de verificare uitdeITP: 123456"
+- On smartwatch/phone lock screen, only first ~40 chars visible
+- Code appeared after long text, not visible in preview ❌
+
+**Before (phone-verification.ts:99):**
+```typescript
+message: `Codul tău de verificare uitdeITP: ${code}\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`
+```
+
+**After (phone-verification.ts:99):**
+```typescript
+message: `Cod ${code} pentru uitdeITP\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`
+```
+
+**Why This Fix:**
+- Code now appears in first 20 characters ✅
+- Visible in smartwatch/phone notification preview
+- Shorter, clearer format
+- Better UX for users who need code quickly
 
 ---
 
@@ -54,80 +86,46 @@ Replaced verification code input field with on-screen numpad (same as phone inpu
 
 ### Files Modified
 
-**Main file:**
-- `src/components/kiosk/PhoneVerificationStep.tsx`
+1. **`src/lib/services/notification.ts`** (lines 77-86)
+   - Updated DEFAULT_SMS_TEMPLATES to remove hardcoded days count
+   - Changed "în 7 zile" → "pe {date}" for clarity
+   - Added comment explaining the fix
 
-### Key Changes
+2. **`src/lib/services/phone-verification.ts`** (line 99)
+   - Reordered SMS message to put code first
+   - Changed from: "Codul tău de verificare uitdeITP: 123456"
+   - Changed to: "Cod 123456 pentru uitdeITP"
 
-**1. Added ResponsiveNumpad inline component (lines 11-43)**
+### Key Code Changes
+
+**Change 1: SMS Reminder Templates (notification.ts)**
 ```typescript
-const ResponsiveNumpad = ({ onInput, onDelete }) => (
-  <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full max-w-[400px] mx-auto select-none">
-    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-      <motion.button onClick={() => onInput(num.toString())} ...>
-        {num}
-      </motion.button>
-    ))}
-    <div className="h-20 sm:h-24" /> {/* Empty space */}
-    <motion.button onClick={() => onInput('0')}>0</motion.button>
-    <motion.button onClick={onDelete}>⌫</motion.button>
-  </div>
-);
+// BEFORE
+'7d': 'Bună {name}! ITP pentru {plate} expiră în 7 zile ({date}). Nu uita să programezi o verificare tehnică!',
+'3d': 'Reminder: {name}, ITP pentru {plate} expiră în 3 zile ({date})! Programează urgent!',
+
+// AFTER
+'7d': 'Bună {name}! ITP pentru {plate} expiră pe {date}. Nu uita să programezi o verificare tehnică!',
+'3d': 'Reminder: {name}, ITP pentru {plate} expiră pe {date}! Programează urgent!',
 ```
 
-**2. Replaced Input with visual 6-digit display (lines 239-263)**
+**Change 2: Phone Verification SMS (phone-verification.ts)**
 ```typescript
-{/* Code Display - Similar to phone display */}
-<div className={`w-full max-w-[500px] mx-auto bg-white rounded-3xl border-4 px-4 py-5 sm:px-6 sm:py-6 shadow-lg transition-all duration-300 ${code.length >= 6 ? 'border-green-500 shadow-green-100' : 'border-slate-100'}`}>
-  <div className="text-2xl sm:text-3xl font-mono font-bold text-slate-800 flex items-center justify-center h-9 sm:h-10 gap-1">
-    <LayoutGroup>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <motion.span layoutId={`code-digit-${i}`} key={i} className="inline-block w-8 text-center">
-          {code[i] || '_'}
-        </motion.span>
-      ))}
-    </LayoutGroup>
-    {code.length < 6 && (
-      <motion.div animate={{ opacity: [0, 1, 0] }} className="w-0.5 sm:w-1 h-7 sm:h-8 bg-blue-600 ml-1" />
-    )}
-  </div>
-</div>
-```
+// BEFORE
+message: `Codul tău de verificare uitdeITP: ${code}\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`
 
-**3. Added numpad with input handlers (lines 265-280)**
-```typescript
-<ResponsiveNumpad
-  onInput={(d) => {
-    if (code.length < 6) {
-      setCode(code + d);
-      setError('');
-    }
-  }}
-  onDelete={() => {
-    if (code.length > 0) {
-      setCode(code.slice(0, -1));
-    }
-  }}
-/>
+// AFTER
+message: `Cod ${code} pentru uitdeITP\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`
 ```
-
-**4. Removed unused handleCodeChange function**
-- No longer needed since we're using numpad onInput instead of Input onChange
 
 ### Design Principles Applied
 
-**Gestalt Principles:**
-- ✅ **Prägnanz (Good Form)**: Simple, symmetric 6-digit display
-- ✅ **Similarity**: All 6 digit slots look identical (w-8, text-center)
-- ✅ **Proximity**: Equal spacing between digits (gap-1)
-- ✅ **Continuity**: Smooth animated cursor flow
-- ✅ **Closure**: Underscores suggest completeness when filled
-
-**Touch-Friendly:**
-- Large buttons: h-20 (80px mobile), h-24 (96px desktop)
-- Clear visual feedback: whileTap scale animation
-- High contrast: white buttons on colored background
-- Sufficient spacing: gap-2 (8px mobile), gap-4 (16px desktop)
+**SMS UX Best Practices:**
+- ✅ **Critical Info First**: Code appears in first 20 characters
+- ✅ **Notification Preview**: Visible on smartwatch/phone lock screen
+- ✅ **Clarity**: Removed confusing hardcoded days count
+- ✅ **Accuracy**: Users see exact expiry date instead of approximation
+- ✅ **Brevity**: Shorter message = faster to read and process
 
 ---
 
