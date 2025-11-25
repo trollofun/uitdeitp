@@ -53,6 +53,7 @@ export interface NotificationData {
   name: string;
   plate: string;
   date: string;
+  days_until?: number;       // NEW: Dynamic days count until expiry (for custom intervals)
   station_name?: string;
   station_phone?: string;
   station_address?: string;  // NEW: Station address for custom branding

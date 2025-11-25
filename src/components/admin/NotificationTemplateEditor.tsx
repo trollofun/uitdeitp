@@ -33,6 +33,7 @@ const PLACEHOLDERS = [
   { key: '{name}', description: 'Numele clientului' },
   { key: '{plate}', description: 'Numărul de înmatriculare' },
   { key: '{date}', description: 'Data expirării (format: 15 Dec 2025)' },
+  { key: '{days_until}', description: 'Zile până la expirare (număr dinamic - ex: 5, 10)' },
   { key: '{station_name}', description: 'Numele stației tale' },
   { key: '{station_phone}', description: 'Telefonul stației' },
   { key: '{station_address}', description: 'Adresa stației' },
@@ -56,6 +57,7 @@ function renderPreview(template: string, stationName: string, stationPhone: stri
     .replace(/{name}/g, SAMPLE_DATA.name)
     .replace(/{plate}/g, SAMPLE_DATA.plate)
     .replace(/{date}/g, SAMPLE_DATA.date)
+    .replace(/{days_until}/g, '5')  // Show example: 5 days until expiry
     .replace(/{station_name}/g, stationName || SAMPLE_DATA.station_name)
     .replace(/{station_phone}/g, stationPhone || SAMPLE_DATA.station_phone)
     .replace(/{station_address}/g, stationAddress || SAMPLE_DATA.station_address)

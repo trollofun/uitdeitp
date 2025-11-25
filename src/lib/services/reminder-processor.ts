@@ -247,6 +247,7 @@ export async function processReminder(
         name: reminder.guest_name || 'Client',
         plate: reminder.plate_number,
         date: reminder.expiry_date,
+        days_until: daysUntilExpiry,  // NEW: Pass calculated days for {days_until} variable
         station_name: stationData.name || 'uitdeITP',
         station_phone: stationData.station_phone || '+40729440127', // Default: Euro Auto Service
         station_address: stationData.station_address || '',

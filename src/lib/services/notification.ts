@@ -15,6 +15,11 @@ export function renderSmsTemplate(template: string, data: NotificationData): str
   rendered = rendered.replace(/{plate}/g, data.plate);
   rendered = rendered.replace(/{date}/g, formatDate(data.date));
 
+  // NEW: Replace {days_until} with dynamic days count
+  if (data.days_until !== undefined) {
+    rendered = rendered.replace(/{days_until}/g, String(data.days_until));
+  }
+
   if (data.station_name) {
     rendered = rendered.replace(/{station_name}/g, data.station_name);
   }
@@ -75,13 +80,13 @@ export function truncateSms(message: string, maxParts: number = 3): string {
 
 /**
  * Default Romanian SMS templates
- * NOTE: Removed hardcoded days count (e.g., "7 zile") to avoid confusion
- * The exact expiry date ({date}) is shown instead, which is more accurate
+ * NOTE: Now uses {days_until} dynamic variable for accurate day counts
+ * Works perfectly with custom notification intervals (e.g., 10, 6, 2 days)
  * {station_phone} will fallback to Euro Auto Service (+40729440127) if no station assigned
  */
 export const DEFAULT_SMS_TEMPLATES = {
-  '7d': 'Bună {name}! ITP pentru {plate} expiră pe {date}. Nu uita să programezi o verificare tehnică!\n\nProgramare: {station_phone}',
-  '3d': 'Reminder: {name}, ITP pentru {plate} expiră pe {date}! Programează urgent!\n\nProgramare: {station_phone}',
+  '7d': 'Bună {name}! ITP pentru {plate} expiră în {days_until} zile (pe {date}). Nu uita să programezi!\n\nProgramare: {station_phone}',
+  '3d': 'ATENȚIE {name}! ITP pentru {plate} expiră în {days_until} zile (pe {date})! Programează urgent!\n\nProgramare: {station_phone}',
   '1d': 'URGENT: {name}, ITP pentru {plate} expiră MÂINE ({date})! Programează astăzi!\n\nProgramare: {station_phone}',
   expired: 'ATENȚIE: {name}, ITP pentru {plate} a EXPIRAT la data de {date}. Programează urgent verificare!\n\nProgramare: {station_phone}',
 };
