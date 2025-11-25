@@ -1,12 +1,14 @@
-# ✅ SMS NOTIFICATION IMPROVEMENTS DEPLOYED
+# ✅ SMS WITH STATION PHONE NUMBER DEPLOYED
 
 ## Task Summary
 
-Fixed SMS notification formatting issues based on user feedback from kiosk testing.
+Added station phone number to SMS reminders with fallback to Euro Auto Service.
 
 **Status:** ✅ COMPLETED - Deployed to production (2025-11-25)
 
-**Previous Task:** ✅ Verification code on-screen numpad (2025-11-25 16:25)
+**Previous Tasks:**
+- ✅ SMS notification improvements (2025-11-25)
+- ✅ Verification code on-screen numpad (2025-11-25 16:25)
 
 **Previous Tasks:**
 - ✅ Kiosk submission error handling (2025-11-25 16:09)
@@ -17,18 +19,43 @@ Fixed SMS notification formatting issues based on user feedback from kiosk testi
 
 ## Deployment Information
 
-**Commit:** a6265d7 - "fix: SMS notification improvements"
-**Deployed:** 2025-11-25 (after 16:25 Romanian time)
-**Production URL:** https://uitdeitp-app-standalone-a6x4n4yjk-trollofuns-projects.vercel.app
-**Kiosk URL:** https://uitdeitp-app-standalone-a6x4n4yjk-trollofuns-projects.vercel.app/kiosk/euro-auto-service
+**Commit:** b168507 - "feat: Add station phone number to SMS reminders"
+**Deployed:** 2025-11-25 (after SMS improvements)
+**Production URL:** https://uitdeitp-app-standalone-arv3gyhth-trollofuns-projects.vercel.app
+**Kiosk URL:** https://uitdeitp-app-standalone-arv3gyhth-trollofuns-projects.vercel.app/kiosk/euro-auto-service
 
 **What Changed:**
-1. **SMS Reminder Days Count** - Removed hardcoded "în 7 zile" text
-2. **Phone Verification Code Format** - Code now appears first in SMS message
+- **Station Phone Number Added** - All SMS reminders now include "Programare: {phone}"
+- **Fallback Number** - Uses Euro Auto Service (+40729440127) if no station assigned
+- **Better User Experience** - Users can call directly from SMS to schedule ITP
 
 ---
 
-## Problems Solved
+## Feature Implemented
+
+### Station Phone Number in SMS Reminders
+
+**User Request:** "Ar trebui sa adauge si numarul statie de ITP la care este arondat, daca nu este arondat la nici o statie sa adauge numarul Euro Auto Service +40729440127"
+
+**What Was Added:**
+All SMS reminder templates now include the station phone number at the end of the message for easy scheduling.
+
+**Example SMS Message:**
+```
+Bună Ion! ITP pentru B-123-ABC expiră pe 15 decembrie 2025.
+Nu uita să programezi o verificare tehnică!
+
+Programare: +40729440127
+```
+
+**How It Works:**
+1. **If reminder is assigned to a station:** Shows station's phone number
+2. **If no station assigned:** Shows default Euro Auto Service number (+40729440127)
+3. **User benefit:** Can call directly from SMS notification to schedule
+
+---
+
+## Previous: SMS Notification Improvements
 
 ### Issue 1: SMS Shows Wrong Days Count
 
@@ -86,46 +113,46 @@ message: `Cod ${code} pentru uitdeITP\n\nCodul expiră în ${CODE_EXPIRY_MINUTES
 
 ### Files Modified
 
-1. **`src/lib/services/notification.ts`** (lines 77-86)
-   - Updated DEFAULT_SMS_TEMPLATES to remove hardcoded days count
-   - Changed "în 7 zile" → "pe {date}" for clarity
-   - Added comment explaining the fix
+1. **`src/lib/services/notification.ts`** (lines 82-86)
+   - Added `{station_phone}` placeholder to all 4 SMS templates
+   - Added comment explaining fallback behavior
+   - Format: `\n\nProgramare: {station_phone}` at end of each template
 
-2. **`src/lib/services/phone-verification.ts`** (line 99)
-   - Reordered SMS message to put code first
-   - Changed from: "Codul tău de verificare uitdeITP: 123456"
-   - Changed to: "Cod 123456 pentru uitdeITP"
+2. **`src/lib/services/reminder-processor.ts`** (line 251)
+   - Changed `station_phone` fallback from `''` to `'+40729440127'`
+   - Ensures all SMS messages include a callable phone number
+   - Default is Euro Auto Service number
 
 ### Key Code Changes
 
-**Change 1: SMS Reminder Templates (notification.ts)**
+**Change 1: Add Station Phone to Templates (notification.ts)**
 ```typescript
-// BEFORE
-'7d': 'Bună {name}! ITP pentru {plate} expiră în 7 zile ({date}). Nu uita să programezi o verificare tehnică!',
-'3d': 'Reminder: {name}, ITP pentru {plate} expiră în 3 zile ({date})! Programează urgent!',
-
-// AFTER
+// BEFORE (line 83)
 '7d': 'Bună {name}! ITP pentru {plate} expiră pe {date}. Nu uita să programezi o verificare tehnică!',
-'3d': 'Reminder: {name}, ITP pentru {plate} expiră pe {date}! Programează urgent!',
+
+// AFTER (line 83)
+'7d': 'Bună {name}! ITP pentru {plate} expiră pe {date}. Nu uita să programezi o verificare tehnică!\n\nProgramare: {station_phone}',
 ```
 
-**Change 2: Phone Verification SMS (phone-verification.ts)**
-```typescript
-// BEFORE
-message: `Codul tău de verificare uitdeITP: ${code}\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`
+Applied to all 4 templates: `7d`, `3d`, `1d`, `expired`
 
-// AFTER
-message: `Cod ${code} pentru uitdeITP\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`
+**Change 2: Fallback to Euro Auto Service (reminder-processor.ts)**
+```typescript
+// BEFORE (line 251)
+station_phone: stationData.station_phone || '',
+
+// AFTER (line 251)
+station_phone: stationData.station_phone || '+40729440127', // Default: Euro Auto Service
 ```
 
 ### Design Principles Applied
 
 **SMS UX Best Practices:**
-- ✅ **Critical Info First**: Code appears in first 20 characters
-- ✅ **Notification Preview**: Visible on smartwatch/phone lock screen
-- ✅ **Clarity**: Removed confusing hardcoded days count
-- ✅ **Accuracy**: Users see exact expiry date instead of approximation
-- ✅ **Brevity**: Shorter message = faster to read and process
+- ✅ **Actionable**: Users can call directly from SMS
+- ✅ **Fallback Strategy**: Always includes a phone number (never empty)
+- ✅ **Context**: Phone number appears at end after message body
+- ✅ **Consistency**: Same format across all 4 reminder types
+- ✅ **User Value**: Reduces friction for scheduling ITP appointments
 
 ---
 
