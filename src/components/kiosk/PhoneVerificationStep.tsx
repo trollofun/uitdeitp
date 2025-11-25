@@ -5,8 +5,42 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { motion } from 'framer-motion';
+import { motion, LayoutGroup } from 'framer-motion';
 import { Phone, Check, AlertCircle, Loader2, Shield } from 'lucide-react';
+
+// Tastatura Numerică (inline component)
+const ResponsiveNumpad = ({ onInput, onDelete }: { onInput: (v: string) => void, onDelete: () => void }) => (
+  <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full max-w-[400px] mx-auto select-none">
+    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+      <motion.button
+        key={num}
+        whileTap={{ scale: 0.9, backgroundColor: "#e2e8f0" }}
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: num * 0.03 }}
+        onClick={() => onInput(num.toString())}
+        className="h-20 sm:h-24 text-3xl sm:text-4xl font-bold bg-white rounded-xl sm:rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.05)] border border-slate-200 text-slate-800 active:shadow-none active:translate-y-1 transition-all"
+      >
+        {num}
+      </motion.button>
+    ))}
+    <div className="h-20 sm:h-24" />
+    <motion.button
+      whileTap={{ scale: 0.9 }}
+      onClick={() => onInput('0')}
+      className="h-20 sm:h-24 text-3xl sm:text-4xl font-bold bg-white rounded-xl sm:rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.05)] border border-slate-200 text-slate-800 active:shadow-none active:translate-y-1 transition-all"
+    >
+      0
+    </motion.button>
+    <motion.button
+      whileTap={{ scale: 0.9 }}
+      onClick={onDelete}
+      className="h-20 sm:h-24 flex items-center justify-center bg-red-50 rounded-xl sm:rounded-2xl shadow-[0_4px_0_#fee2e2] border border-red-100 text-red-500 active:shadow-none active:translate-y-1 transition-all text-2xl sm:text-3xl"
+    >
+      ⌫
+    </motion.button>
+  </div>
+);
 
 interface PhoneVerificationStepProps {
   phone?: string;  // Optional: If provided (kiosk), skip phone input and auto-send SMS
@@ -94,14 +128,6 @@ export function PhoneVerificationStep({
     const value = e.target.value.replace(/\D/g, '');
     if (value.length <= 10) {
       setPhone(value);
-      setError('');
-    }
-  };
-
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 6) {
-      setCode(value);
       setError('');
     }
   };
@@ -232,10 +258,52 @@ export function PhoneVerificationStep({
             <h2 className="text-2xl font-bold">Cod de Verificare</h2>
             <p className="font-mono font-bold text-lg">{formatPhoneDisplay(phone)}</p>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Cod de verificare</label>
-            <Input type="text" inputMode="numeric" placeholder="000000" value={code}
-              onChange={handleCodeChange} disabled={loading} className="text-2xl h-16 text-center font-mono" autoFocus />
+          <div className="space-y-4">
+            <label className="text-sm font-medium text-center block">Cod de verificare</label>
+
+            {/* Code Display - Similar to phone display */}
+            <div className={`w-full max-w-[500px] mx-auto bg-white rounded-3xl border-4 px-4 py-5 sm:px-6 sm:py-6 shadow-lg transition-all duration-300 ${code.length >= 6 ? 'border-green-500 shadow-green-100' : 'border-slate-100'}`}>
+              <div className="text-2xl sm:text-3xl font-mono font-bold text-slate-800 flex items-center justify-center h-9 sm:h-10 gap-1">
+                <LayoutGroup>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <motion.span
+                      layoutId={`code-digit-${i}`}
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      key={i}
+                      className="inline-block w-8 text-center"
+                    >
+                      {code[i] || '_'}
+                    </motion.span>
+                  ))}
+                </LayoutGroup>
+                {code.length < 6 && (
+                  <motion.div
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ repeat: Infinity, duration: 0.8 }}
+                    className="w-0.5 sm:w-1 h-7 sm:h-8 bg-blue-600 ml-1"
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Numpad */}
+            <div className="bg-white/80 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl border border-white w-full max-w-[450px] mx-auto">
+              <ResponsiveNumpad
+                onInput={(d) => {
+                  if (code.length < 6) {
+                    setCode(code + d);
+                    setError('');
+                  }
+                }}
+                onDelete={() => {
+                  if (code.length > 0) {
+                    setCode(code.slice(0, -1));
+                  }
+                }}
+              />
+            </div>
+
             <p className="text-xs text-muted-foreground text-center">Expiră în {formatTime(expiresIn)}</p>
           </div>
 
