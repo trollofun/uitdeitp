@@ -248,7 +248,7 @@ export async function processReminder(
         plate: reminder.plate_number,
         date: reminder.expiry_date,
         station_name: stationData.name || 'uitdeITP',
-        station_phone: stationData.station_phone || '',
+        station_phone: stationData.station_phone || '+40729440127', // Default: Euro Auto Service
         station_address: stationData.station_address || '',
         app_url: process.env.NEXT_PUBLIC_APP_URL || 'https://uitdeitp.ro',
         opt_out_link: optOutLink,

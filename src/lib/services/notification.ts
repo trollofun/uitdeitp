@@ -77,12 +77,13 @@ export function truncateSms(message: string, maxParts: number = 3): string {
  * Default Romanian SMS templates
  * NOTE: Removed hardcoded days count (e.g., "7 zile") to avoid confusion
  * The exact expiry date ({date}) is shown instead, which is more accurate
+ * {station_phone} will fallback to Euro Auto Service (+40729440127) if no station assigned
  */
 export const DEFAULT_SMS_TEMPLATES = {
-  '7d': 'Bună {name}! ITP pentru {plate} expiră pe {date}. Nu uita să programezi o verificare tehnică!',
-  '3d': 'Reminder: {name}, ITP pentru {plate} expiră pe {date}! Programează urgent!',
-  '1d': 'URGENT: {name}, ITP pentru {plate} expiră MÂINE ({date})! Programează astăzi!',
-  expired: 'ATENȚIE: {name}, ITP pentru {plate} a EXPIRAT la data de {date}. Programează urgent verificare!',
+  '7d': 'Bună {name}! ITP pentru {plate} expiră pe {date}. Nu uita să programezi o verificare tehnică!\n\nProgramare: {station_phone}',
+  '3d': 'Reminder: {name}, ITP pentru {plate} expiră pe {date}! Programează urgent!\n\nProgramare: {station_phone}',
+  '1d': 'URGENT: {name}, ITP pentru {plate} expiră MÂINE ({date})! Programează astăzi!\n\nProgramare: {station_phone}',
+  expired: 'ATENȚIE: {name}, ITP pentru {plate} a EXPIRAT la data de {date}. Programează urgent verificare!\n\nProgramare: {station_phone}',
 };
 
 /**
