@@ -96,7 +96,7 @@ async function sendSMS(phone: string, code: string): Promise<boolean> {
       },
       body: JSON.stringify({
         to: phone,
-        message: `Codul tău de verificare uitdeITP: ${code}\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`,
+        message: `Cod ${code} pentru uitdeITP\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`,
         templateId: 'phone_verification',
         metadata: {
           verificationType: 'registration',

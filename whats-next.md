@@ -1,30 +1,137 @@
-# ✅ KIOSK SUBMISSION ERROR HANDLING DEPLOYED
+# ✅ VERIFICATION CODE ON-SCREEN NUMPAD DEPLOYED
 
 ## Task Summary
 
-Fixed critical bug where kiosk submission failures were silent - users saw button stop spinning with zero feedback. Added comprehensive error handling with user-friendly error messages and detailed logging.
+Replaced verification code input field with on-screen numpad (same as phone input) to prevent mobile keyboard from taking 50% of screen space.
 
-**Status:** ✅ COMPLETED - Deployed to production and ready for testing
+**Status:** ✅ COMPLETED - Deployed to production (2025-11-25 16:25)
 
-**Previous Task:** ✅ Cron job fixed and operational (2025-11-24)
+**Previous Tasks:**
+- ✅ Kiosk submission error handling (2025-11-25 16:09)
+- ✅ Check icon overlay fix (2025-11-25)
+- ✅ Cron job fixed and operational (2025-11-24)
 
 ---
 
 ## Deployment Information
 
-**Commit:** df340d7 - "fix: Add comprehensive error handling to kiosk submission with user-friendly error messages"
-**Deployed:** 2025-11-25 16:09 Romanian time (13:09 UTC)
-**Production URL:** https://uitdeitp-app-standalone-d19do0rik-trollofuns-projects.vercel.app
-**Kiosk URL:** https://uitdeitp-app-standalone-d19do0rik-trollofuns-projects.vercel.app/kiosk/euro-auto-service
+**Commit:** 01e0ff8 - "feat: Replace verification code input with on-screen numpad"
+**Deployed:** 2025-11-25 16:25 Romanian time (13:25 UTC)
+**Production URL:** https://uitdeitp-app-standalone-5cuz3c5md-trollofuns-projects.vercel.app
+**Kiosk URL:** https://uitdeitp-app-standalone-5cuz3c5md-trollofuns-projects.vercel.app/kiosk/euro-auto-service
 
-**Next Steps:**
-1. Test kiosk flow end-to-end (all 6 steps)
-2. Verify submission works OR see clear error messages
-3. Check Vercel logs if errors appear
+**What Changed:**
+- Step 4 (verification code) now uses on-screen numpad instead of Input field
+- Mobile keyboard no longer takes 50% of screen space
+- Symmetric 6-digit display with animated typing cursor
+- Green border validation when all 6 digits entered
+- Consistent UX with phone input (Step 3)
 
 ---
 
-## Root Cause Analysis (Kiosk Submission Issue)
+## Problem Solved
+
+**User Request:** "mai vreau sa modificam la codul de verificare introdus sa punem tastatura tot cum este la numarul de telefon sa nu mai pierdem 50% din afisaj"
+
+**Before:**
+- Verification code used `<Input>` field
+- Mobile keyboard appeared and covered 50% of screen
+- Small input field, difficult to see what you're typing
+- Inconsistent with phone input UX
+
+**After:**
+- Same on-screen numpad as phone input (ResponsiveNumpad)
+- Large, touch-friendly buttons (h-20 sm:h-24)
+- Visual 6-digit display with underscores (`_ _ _ _ _ _`)
+- Animated typing cursor (blinking blue line)
+- Green border when all 6 digits entered
+- No mobile keyboard covering the screen
+- Gestalt principles: symmetric, equal spacing, good form
+
+---
+
+## Technical Implementation
+
+### Files Modified
+
+**Main file:**
+- `src/components/kiosk/PhoneVerificationStep.tsx`
+
+### Key Changes
+
+**1. Added ResponsiveNumpad inline component (lines 11-43)**
+```typescript
+const ResponsiveNumpad = ({ onInput, onDelete }) => (
+  <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full max-w-[400px] mx-auto select-none">
+    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+      <motion.button onClick={() => onInput(num.toString())} ...>
+        {num}
+      </motion.button>
+    ))}
+    <div className="h-20 sm:h-24" /> {/* Empty space */}
+    <motion.button onClick={() => onInput('0')}>0</motion.button>
+    <motion.button onClick={onDelete}>⌫</motion.button>
+  </div>
+);
+```
+
+**2. Replaced Input with visual 6-digit display (lines 239-263)**
+```typescript
+{/* Code Display - Similar to phone display */}
+<div className={`w-full max-w-[500px] mx-auto bg-white rounded-3xl border-4 px-4 py-5 sm:px-6 sm:py-6 shadow-lg transition-all duration-300 ${code.length >= 6 ? 'border-green-500 shadow-green-100' : 'border-slate-100'}`}>
+  <div className="text-2xl sm:text-3xl font-mono font-bold text-slate-800 flex items-center justify-center h-9 sm:h-10 gap-1">
+    <LayoutGroup>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <motion.span layoutId={`code-digit-${i}`} key={i} className="inline-block w-8 text-center">
+          {code[i] || '_'}
+        </motion.span>
+      ))}
+    </LayoutGroup>
+    {code.length < 6 && (
+      <motion.div animate={{ opacity: [0, 1, 0] }} className="w-0.5 sm:w-1 h-7 sm:h-8 bg-blue-600 ml-1" />
+    )}
+  </div>
+</div>
+```
+
+**3. Added numpad with input handlers (lines 265-280)**
+```typescript
+<ResponsiveNumpad
+  onInput={(d) => {
+    if (code.length < 6) {
+      setCode(code + d);
+      setError('');
+    }
+  }}
+  onDelete={() => {
+    if (code.length > 0) {
+      setCode(code.slice(0, -1));
+    }
+  }}
+/>
+```
+
+**4. Removed unused handleCodeChange function**
+- No longer needed since we're using numpad onInput instead of Input onChange
+
+### Design Principles Applied
+
+**Gestalt Principles:**
+- ✅ **Prägnanz (Good Form)**: Simple, symmetric 6-digit display
+- ✅ **Similarity**: All 6 digit slots look identical (w-8, text-center)
+- ✅ **Proximity**: Equal spacing between digits (gap-1)
+- ✅ **Continuity**: Smooth animated cursor flow
+- ✅ **Closure**: Underscores suggest completeness when filled
+
+**Touch-Friendly:**
+- Large buttons: h-20 (80px mobile), h-24 (96px desktop)
+- Clear visual feedback: whileTap scale animation
+- High contrast: white buttons on colored background
+- Sufficient spacing: gap-2 (8px mobile), gap-4 (16px desktop)
+
+---
+
+## Previous: Kiosk Submission Error Handling (2025-11-25 16:09)
 
 ### Problem: Silent Submission Failures at Step 6
 
@@ -259,5 +366,31 @@ if (response.ok) {
 
 ---
 
-**Last updated:** 2025-11-25 16:09 Romanian time
-**Status:** ✅ Deployed and ready for testing
+## Summary of All Changes (2025-11-25)
+
+### 1. Verification Code On-Screen Numpad ✅ (16:25)
+**Commit:** 01e0ff8
+- Replaced Input field with ResponsiveNumpad at Step 4
+- No more mobile keyboard taking 50% of screen
+- Symmetric 6-digit display with Gestalt principles
+- Consistent UX with phone input
+
+### 2. Kiosk Submission Error Handling ✅ (16:09)
+**Commit:** df340d7
+- Added comprehensive error handling to handleSubmit
+- User-friendly red error box with dismissable messages
+- Detailed console logging for debugging
+- Fixed silent failures at Step 6
+
+### 3. Check Icon Overlay Fix ✅ (earlier)
+**Commit:** b7b9ef7
+- Removed CheckCircle2 icon from phone display
+- Kept only green border for validation
+- Fixed overlay issue with last digit
+
+---
+
+**Latest Production URL:** https://uitdeitp-app-standalone-5cuz3c5md-trollofuns-projects.vercel.app/kiosk/euro-auto-service
+
+**Last updated:** 2025-11-25 16:25 Romanian time
+**Status:** ✅ All changes deployed and ready for testing
