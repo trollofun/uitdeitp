@@ -33,7 +33,7 @@ import {
 } from '@/lib/kiosk/validation';
 import {
   CheckCircle2, Loader2, AlertTriangle,
-  Lock, ChevronRight, ShieldCheck, Sparkles, BellRing, Zap
+  Lock, ChevronRight, ShieldCheck, Sparkles, BellRing, Zap, XCircle
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { format, subDays } from 'date-fns';
@@ -275,6 +275,7 @@ export default function KioskPage() {
     consent: false
   });
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [lastActivity, setLastActivity] = useState(0); // Prevent hydration mismatch
   const [mounted, setMounted] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0); // For idle slider rotation
@@ -331,6 +332,7 @@ export default function KioskPage() {
         setStep(1);
         setFormData({ name: '', phone: '', plateNumber: '', expiryDate: null, consent: false });
         setIsEngaged(false);
+        setSubmitError(null);
       }, 30000);
       return () => clearTimeout(timer);
     }
@@ -344,6 +346,7 @@ export default function KioskPage() {
           setStep(1);
           setFormData({ name: '', phone: '', plateNumber: '', expiryDate: null, consent: false });
           setIsEngaged(false);
+          setSubmitError(null);
         }
       }, 1000);
       return () => clearInterval(timer);
@@ -366,12 +369,14 @@ export default function KioskPage() {
     setDir(1);
     setStep(s => (s + 1) as Step);
     updateActivity();
+    setSubmitError(null); // Clear any previous errors
   };
 
   const prevStep = () => {
     setDir(-1);
     setStep(s => (s - 1) as Step);
     updateActivity();
+    setSubmitError(null); // Clear any previous errors
   };
 
   const handleNameChange = (val: string) => {
@@ -381,13 +386,15 @@ export default function KioskPage() {
 
   const handleSubmit = async () => {
     if (!station) return;
+
     setSubmitting(true);
+    setSubmitError(null);
+
     try {
       const response = await fetch('/api/kiosk/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          station_id: station.id,
           station_slug: stationSlug,
           guest_name: formData.name,
           guest_phone: formData.phone,
@@ -400,11 +407,35 @@ export default function KioskPage() {
       if (response.ok) {
         setDir(1);
         setStep(7);
+      } else {
+        // Parse error response
+        const errorData = await response.json().catch(() => ({ error: 'Eroare necunoscută' }));
+        const errorMessage = errorData.error || errorData.message || 'A apărut o eroare. Te rugăm să încerci din nou.';
+
+        setSubmitError(errorMessage);
+
+        // Log for debugging
+        console.error('[Kiosk Submit Error]', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorMessage,
+          payload: {
+            station_slug: stationSlug,
+            guest_name: formData.name,
+            guest_phone: formData.phone,
+            plate_number: formData.plateNumber,
+            expiry_date: formData.expiryDate?.toISOString(),
+            consent_given: formData.consent
+          }
+        });
       }
     } catch (e) {
-      console.error(e);
+      console.error('[Kiosk Submit Exception]', e);
+      setSubmitError('Eroare de conexiune. Verifică internetul și încearcă din nou.');
     }
-    finally { setSubmitting(false); }
+    finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -762,6 +793,27 @@ export default function KioskPage() {
                              />
                         </div>
 
+                        {/* Error Message Display */}
+                        {submitError && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="col-span-1 md:col-span-2 bg-red-50 border-2 border-red-200 rounded-2xl p-4 flex items-start gap-3"
+                          >
+                            <XCircle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="font-bold text-red-900 text-sm sm:text-base">Eroare la înregistrare</p>
+                              <p className="text-red-700 text-xs sm:text-sm mt-1">{submitError}</p>
+                            </div>
+                            <button
+                              onClick={() => setSubmitError(null)}
+                              className="text-red-400 hover:text-red-600 transition-colors"
+                            >
+                              ✕
+                            </button>
+                          </motion.div>
+                        )}
+
                         <motion.button
                             whileTap={{ scale: 0.95 }}
                             onClick={handleSubmit}
@@ -838,6 +890,7 @@ export default function KioskPage() {
                           onClick={() => {
                             setStep(1);
                             setFormData({name: '', phone: '', plateNumber: '', expiryDate: null, consent: false});
+                            setSubmitError(null);
                           }}
                           className="text-slate-400 font-bold py-4 hover:text-slate-600 transition-colors"
                         >
