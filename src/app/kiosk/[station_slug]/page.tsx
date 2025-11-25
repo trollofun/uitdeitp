@@ -558,7 +558,7 @@ export default function KioskPage() {
                         <div className="flex flex-col items-center w-full space-y-6">
                             {/* Phone Display - Optimized size to fit +40 prefix, 10 digits, and check icon */}
                             <div className={`w-full max-w-[500px] bg-white rounded-3xl border-4 px-4 py-5 sm:px-6 sm:py-6 shadow-lg transition-all duration-300 ${formData.phone.length >= 12 ? 'border-green-500 shadow-green-100' : 'border-slate-100'}`}>
-                                <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center justify-between gap-4 sm:gap-6">
                                     <div className="text-2xl sm:text-3xl font-mono font-bold text-slate-800 flex items-center h-9 sm:h-10 flex-1 min-w-0">
                                         <span className="text-slate-300 mr-1 sm:mr-2 tracking-tight select-none text-xl sm:text-2xl">+40</span>
                                         <LayoutGroup>
