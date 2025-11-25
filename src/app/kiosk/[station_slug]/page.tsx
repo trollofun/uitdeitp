@@ -556,36 +556,29 @@ export default function KioskPage() {
 
                         {/* RIGHT - Phone Display (above) + Numpad (below) */}
                         <div className="flex flex-col items-center w-full space-y-6">
-                            {/* Phone Display - Optimized size to fit +40 prefix, 10 digits, and check icon */}
+                            {/* Phone Display - Green border indicates validation */}
                             <div className={`w-full max-w-[500px] bg-white rounded-3xl border-4 px-4 py-5 sm:px-6 sm:py-6 shadow-lg transition-all duration-300 ${formData.phone.length >= 12 ? 'border-green-500 shadow-green-100' : 'border-slate-100'}`}>
-                                <div className="flex items-center justify-between gap-4 sm:gap-6">
-                                    <div className="text-2xl sm:text-3xl font-mono font-bold text-slate-800 flex items-center h-9 sm:h-10 flex-1 min-w-0">
-                                        <span className="text-slate-300 mr-1 sm:mr-2 tracking-tight select-none text-xl sm:text-2xl">+40</span>
-                                        <LayoutGroup>
-                                            {formData.phone.replace('+40', '').split('').map((digit, i) => (
-                                                <motion.span
-                                                  layoutId={`digit-${i}`}
-                                                  initial={{ y: 20, opacity: 0 }}
-                                                  animate={{ y: 0, opacity: 1 }}
-                                                  key={i}
-                                                  className="inline-block"
-                                                >
-                                                    {digit}
-                                                </motion.span>
-                                            ))}
-                                        </LayoutGroup>
-                                        {formData.phone.length < 12 && (
-                                          <motion.div
-                                            animate={{ opacity: [0, 1, 0] }}
-                                            transition={{ repeat: Infinity, duration: 0.8 }}
-                                            className="w-0.5 sm:w-1 h-7 sm:h-8 bg-blue-600 ml-1"
-                                          />
-                                        )}
-                                    </div>
-                                    {formData.phone.length >= 12 && (
-                                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex-shrink-0">
-                                            <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10 text-green-500" />
-                                        </motion.div>
+                                <div className="text-2xl sm:text-3xl font-mono font-bold text-slate-800 flex items-center h-9 sm:h-10">
+                                    <span className="text-slate-300 mr-1 sm:mr-2 tracking-tight select-none text-xl sm:text-2xl">+40</span>
+                                    <LayoutGroup>
+                                        {formData.phone.replace('+40', '').split('').map((digit, i) => (
+                                            <motion.span
+                                              layoutId={`digit-${i}`}
+                                              initial={{ y: 20, opacity: 0 }}
+                                              animate={{ y: 0, opacity: 1 }}
+                                              key={i}
+                                              className="inline-block"
+                                            >
+                                                {digit}
+                                            </motion.span>
+                                        ))}
+                                    </LayoutGroup>
+                                    {formData.phone.length < 12 && (
+                                      <motion.div
+                                        animate={{ opacity: [0, 1, 0] }}
+                                        transition={{ repeat: Infinity, duration: 0.8 }}
+                                        className="w-0.5 sm:w-1 h-7 sm:h-8 bg-blue-600 ml-1"
+                                      />
                                     )}
                                 </div>
                             </div>
