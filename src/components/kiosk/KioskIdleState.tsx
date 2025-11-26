@@ -151,9 +151,11 @@ export default function KioskIdleState({
             className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight"
             style={{
               background: `linear-gradient(135deg, ${primaryColor} 0%, ${currentMessage.color} 100%)`,
+              backgroundSize: '200% 200%',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
+              color: 'transparent'
             }}
             animate={{
               backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
@@ -232,6 +234,7 @@ export default function KioskIdleState({
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
+                  color: 'transparent'
                 }}
               >
                 {currentMessage.title}
@@ -358,6 +361,7 @@ export default function KioskIdleState({
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
+                  color: 'transparent'
                 }}
               >
                 Atinge ecranul pentru a începe
