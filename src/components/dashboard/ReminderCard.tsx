@@ -10,10 +10,12 @@ import { EditReminderDialog } from './EditReminderDialog';
 interface Reminder {
   id: string;
   plate_number: string;
-  itp_expiry_date: string;
-  sms_notifications_enabled: boolean;
-  station_slug?: string;
-  status: string;
+  expiry_date: string;
+  notification_channels: {
+    email: boolean;
+    sms: boolean;
+  };
+  station_id?: string;
 }
 
 interface ReminderCardProps {
@@ -26,7 +28,7 @@ export function ReminderCard({ reminder, onUpdate }: ReminderCardProps) {
   const [isTogglingNotification, setIsTogglingNotification] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
 
-  const expiryDate = new Date(reminder.itp_expiry_date);
+  const expiryDate = new Date(reminder.expiry_date);
   const now = new Date();
   const daysUntilExpiry = Math.ceil(
     (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
@@ -64,7 +66,10 @@ export function ReminderCard({ reminder, onUpdate }: ReminderCardProps) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sms_notifications_enabled: !reminder.sms_notifications_enabled,
+          notification_channels: {
+            ...reminder.notification_channels,
+            sms: !reminder.notification_channels.sms,
+          },
         }),
       });
 
@@ -158,20 +163,20 @@ export function ReminderCard({ reminder, onUpdate }: ReminderCardProps) {
           )}
 
           <div className="flex items-center gap-2">
-            {reminder.sms_notifications_enabled ? (
+            {reminder.notification_channels.sms ? (
               <ToggleRight className="w-4 h-4 text-green-600" />
             ) : (
               <ToggleLeft className="w-4 h-4 text-gray-400" />
             )}
             <span className="text-muted-foreground">
-              SMS: {reminder.sms_notifications_enabled ? 'Activate' : 'Dezactivate'}
+              SMS: {reminder.notification_channels.sms ? 'Activate' : 'Dezactivate'}
             </span>
           </div>
         </div>
 
-        {reminder.station_slug && (
+        {reminder.station_id && (
           <div className="mb-4 pb-4 border-t pt-4 text-xs text-muted-foreground">
-            Înregistrat prin: {reminder.station_slug}
+            Înregistrat prin stație: {reminder.station_id}
           </div>
         )}
 
@@ -192,7 +197,7 @@ export function ReminderCard({ reminder, onUpdate }: ReminderCardProps) {
             onClick={handleToggleNotification}
             disabled={isTogglingNotification}
           >
-            {reminder.sms_notifications_enabled ? (
+            {reminder.notification_channels.sms ? (
               <ToggleLeft className="w-4 h-4" />
             ) : (
               <ToggleRight className="w-4 h-4" />

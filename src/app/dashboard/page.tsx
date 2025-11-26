@@ -38,10 +38,11 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
     .order('expiry_date', { ascending: true });
 
-  const activeReminders = reminders?.filter((r) => r.status === 'active') || [];
+  // ✅ BUG FIX: Use correct schema fields (deleted_at, opt_out, expiry_date)
+  const activeReminders = reminders?.filter((r) => !r.deleted_at && !r.opt_out) || [];
   const upcomingReminders =
     activeReminders.filter((r) => {
-      const expiryDate = new Date(r.itp_expiry_date);
+      const expiryDate = new Date(r.expiry_date);
       const now = new Date();
       const daysUntilExpiry = Math.ceil(
         (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
@@ -51,7 +52,7 @@ export default async function DashboardPage() {
 
   const expiredReminders =
     activeReminders.filter((r) => {
-      const expiryDate = new Date(r.itp_expiry_date);
+      const expiryDate = new Date(r.expiry_date);
       return expiryDate < new Date();
     }) || [];
 

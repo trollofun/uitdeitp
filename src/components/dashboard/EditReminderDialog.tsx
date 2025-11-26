@@ -8,8 +8,11 @@ import { X } from 'lucide-react';
 interface Reminder {
   id: string;
   plate_number: string;
-  itp_expiry_date: string;
-  sms_notifications_enabled: boolean;
+  expiry_date: string;
+  notification_channels: {
+    email: boolean;
+    sms: boolean;
+  };
 }
 
 interface EditReminderDialogProps {
@@ -26,7 +29,7 @@ export function EditReminderDialog({
   onUpdate,
 }: EditReminderDialogProps) {
   const [expiryDate, setExpiryDate] = useState(
-    reminder.itp_expiry_date.split('T')[0]
+    reminder.expiry_date.split('T')[0]
   );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -43,7 +46,7 @@ export function EditReminderDialog({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          itp_expiry_date: expiryDate,
+          expiry_date: expiryDate,
         }),
       });
 

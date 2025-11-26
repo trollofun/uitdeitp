@@ -217,21 +217,21 @@ export default async function AdminPage() {
                       <div>
                         <p className="font-medium font-mono">{reminder.plate_number}</p>
                         <p className="text-sm text-muted-foreground">
-                          {reminder.phone_number}
+                          {reminder.guest_phone || reminder.user_id || 'N/A'}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium">
-                          {new Date(reminder.itp_expiry_date).toLocaleDateString('ro-RO')}
+                          {new Date(reminder.expiry_date).toLocaleDateString('ro-RO')}
                         </p>
                         <span
                           className={`px-2 py-1 text-xs font-medium rounded ${
-                            reminder.status === 'active'
+                            !reminder.deleted_at && !reminder.opt_out
                               ? 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300'
                               : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
                           }`}
                         >
-                          {reminder.status}
+                          {reminder.deleted_at ? 'Deleted' : reminder.opt_out ? 'Opted Out' : 'Active'}
                         </span>
                       </div>
                     </div>

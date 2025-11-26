@@ -9,10 +9,12 @@ import { useRouter } from 'next/navigation';
 interface Reminder {
   id: string;
   plate_number: string;
-  itp_expiry_date: string;
-  sms_notifications_enabled: boolean;
-  station_slug?: string;
-  status: string;
+  expiry_date: string;
+  notification_channels: {
+    email: boolean;
+    sms: boolean;
+  };
+  station_id?: string;
 }
 
 interface RemindersListProps {
