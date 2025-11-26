@@ -53,19 +53,36 @@ const features = [
 interface KioskIdleStateProps {
   onStart: () => void;
   primaryColor?: string;
+  isActive?: boolean; // NEW: Signal when animations should run
 }
 
-export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: KioskIdleStateProps) {
+export default function KioskIdleState({
+  onStart,
+  primaryColor = '#3B82F6',
+  isActive = true // Default to active
+}: KioskIdleStateProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const [key, setKey] = useState(0); // Force remount when returning to idle
 
+  // Reset animation state when becoming active
   useEffect(() => {
+    if (isActive) {
+      setCurrentIndex(0);
+      setKey(prev => prev + 1); // Increment key to force full remount
+    }
+  }, [isActive]); // Re-run when isActive changes
+
+  // Interval only runs when active
+  useEffect(() => {
+    if (!isActive) return; // Don't run interval when inactive
+
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % messages.length);
     }, 8000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isActive]); // Re-run when isActive changes
 
   // Pause animations when tab is hidden (performance optimization)
   useEffect(() => {
@@ -152,9 +169,9 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
         </motion.div>
 
         {/* Rotating Message Cards */}
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={true}>
           <motion.div
-            key={currentMessage.id}
+            key={`${key}-${currentMessage.id}`}
             initial={{ opacity: 0, scale: 0.8, rotateX: -20 }}
             animate={{ opacity: 1, scale: 1, rotateX: 0 }}
             exit={{ opacity: 0, scale: 0.8, rotateX: 20 }}
@@ -202,21 +219,24 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
               </motion.div>
             </div>
 
-            {/* Title with Gradient */}
-            <motion.h2
-              className="text-3xl sm:text-4xl md:text-5xl lg:text-[52px] font-black leading-tight max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-3xl px-2"
-              style={{
-                background: `linear-gradient(135deg, #1F2937 0%, ${currentMessage.color} 100%)`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
+            {/* Title with Gradient - Split for gradient compatibility */}
+            <motion.div
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-[52px] font-black leading-tight max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-3xl px-2 text-center"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              {currentMessage.title}
-            </motion.h2>
+              <h2
+                style={{
+                  background: `linear-gradient(135deg, #1F2937 0%, ${currentMessage.color} 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                {currentMessage.title}
+              </h2>
+            </motion.div>
 
             {/* Body */}
             <motion.p
@@ -418,7 +438,7 @@ export default function KioskIdleState({ onStart, primaryColor = '#3B82F6' }: Ki
               >
                 {/* Fill - CSS animation for native 60fps */}
                 <div
-                  key={`progress-${currentIndex}-${index}`}
+                  key={`progress-${key}-${currentIndex}-${index}`}
                   className="absolute inset-0"
                   style={{
                     backgroundColor: index === currentIndex ? msg.color : '#9CA3AF',

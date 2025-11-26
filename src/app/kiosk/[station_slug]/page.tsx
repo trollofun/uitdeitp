@@ -489,12 +489,20 @@ export default function KioskPage() {
 
                 {/* STEP 1: IDLE STATE - Clean Interface */}
                 {step === 1 && (
-                    <div key="step1" className="fixed inset-0 z-50">
+                    <motion.div
+                      key={`idle-${lastActivity}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="fixed inset-0 z-50"
+                    >
                         <KioskIdleState
                             onStart={() => nextStep()}
                             primaryColor={station?.primary_color || '#3B82F6'}
+                            isActive={step === 1}
                         />
-                    </div>
+                    </motion.div>
                 )}
 
                 {/* STEP 2: NAME */}
