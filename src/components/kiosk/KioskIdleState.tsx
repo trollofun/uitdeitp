@@ -154,9 +154,12 @@ export default function KioskIdleState({
               backgroundSize: '200% 200%',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              color: 'transparent'
-            }}
+              MozBackgroundClip: 'text',
+              MozTextFillColor: 'transparent',
+              display: 'inline-block', // CRITICAL: Prevents gradient rectangle
+              // Fallback for unsupported browsers
+              color: primaryColor
+            } as React.CSSProperties}
             animate={{
               backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
             }}
@@ -233,9 +236,12 @@ export default function KioskIdleState({
                   background: `linear-gradient(135deg, #1F2937 0%, ${currentMessage.color} 100%)`,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                  color: 'transparent'
-                }}
+                  MozBackgroundClip: 'text',
+                  MozTextFillColor: 'transparent',
+                  display: 'inline-block', // CRITICAL: Prevents gradient rectangle
+                  // Fallback for unsupported browsers
+                  color: currentMessage.color
+                } as React.CSSProperties}
               >
                 {currentMessage.title}
               </h2>
@@ -360,9 +366,12 @@ export default function KioskIdleState({
                   background: `linear-gradient(135deg, ${primaryColor} 0%, ${currentMessage.color} 100%)`,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                  color: 'transparent'
-                }}
+                  MozBackgroundClip: 'text',
+                  MozTextFillColor: 'transparent',
+                  display: 'inline-block', // CRITICAL: Prevents gradient rectangle
+                  // Fallback for unsupported browsers
+                  color: primaryColor
+                } as React.CSSProperties}
               >
                 Atinge ecranul pentru a începe
               </span>
