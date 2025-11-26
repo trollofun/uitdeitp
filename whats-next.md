@@ -1,57 +1,59 @@
-# ✅ SMS WITH STATION PHONE NUMBER DEPLOYED
+# ✅ DYNAMIC {days_until} VARIABLE DEPLOYED
 
 ## Task Summary
 
-Added station phone number to SMS reminders with fallback to Euro Auto Service.
+Added dynamic `{days_until}` variable to SMS templates for accurate day counts with custom notification intervals.
 
 **Status:** ✅ COMPLETED - Deployed to production (2025-11-25)
 
-**Previous Tasks:**
-- ✅ SMS notification improvements (2025-11-25)
-- ✅ Verification code on-screen numpad (2025-11-25 16:25)
-
-**Previous Tasks:**
-- ✅ Kiosk submission error handling (2025-11-25 16:09)
-- ✅ Check icon overlay fix (2025-11-25)
-- ✅ Cron job fixed and operational (2025-11-24)
+**Previous Task:**
+- ✅ SMS with station phone number (2025-11-25)
 
 ---
 
 ## Deployment Information
 
-**Commit:** b168507 - "feat: Add station phone number to SMS reminders"
-**Deployed:** 2025-11-25 (after SMS improvements)
-**Production URL:** https://uitdeitp-app-standalone-arv3gyhth-trollofuns-projects.vercel.app
-**Kiosk URL:** https://uitdeitp-app-standalone-arv3gyhth-trollofuns-projects.vercel.app/kiosk/euro-auto-service
+**Commit:** 213e795 - "feat: Add dynamic {days_until} variable to SMS templates"
+**Deployed:** 2025-11-25 (after station phone number feature)
+**Production URL:** https://uitdeitp-app-standalone-bermv9c1w-trollofuns-projects.vercel.app
+**Kiosk URL:** https://uitdeitp-app-standalone-bermv9c1w-trollofuns-projects.vercel.app/kiosk/euro-auto-service
 
 **What Changed:**
-- **Station Phone Number Added** - All SMS reminders now include "Programare: {phone}"
-- **Fallback Number** - Uses Euro Auto Service (+40729440127) if no station assigned
-- **Better User Experience** - Users can call directly from SMS to schedule ITP
+- **Dynamic Days Variable** - Added `{days_until}` variable that shows actual days count
+- **Accurate for ALL Intervals** - Works with any custom intervals (10, 6, 2 days etc.)
+- **Backward Compatible** - Old templates without `{days_until}` still work
+- **Updated UI** - Template editor now shows `{days_until}` in placeholders list
+- **Euro Auto Service Updated** - All 3 custom templates now use dynamic days
 
 ---
 
 ## Feature Implemented
 
-### Station Phone Number in SMS Reminders
+### Dynamic {days_until} Variable for SMS Templates
 
-**User Request:** "Ar trebui sa adauge si numarul statie de ITP la care este arondat, daca nu este arondat la nici o statie sa adauge numarul Euro Auto Service +40729440127"
+**User Question:** "si cu zilele cum facem ? daca selecteaza alte zile clientul"
 
-**What Was Added:**
-All SMS reminder templates now include the station phone number at the end of the message for easy scheduling.
+**Problem Identified:**
+- Hardcoded day counts in templates: "expiră în 5 zile", "expiră în 3 zile"
+- But users can configure custom notification intervals (e.g., 10, 6, 2 days)
+- This caused **incorrect messages**: template says "5 zile" but sent at 10 days before expiry ❌
 
-**Example SMS Message:**
+**Solution Implemented:**
+Added dynamic `{days_until}` variable that gets replaced with actual calculated days.
+
+**Example SMS Messages (Custom Intervals: [10, 6, 2]):**
 ```
-Bună Ion! ITP pentru B-123-ABC expiră pe 15 decembrie 2025.
-Nu uita să programezi o verificare tehnică!
-
-Programare: +40729440127
+Day 10: "Salut Ion, ITP pentru B-123-ABC expiră în 10 zile (pe 15 Dec 2025). Programează: +40729440127"
+Day 6:  "ATENȚIE Ion! ITP B-123-ABC expiră în 6 zile (pe 15 Dec 2025)! Sună acum: +40729440127"
+Day 2:  "ATENȚIE Ion! ITP B-123-ABC expiră în 2 zile (pe 15 Dec 2025)! Sună acum: +40729440127"
+Day 1:  "URGENT Ion! ITP B-123-ABC expiră MÂINE (pe 15 Dec 2025)! Sună: +40729440127"
 ```
 
 **How It Works:**
-1. **If reminder is assigned to a station:** Shows station's phone number
-2. **If no station assigned:** Shows default Euro Auto Service number (+40729440127)
-3. **User benefit:** Can call directly from SMS notification to schedule
+1. **System calculates** actual days until expiry: `daysUntilExpiry = 10`
+2. **Template contains** `{days_until}` placeholder: "expiră în {days_until} zile"
+3. **System replaces** `{days_until}` → `10`: "expiră în 10 zile" ✅
+4. **Result:** Always accurate, regardless of custom intervals!
 
 ---
 
@@ -419,3 +421,87 @@ if (response.ok) {
 
 **Last updated:** 2025-11-25 16:25 Romanian time
 **Status:** ✅ All changes deployed and ready for testing
+
+---
+
+## 📋 Future Improvements
+
+### Semantic Template Naming (Planned for Multi-Station Scaling)
+
+**Current Issue:**
+- Database columns: `sms_template_5d`, `sms_template_3d`, `sms_template_1d`
+- Confusing when users have custom intervals (e.g., 10/6/2 days)
+- "5 zile înainte" label doesn't make sense if interval is 10 days
+
+**Proposed Refactoring:**
+- Rename to semantic categories: **Long**, **Medium**, **Urgent**
+- Better describes the reminder *purpose*, not the specific days
+- Works with ANY custom intervals
+
+**Changes Required:**
+
+1. **Database Migration:**
+```sql
+ALTER TABLE kiosk_stations
+  RENAME COLUMN sms_template_5d TO sms_template_long;
+ALTER TABLE kiosk_stations
+  RENAME COLUMN sms_template_3d TO sms_template_medium;
+ALTER TABLE kiosk_stations
+  RENAME COLUMN sms_template_1d TO sms_template_urgent;
+```
+
+2. **Template Keys:**
+```typescript
+// notification.ts
+DEFAULT_SMS_TEMPLATES = {
+  'long': '...',    // Informativ, ton amabil
+  'medium': '...',  // Urgent, atenție
+  'urgent': '...',  // Critic, acțiune imediată
+  'expired': '...'
+}
+```
+
+3. **UI Labels:**
+```tsx
+<CardTitle>SMS - Termen lung (Informativ)</CardTitle>
+<CardDescription>Primul reminder - ton informativ, amabil</CardDescription>
+
+<CardTitle>SMS - Termen mediu (Urgent)</CardTitle>
+<CardDescription>Al doilea reminder - ton urgent, atenție</CardDescription>
+
+<CardTitle>SMS - Urgent (Critic)</CardTitle>
+<CardDescription>Ultimul reminder - ton foarte urgent, acțiune imediată</CardDescription>
+```
+
+4. **Selection Logic:**
+```typescript
+// Determine category based on user's custom intervals
+function getTemplateCategoryForReminder(
+  daysUntil: number,
+  userIntervals: number[]
+): 'long' | 'medium' | 'urgent' | 'expired' {
+  // Sort intervals descending: [10, 6, 2]
+  const sorted = [...userIntervals].sort((a, b) => b - a);
+
+  // First interval (largest) = long
+  if (daysUntil >= sorted[0]) return 'long';
+
+  // Last interval (smallest) = urgent
+  if (daysUntil <= sorted[sorted.length - 1]) return 'urgent';
+
+  // Middle intervals = medium
+  return 'medium';
+}
+```
+
+**Benefits:**
+- ✅ Intuitive for station owners: "template pentru reminder urgent"
+- ✅ Works with ANY custom intervals (5/3/1 or 14/7/3 or 10/6/2)
+- ✅ More semantic and user-friendly
+- ✅ Easier to explain to clients
+
+**Timeline:** When scaling to 5+ white-label stations (Phase 3)
+
+**Estimated Effort:** ~1 hour (migration + code + UI + testing)
+
+**Status:** 💭 Discussed 2025-11-25, postponed for future

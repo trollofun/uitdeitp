@@ -23,18 +23,20 @@ export default async function DashboardPage() {
   }
 
   // Fetch user profile
+  // ✅ OPTIMIZATION: Specify exact columns instead of SELECT *
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('*')
+    .select('id, email, full_name, phone, role, stations, created_at, updated_at')
     .eq('id', user.id)
     .single();
 
   // Fetch reminders for this user
+  // ✅ OPTIMIZATION: Specify exact columns instead of SELECT *
   const { data: reminders } = await supabase
     .from('reminders')
-    .select('*')
-    .eq('phone_number', user.phone || user.email)
-    .order('itp_expiry_date', { ascending: true });
+    .select('id, user_id, guest_phone, guest_name, plate_number, reminder_type, expiry_date, notification_intervals, notification_channels, next_notification_date, last_notification_sent_at, source, station_id, consent_given, consent_timestamp, consent_ip, opt_out, opt_out_timestamp, deleted_at, created_at, updated_at')
+    .eq('user_id', user.id)
+    .order('expiry_date', { ascending: true });
 
   const activeReminders = reminders?.filter((r) => r.status === 'active') || [];
   const upcomingReminders =

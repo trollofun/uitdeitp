@@ -21,18 +21,27 @@ import { formatInTimeZone } from 'date-fns-tz';
  * IMPORTANT: This endpoint should be protected in production!
  */
 export async function GET(req: NextRequest) {
-  // TODO: Add authentication check in production
-  // Only allow access during development or with admin token
-  if (process.env.NODE_ENV === 'production') {
-    const authHeader = req.headers.get('authorization');
-    const validToken = process.env.CRON_SECRET; // Set this in production
+  // ✅ SECURITY: Always require authentication (not just in production)
+  // This prevents accidental exposure in development/staging environments
+  const authHeader = req.headers.get('authorization');
+  const validToken = process.env.CRON_SECRET;
 
-    if (!validToken || authHeader !== `Bearer ${validToken}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin token required' },
-        { status: 401 }
-      );
-    }
+  // Validate that CRON_SECRET is configured
+  if (!validToken) {
+    console.error('[Test Endpoint] CRON_SECRET not configured - endpoint is disabled');
+    return NextResponse.json(
+      { error: 'Endpoint not configured - contact administrator' },
+      { status: 503 } // Service Unavailable
+    );
+  }
+
+  // Verify Bearer token
+  if (!authHeader || authHeader !== `Bearer ${validToken}`) {
+    console.warn('[Test Endpoint] Unauthorized access attempt');
+    return NextResponse.json(
+      { error: 'Unauthorized - Valid Bearer token required' },
+      { status: 401 }
+    );
   }
 
   try {
@@ -47,7 +56,10 @@ export async function GET(req: NextRequest) {
     // Determine target date
     const targetDate = dateParam || formatInTimeZone(new Date(), ROMANIAN_TZ, 'yyyy-MM-dd');
 
-    console.log(`[Test Endpoint] Starting test processing for date: ${targetDate}, dryRun: ${dryRun}`);
+    // 🔇 OPTIMIZATION: Only log in development to reduce noise
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Test Endpoint] Starting test processing for date: ${targetDate}, dryRun: ${dryRun}`);
+    }
 
     // Build query based on parameters
     let query = supabase
@@ -73,7 +85,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    console.log(`[Test Endpoint] Found ${reminders?.length || 0} reminders to process`);
+    // 🔇 OPTIMIZATION: Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Test Endpoint] Found ${reminders?.length || 0} reminders to process`);
+    }
 
     if (!reminders || reminders.length === 0) {
       return NextResponse.json({
@@ -140,7 +155,10 @@ export async function GET(req: NextRequest) {
       wouldSend: dryRun ? results.filter((r) => 'wouldNotify' in r && r.wouldNotify).length : 0,
     };
 
-    console.log('[Test Endpoint] Processing complete:', stats);
+    // 🔇 OPTIMIZATION: Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Test Endpoint] Processing complete:', stats);
+    }
 
     return NextResponse.json({
       success: true,

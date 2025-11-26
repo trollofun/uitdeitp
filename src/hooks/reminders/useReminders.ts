@@ -63,9 +63,13 @@ export function useReminders(
       const supabase = createBrowserClient();
 
       // Start building the query
+      // ✅ OPTIMIZATION: Specify exact columns instead of SELECT *
       let query = supabase
         .from('reminders')
-        .select('*', { count: 'exact' });
+        .select(
+          'id, user_id, guest_phone, guest_name, plate_number, reminder_type, expiry_date, notification_intervals, notification_channels, next_notification_date, last_notification_sent_at, source, station_id, consent_given, consent_timestamp, consent_ip, opt_out, opt_out_timestamp, deleted_at, created_at, updated_at',
+          { count: 'exact' }
+        );
 
       // Apply status filters
       if (filters?.status) {
@@ -167,9 +171,12 @@ export function useReminder(
       }
 
       const supabase = createBrowserClient();
+      // ✅ OPTIMIZATION: Specify exact columns instead of SELECT *
       const { data, error } = await supabase
         .from('reminders')
-        .select('*')
+        .select(
+          'id, user_id, guest_phone, guest_name, plate_number, reminder_type, expiry_date, notification_intervals, notification_channels, next_notification_date, last_notification_sent_at, source, station_id, consent_given, consent_timestamp, consent_ip, opt_out, opt_out_timestamp, deleted_at, created_at, updated_at'
+        )
         .eq('id', reminderId)
         .single();
 
