@@ -8,34 +8,34 @@ import { Label } from '@/components/ui/label';
 import { motion, LayoutGroup } from 'framer-motion';
 import { Phone, Check, AlertCircle, Loader2, Shield } from 'lucide-react';
 
-// Tastatura Numerică (inline component)
+// Tastatura Numerică Compactă (inline component)
 const ResponsiveNumpad = ({ onInput, onDelete }: { onInput: (v: string) => void, onDelete: () => void }) => (
-  <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full max-w-[400px] mx-auto select-none">
+  <div className="grid grid-cols-3 gap-1.5 sm:gap-2 w-full max-w-[320px] mx-auto select-none">
     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
       <motion.button
         key={num}
         whileTap={{ scale: 0.9, backgroundColor: "#e2e8f0" }}
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: num * 0.03 }}
+        transition={{ delay: num * 0.02 }}
         onClick={() => onInput(num.toString())}
-        className="h-20 sm:h-24 text-3xl sm:text-4xl font-bold bg-white rounded-xl sm:rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.05)] border border-slate-200 text-slate-800 active:shadow-none active:translate-y-1 transition-all"
+        className="h-14 sm:h-16 text-2xl sm:text-3xl font-bold bg-white rounded-xl shadow-[0_2px_0_0_rgba(0,0,0,0.05)] border border-slate-200 text-slate-800 active:shadow-none active:translate-y-0.5 transition-all"
       >
         {num}
       </motion.button>
     ))}
-    <div className="h-20 sm:h-24" />
+    <div className="h-14 sm:h-16" />
     <motion.button
       whileTap={{ scale: 0.9 }}
       onClick={() => onInput('0')}
-      className="h-20 sm:h-24 text-3xl sm:text-4xl font-bold bg-white rounded-xl sm:rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.05)] border border-slate-200 text-slate-800 active:shadow-none active:translate-y-1 transition-all"
+      className="h-14 sm:h-16 text-2xl sm:text-3xl font-bold bg-white rounded-xl shadow-[0_2px_0_0_rgba(0,0,0,0.05)] border border-slate-200 text-slate-800 active:shadow-none active:translate-y-0.5 transition-all"
     >
       0
     </motion.button>
     <motion.button
       whileTap={{ scale: 0.9 }}
       onClick={onDelete}
-      className="h-20 sm:h-24 flex items-center justify-center bg-red-50 rounded-xl sm:rounded-2xl shadow-[0_4px_0_#fee2e2] border border-red-100 text-red-500 active:shadow-none active:translate-y-1 transition-all text-2xl sm:text-3xl"
+      className="h-14 sm:h-16 flex items-center justify-center bg-red-50 rounded-xl shadow-[0_2px_0_#fee2e2] border border-red-100 text-red-500 active:shadow-none active:translate-y-0.5 transition-all text-xl sm:text-2xl"
     >
       ⌫
     </motion.button>
@@ -47,6 +47,7 @@ interface PhoneVerificationStepProps {
   stationSlug: string | null;  // null for dashboard verification, string for kiosk
   onVerified: (phone: string, consent: boolean) => void;  // Return both phone and consent
   onBack: () => void;
+  onActivity?: () => void;  // Optional: Call on user interaction to reset inactivity timer
 }
 
 export function PhoneVerificationStep({
@@ -54,6 +55,7 @@ export function PhoneVerificationStep({
   stationSlug,
   onVerified,
   onBack,
+  onActivity,
 }: PhoneVerificationStepProps) {
   // Internal state for phone (if not provided as prop)
   // EXPECTED INPUT: 10 digits starting with 0 (e.g., "0729440132")
@@ -212,9 +214,9 @@ export function PhoneVerificationStep({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {step === 'phone' ? (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 sm:space-y-6">
           <div className="text-center space-y-2">
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
               <Phone className="w-8 h-8 text-primary" />
@@ -250,55 +252,60 @@ export function PhoneVerificationStep({
           </div>
         </motion.div>
       ) : (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-              <Check className="w-8 h-8 text-primary" />
-            </div>
-            <h2 className="text-2xl font-bold">Cod de Verificare</h2>
-            <p className="font-mono font-bold text-lg">{formatPhoneDisplay(phone)}</p>
-          </div>
-          <div className="space-y-4">
-            <label className="text-sm font-medium text-center block">Cod de verificare</label>
-
-            {/* Code Display - Similar to phone display */}
-            <div className={`w-full max-w-[500px] mx-auto bg-white rounded-3xl border-4 px-4 py-5 sm:px-6 sm:py-6 shadow-lg transition-all duration-300 ${code.length >= 6 ? 'border-green-500 shadow-green-100' : 'border-slate-100'}`}>
-              <div className="text-2xl sm:text-3xl font-mono font-bold text-slate-800 flex items-center justify-center h-9 sm:h-10 gap-1">
-                <LayoutGroup>
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <motion.span
-                      layoutId={`code-digit-${i}`}
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      key={i}
-                      className="inline-block w-8 text-center"
-                    >
-                      {code[i] || '_'}
-                    </motion.span>
-                  ))}
-                </LayoutGroup>
-                {code.length < 6 && (
-                  <motion.div
-                    animate={{ opacity: [0, 1, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.8 }}
-                    className="w-0.5 sm:w-1 h-7 sm:h-8 bg-blue-600 ml-1"
-                  />
-                )}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-2 sm:space-y-3">
+          {/* Compact Header */}
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                <Check className="w-4 h-4 text-primary" />
               </div>
+              <h2 className="text-lg sm:text-xl font-bold">Introdu Codul SMS</h2>
             </div>
+            <p className="font-mono text-sm text-slate-500">{formatPhoneDisplay(phone)}</p>
+          </div>
+
+          {/* Code Display - Compact */}
+          <div className={`w-full max-w-[320px] mx-auto bg-white rounded-xl border-3 px-3 py-2 shadow-md transition-all duration-300 ${code.length >= 6 ? 'border-green-500 shadow-green-100' : 'border-slate-200'}`}>
+            <div className="text-xl sm:text-2xl font-mono font-bold text-slate-800 flex items-center justify-center h-8 gap-1">
+              <LayoutGroup>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <motion.span
+                    layoutId={`code-digit-${i}`}
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    key={i}
+                    className="inline-block w-7 text-center"
+                  >
+                    {code[i] || '_'}
+                  </motion.span>
+                ))}
+              </LayoutGroup>
+              {code.length < 6 && (
+                <motion.div
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                  className="w-0.5 h-6 bg-blue-600 ml-1"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
 
             {/* Numpad */}
-            <div className="bg-white/80 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl border border-white w-full max-w-[450px] mx-auto">
+            <div className="bg-white/80 backdrop-blur p-2 sm:p-3 rounded-2xl shadow-xl border border-white w-full max-w-[400px] mx-auto">
               <ResponsiveNumpad
                 onInput={(d) => {
                   if (code.length < 6) {
                     setCode(code + d);
                     setError('');
+                    onActivity?.();
                   }
                 }}
                 onDelete={() => {
                   if (code.length > 0) {
                     setCode(code.slice(0, -1));
+                    onActivity?.();
                   }
                 }}
               />
@@ -307,42 +314,44 @@ export function PhoneVerificationStep({
             <p className="text-xs text-muted-foreground text-center">Expiră în {formatTime(expiresIn)}</p>
           </div>
 
-          {/* GDPR Consent */}
-          <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-            <div className="flex items-start gap-3">
+          {/* GDPR Consent - Compact */}
+          <div className="bg-blue-50/50 p-2 sm:p-3 rounded-lg border border-blue-100">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="consent"
                 checked={consent}
-                onCheckedChange={(checked) => setConsent(checked as boolean)}
-                className="mt-1"
+                onCheckedChange={(checked) => {
+                  setConsent(checked as boolean);
+                  onActivity?.();
+                }}
+                className="h-5 w-5"
               />
-              <Label htmlFor="consent" className="text-sm leading-relaxed cursor-pointer flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Shield className="w-4 h-4 text-blue-600" />
-                  <span className="font-semibold text-blue-900">Consimțământ GDPR</span>
-                </div>
-                <span className="text-gray-700">
-                  Accept prelucrarea datelor mele personale (nume, telefon, număr auto)
-                  în scopul trimiterii de reminder-uri SMS/Email despre expirarea ITP.
-                  Datele vor fi stocate securizat conform GDPR.
+              <Label htmlFor="consent" className="text-xs leading-tight cursor-pointer flex-1">
+                <span className="flex items-center gap-1.5">
+                  <Shield className="w-3 h-3 text-blue-600 shrink-0" />
+                  <span className="text-gray-700">
+                    Accept prelucrarea datelor (nume, telefon, nr. auto) pentru reminder-uri ITP. <span className="text-blue-600 font-medium">GDPR</span>
+                  </span>
                 </span>
               </Label>
             </div>
           </div>
 
-          {error && (<div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg">
-            <AlertCircle className="w-5 h-5" /><span className="text-sm">{error}</span></div>)}
-          <div className="space-y-3">
-            <Button onClick={handleVerifyCode} disabled={loading || code.length !== 6 || !consent} className="w-full h-14">
-              {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Se verifică...</> : 'Verifică și Continuă'}
-            </Button>
+          {error && (<div className="flex items-center gap-2 p-2 bg-destructive/10 text-destructive rounded-lg">
+            <AlertCircle className="w-4 h-4" /><span className="text-xs">{error}</span></div>)}
+
+          {/* Buttons - Compact */}
+          <div className="flex gap-2">
             {canResend ? (
-              <Button variant="outline" onClick={handleResendCode} disabled={loading} className="w-full h-12">Retrimite Cod</Button>
+              <Button variant="outline" onClick={handleResendCode} disabled={loading} className="flex-1 h-11 text-sm">Retrimite</Button>
             ) : phoneProp ? (
-              <Button variant="ghost" onClick={onBack} disabled={loading} className="w-full h-12">Înapoi</Button>
+              <Button variant="outline" onClick={onBack} disabled={loading} className="flex-1 h-11 text-sm">Înapoi</Button>
             ) : (
-              <Button variant="ghost" onClick={() => setStep('phone')} disabled={loading} className="w-full h-12">Schimbă Numărul</Button>
+              <Button variant="outline" onClick={() => setStep('phone')} disabled={loading} className="flex-1 h-11 text-sm">Schimbă Nr.</Button>
             )}
+            <Button onClick={handleVerifyCode} disabled={loading || code.length !== 6 || !consent} className="flex-[2] h-11 text-sm">
+              {loading ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Verificare...</> : 'Verifică →'}
+            </Button>
           </div>
         </motion.div>
       )}

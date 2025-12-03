@@ -312,15 +312,21 @@ export default function KioskPage() {
     if (currentStep === 1) return 60000; // Home: 60s
     if (currentStep === 7) return 30000; // Success: 30s
 
-    // Pre-engagement (before phone verification): 60s
+    // CRITICAL: Step 4 (code verification) must match SMS code validity
+    // SMS code is valid for 10 minutes, so timeout must be at least 10 minutes
+    // User may receive SMS with delay, be distracted by customer, etc.
+    if (currentStep === 4) return 600000; // 600 seconds (10 minutes)
+
+    // Pre-engagement (before phone entry): 60s
     if (!isEngaged) return 60000;
 
-    // Post-engagement (after phone verification): 180s (3 minutes)
-    // User has verified phone (paid SMS), needs time to:
+    // Post-engagement (after phone entry): 180s (3 minutes)
+    // User has entered phone (shows intent), needs time to:
+    // - Wait for SMS (up to 60s)
+    // - Enter verification code (30-60s)
     // - Get registration document from car (30-60s)
     // - Read ITP expiry date (10-20s)
     // - Select date in picker (20-40s)
-    // - Read GDPR consent (30-60s)
     return 180000;
   };
 
@@ -582,7 +588,11 @@ export default function KioskPage() {
 
                             <motion.button
                                 whileTap={{ scale: 0.95 }}
-                                onClick={() => nextStep()}
+                                onClick={() => {
+                                  setIsEngaged(true); // Mark user as engaged after phone entry
+                                  console.log('[Kiosk] Phone entered - User now engaged, timeout extended to 180s');
+                                  nextStep();
+                                }}
                                 disabled={formData.phone.length < 12}
                                 className="hidden md:block w-full bg-blue-600 text-white py-6 rounded-2xl text-2xl font-bold shadow-xl shadow-blue-600/30 disabled:opacity-50 hover:bg-blue-700 transition-all"
                             >
@@ -647,7 +657,11 @@ export default function KioskPage() {
                             {/* Mobile button */}
                             <div className="md:hidden w-full space-y-3">
                                 <button
-                                  onClick={() => nextStep()}
+                                  onClick={() => {
+                                    setIsEngaged(true); // Mark user as engaged after phone entry
+                                    console.log('[Kiosk] Phone entered (mobile) - User now engaged, timeout extended to 180s');
+                                    nextStep();
+                                  }}
                                   disabled={formData.phone.length < 12}
                                   className="w-full bg-blue-600 text-white py-5 rounded-2xl text-xl font-bold shadow-xl disabled:opacity-50"
                                 >
@@ -677,11 +691,11 @@ export default function KioskPage() {
                         stationSlug={stationSlug}
                         onVerified={(verifiedPhone, consent) => {
                           setFormData({...formData, consent: true});
-                          setIsEngaged(true); // Mark user as engaged after phone verification
-                          console.log('[Kiosk] Phone verified - User now engaged, timeout extended to 180s');
+                          console.log('[Kiosk] Phone verified - Proceeding to next step');
                           nextStep();
                         }}
                         onBack={prevStep}
+                        onActivity={updateActivity}
                       />
                    </motion.div>
                 )}
