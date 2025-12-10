@@ -76,4 +76,8 @@ export const KIOSK_CONFIG = {
   minTouchTarget: 44, // 44x44px minimum touch target
   maxRetries: 3,
   autoResetDelay: 10000, // 10 seconds on success page
+  // Code verification timeout must match SMS code validity (10 minutes)
+  codeVerificationTimeout: 600000, // 600 seconds (10 minutes) - matches SMS code expiry
+  // Post-engagement timeout (after phone verified - user invested SMS cost)
+  postEngagementTimeout: 180000, // 180 seconds (3 minutes) - user needs time to check documents
 } as const;

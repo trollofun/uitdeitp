@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       await supabase
         .from('phone_verifications')
         .update({
-          attempts: supabase.rpc('increment_attempts')
+          attempts: supabase.raw('attempts + 1')
         })
         .eq('phone_number', formattedPhone)
         .eq('verification_code', code)  // Fixed: was "code"

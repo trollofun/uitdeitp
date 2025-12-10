@@ -56,20 +56,24 @@ export async function POST(req: NextRequest) {
     // Use service role to bypass RLS (verification is a system operation)
     const supabase = createServiceClient();
 
-    // Check rate limiting (3 codes per hour per phone)
-    const { data: rateLimitCheck, error: rpcError } = await supabase.rpc(
-      'check_verification_rate_limit_rpc',
-      { p_phone: formattedPhone }
-    );
+    // Check rate limiting manually before inserting (3 codes per hour per phone)
+    const { data: rateLimitCheck, error: rateLimitError } = await supabase
+      .from('phone_verifications')
+      .select('id')
+      .eq('phone_number', formattedPhone)
+      .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      .limit(3);
 
-    console.log('[Verification] RPC rate limit check:', {
+    console.log('[Verification] Manual rate limit check:', {
       data: rateLimitCheck,
-      error: rpcError,
-      phone: formattedPhone
+      error: rateLimitError,
+      phone: formattedPhone,
+      count: rateLimitCheck?.length || 0
     });
 
-    if (!rateLimitCheck) {
-      console.error('[Verification] Rate limit check failed or returned false');
+    // Allow only if less than 3 codes in last hour
+    if (!rateLimitCheck || rateLimitCheck.length >= 3) {
+      console.error('[Verification] Rate limit exceeded or check failed');
       // Generic error to prevent enumeration
       return NextResponse.json(
         { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },

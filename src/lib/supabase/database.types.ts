@@ -276,14 +276,21 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string | null
+          email_enabled: boolean | null
           full_name: string | null
           id: string
           latitude: number | null
           longitude: number | null
           phone: string | null
+          phone_verified: boolean | null
           postal_code: string | null
           prefers_sms: boolean | null
+          quiet_hours_enabled: boolean | null
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
+          reminder_intervals: Json | null
           role: Database["public"]["Enums"]["user_role"]
+          sms_enabled: boolean | null
           station_id: string | null
           subdivision: string | null
           updated_at: string | null
@@ -292,14 +299,21 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string | null
+          email_enabled?: boolean | null
           full_name?: string | null
           id: string
           latitude?: number | null
           longitude?: number | null
           phone?: string | null
+          phone_verified?: boolean | null
           postal_code?: string | null
           prefers_sms?: boolean | null
+          quiet_hours_enabled?: boolean | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          reminder_intervals?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
+          sms_enabled?: boolean | null
           station_id?: string | null
           subdivision?: string | null
           updated_at?: string | null
@@ -308,14 +322,21 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string | null
+          email_enabled?: boolean | null
           full_name?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
           phone?: string | null
+          phone_verified?: boolean | null
           postal_code?: string | null
           prefers_sms?: boolean | null
+          quiet_hours_enabled?: boolean | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          reminder_intervals?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
+          sms_enabled?: boolean | null
           station_id?: string | null
           subdivision?: string | null
           updated_at?: string | null

@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       await supabase
         .from('phone_verifications')
         .update({
-          attempts: supabase.rpc('increment', { column: 'attempts' })
+          attempts: supabase.raw('attempts + 1')
         })
         .eq('phone_number', phone)
         .eq('verification_code', code)

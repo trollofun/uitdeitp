@@ -39,3 +39,6 @@ export function createServerClient() {
     }
   );
 }
+
+// Export alias for backward compatibility
+export { createServerClient as createClient };
