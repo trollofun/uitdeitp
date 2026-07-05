@@ -15,6 +15,34 @@ import {
   getClientIp,
 } from '@/lib/api/middleware';
 
+const ALLOWED_ORIGINS = new Set([
+  'https://euroautoservice.ro',
+  'https://www.euroautoservice.ro',
+]);
+
+function corsHeaders(req: NextRequest) {
+  const origin = req.headers.get('origin');
+  if (!origin || !ALLOWED_ORIGINS.has(origin)) return {};
+
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin',
+  };
+}
+
+function addCorsHeaders(response: Response, req: NextRequest) {
+  for (const [key, value] of Object.entries(corsHeaders(req))) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
+
+export function OPTIONS(req: NextRequest) {
+  return new Response(null, { status: 204, headers: corsHeaders(req) });
+}
+
 /**
  * POST /api/kiosk/submit
  * Submit a guest reminder from kiosk (no authentication required)
@@ -140,8 +168,8 @@ export async function POST(req: NextRequest) {
       rateLimit.resetTime
     );
 
-    return response;
+    return addCorsHeaders(response, req);
   } catch (error) {
-    return handleApiError(error);
+    return addCorsHeaders(handleApiError(error), req);
   }
 }
