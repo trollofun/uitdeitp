@@ -76,15 +76,21 @@ export async function POST(req: NextRequest) {
 
     if (!verification || verification.length === 0) {
       // Increment attempts on failed verification
-      await supabase
+      const { data: failedAttempt } = await supabase
         .from('phone_verifications')
-        .update({
-          attempts: supabase.raw('attempts + 1')
-        })
+        .select('id, attempts')
         .eq('phone_number', formattedPhone)
         .eq('verification_code', code)  // Fixed: was "code"
         .is('verified', false)
-        .gt('expires_at', new Date().toISOString());
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle<{ id: string; attempts: number | null }>();
+
+      if (failedAttempt) {
+        await supabase
+          .from('phone_verifications')
+          .update({ attempts: Math.min((failedAttempt.attempts ?? 0) + 1, 10) })
+          .eq('id', failedAttempt.id);
+      }
 
       // Add timing protection
       await addTimingProtection();

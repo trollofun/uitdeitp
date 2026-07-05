@@ -20,7 +20,7 @@ const ALLOWED_ORIGINS = new Set([
   'https://www.euroautoservice.ro',
 ]);
 
-function corsHeaders(req: NextRequest) {
+function corsHeaders(req: NextRequest): Record<string, string> {
   const origin = req.headers.get('origin');
   if (!origin || !ALLOWED_ORIGINS.has(origin)) return {};
 

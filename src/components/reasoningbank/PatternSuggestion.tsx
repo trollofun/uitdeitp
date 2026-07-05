@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Copy, Check, Lightbulb, TrendingUp, Target } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'react-hot-toast';
 
 interface PatternSuggestionProps {
   pattern: Pattern;
@@ -23,10 +22,9 @@ export function PatternSuggestion({ pattern, onApply, showActions = true }: Patt
         `Pattern: ${pattern.description}\n\nContext: ${pattern.context}\n\nTags: ${pattern.tags}`
       );
       setCopied(true);
-      toast.success('Pattern copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      toast.error('Failed to copy pattern');
+      setCopied(false);
     }
   };
 

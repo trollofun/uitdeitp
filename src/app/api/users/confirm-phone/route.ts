@@ -62,14 +62,20 @@ export async function POST(req: NextRequest) {
       logger.warn(`Failed verification attempt for ${phone}`);
 
       // Increment attempts counter
-      await supabase
+      const { data: failedAttempt } = await supabase
         .from('phone_verifications')
-        .update({
-          attempts: supabase.raw('attempts + 1')
-        })
+        .select('id, attempts')
         .eq('phone_number', phone)
         .eq('verification_code', code)
-        .gt('expires_at', new Date().toISOString());
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle<{ id: string; attempts: number | null }>();
+
+      if (failedAttempt) {
+        await supabase
+          .from('phone_verifications')
+          .update({ attempts: Math.min((failedAttempt.attempts ?? 0) + 1, 10) })
+          .eq('id', failedAttempt.id);
+      }
 
       throw new ApiError(
         ApiErrorCode.VALIDATION_ERROR,
