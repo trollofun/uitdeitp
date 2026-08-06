@@ -92,7 +92,6 @@ export async function login(data: LoginInput): Promise<ActionResult> {
     }
 
     revalidatePath('/', 'layout');
-    redirect('/dashboard');
   } catch (error) {
     console.error('Login error:', error);
     return {
@@ -100,6 +99,10 @@ export async function login(data: LoginInput): Promise<ActionResult> {
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
     };
   }
+
+  // redirect() throws NEXT_REDIRECT — it must live outside try/catch,
+  // otherwise a successful login surfaces as a generic error to the user
+  redirect('/dashboard');
 }
 
 /**
@@ -153,7 +156,6 @@ export async function register(data: RegisterInput): Promise<ActionResult> {
     }
 
     revalidatePath('/', 'layout');
-    redirect('/dashboard');
   } catch (error) {
     console.error('Register error', error);
     return {
@@ -161,6 +163,8 @@ export async function register(data: RegisterInput): Promise<ActionResult> {
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
     };
   }
+
+  redirect('/dashboard');
 }
 
 /**
@@ -184,7 +188,9 @@ export async function requestPasswordReset(
     const supabase = createServerClient();
 
     const { error } = await supabase.auth.resetPasswordForEmail(validated.email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
+      // The reset page lives at /reset-password (the (auth) route group does
+      // not add a URL segment); /auth/reset-password does not exist
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`,
     });
 
     if (error) {
@@ -226,7 +232,6 @@ export async function resetPassword(data: ResetPasswordInput): Promise<ActionRes
     }
 
     revalidatePath('/', 'layout');
-    redirect('/login');
   } catch (error) {
     console.error('Password update error', error);
     return {
@@ -234,6 +239,8 @@ export async function resetPassword(data: ResetPasswordInput): Promise<ActionRes
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
     };
   }
+
+  redirect('/login');
 }
 
 /**
@@ -253,7 +260,6 @@ export async function logout(): Promise<ActionResult> {
     }
 
     revalidatePath('/', 'layout');
-    redirect('/login');
   } catch (error) {
     console.error('Logout error', error);
     return {
@@ -261,6 +267,8 @@ export async function logout(): Promise<ActionResult> {
       error: 'A apărut o eroare. Vă rugăm să încercați din nou.',
     };
   }
+
+  redirect('/login');
 }
 
 /**

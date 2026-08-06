@@ -234,7 +234,9 @@ export function ProfileTab() {
   };
 
   const handlePhoneVerified = async (phone: string) => {
-    await saveProfile({ phone, phone_verified: true });
+    // Phone + phone_verified are persisted server-side by /api/verification/verify;
+    // just sync local state so the UI reflects the verified badge immediately.
+    setProfile((prev) => (prev ? { ...prev, phone, phone_verified: true } : prev));
     setShowPhoneModal(false);
   };
 

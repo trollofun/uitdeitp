@@ -10,7 +10,9 @@
  * - Attempt tracking (max 10 attempts)
  */
 
-import { createServerClient } from '@/lib/supabase/server';
+// Service-role client: phone_verifications RLS only allows anon inserts, so the
+// authenticated dashboard flow must bypass RLS for these system operations.
+import { createServiceClient } from '@/lib/supabase/service';
 
 const NOTIFYHUB_URL = process.env.NOTIFYHUB_URL!;
 const NOTIFYHUB_API_KEY = process.env.NOTIFYHUB_API_KEY!;
@@ -42,31 +44,33 @@ function generateVerificationCode(): string {
  * Output: "+40712345678"
  */
 export function normalizePhoneNumber(phone: string): string {
-  // Remove all non-digit characters
-  const digits = phone.replace(/\D/g, '');
+  // Remove all non-digit characters, then strip international "00" prefix
+  let digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2);
+  }
 
-  // Handle different formats
-  if (digits.startsWith('40')) {
-    return `+${digits}`;
-  } else if (digits.startsWith('0')) {
-    return `+4${digits}`;
+  let normalized: string | null = null;
+  if (digits.startsWith('40') && digits.length === 11) {
+    normalized = `+${digits}`;
+  } else if (digits.startsWith('0') && digits.length === 10) {
+    normalized = `+4${digits}`;
   } else if (digits.length === 9) {
-    return `+40${digits}`;
+    normalized = `+40${digits}`;
   }
 
-  // If already starts with +40, return as-is
-  if (phone.startsWith('+40')) {
-    return phone;
+  if (!normalized || !/^\+40\d{9}$/.test(normalized)) {
+    throw new Error('Invalid Romanian phone number format');
   }
 
-  throw new Error('Invalid Romanian phone number format');
+  return normalized;
 }
 
 /**
  * Check if phone number has exceeded SMS rate limit
  */
 async function checkRateLimit(phone: string): Promise<boolean> {
-  const supabase = createServerClient();
+  const supabase = createServiceClient();
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
   const { count, error } = await supabase
@@ -124,7 +128,7 @@ export async function sendVerificationCode(
   userId?: string
 ): Promise<SendCodeResult> {
   try {
-    const supabase = createServerClient();
+    const supabase = createServiceClient();
 
     // Normalize phone number
     const normalizedPhone = normalizePhoneNumber(phone);
@@ -205,7 +209,7 @@ export async function verifyCode(
   userId?: string
 ): Promise<VerifyCodeResult> {
   try {
-    const supabase = createServerClient();
+    const supabase = createServiceClient();
 
     // Normalize phone number
     const normalizedPhone = normalizePhoneNumber(phone);
@@ -268,13 +272,25 @@ export async function verifyCode(
 
     // If user is logged in, update their profile
     if (userId) {
-      await supabase
+      const { error: profileError } = await supabase
         .from('user_profiles')
         .update({
           phone: normalizedPhone,
           phone_verified: true,
         })
         .eq('id', userId);
+
+      if (!profileError) {
+        // Claim guest (kiosk) reminders registered under this verified phone.
+        // RPC is created by the unification migration — failure is non-fatal.
+        const { error: claimError } = await supabase.rpc('claim_guest_reminders', {
+          p_user_id: userId,
+          p_phone: normalizedPhone,
+        });
+        if (claimError) {
+          console.warn('claim_guest_reminders unavailable or failed:', claimError.message);
+        }
+      }
     }
 
     return {
@@ -293,7 +309,7 @@ export async function verifyCode(
  * Check if a phone number is already verified for a user
  */
 export async function isPhoneVerified(userId: string): Promise<boolean> {
-  const supabase = createServerClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from('user_profiles')

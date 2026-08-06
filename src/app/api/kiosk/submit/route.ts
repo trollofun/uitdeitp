@@ -127,10 +127,28 @@ export async function POST(req: NextRequest) {
     // Get client IP
     const clientIp = getClientIp(req);
 
+    // Unification: if a registered account already owns this VERIFIED phone,
+    // attach the reminder to it so it shows up in their dashboard. The kiosk
+    // flow just SMS-verified possession of the phone, so this is safe. When no
+    // match exists (or lookup fails), the insert is identical to before.
+    let ownerUserId: string | null = null;
+    try {
+      const { data: owner } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('phone', validated.guest_phone)
+        .eq('phone_verified', true)
+        .maybeSingle();
+      ownerUserId = owner?.id ?? null;
+    } catch (ownerLookupError) {
+      console.warn('[Kiosk] Owner lookup failed (continuing as guest):', ownerLookupError);
+    }
+
     // Create reminder
     const { data, error } = await supabase
       .from('reminders')
       .insert({
+        user_id: ownerUserId,
         guest_name: validated.guest_name,
         guest_phone: validated.guest_phone,
         plate_number: validated.plate_number,

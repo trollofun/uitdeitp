@@ -26,6 +26,9 @@ async function createReminder(data: CreateReminder) {
     notification_channels: data.notification_channels,
     guest_phone: data.guest_phone,
     guest_name: data.guest_name,
+    source: 'web',
+    consent_given: true,
+    consent_timestamp: new Date().toISOString(),
   });
 
   if (error) {

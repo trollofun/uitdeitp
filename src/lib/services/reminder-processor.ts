@@ -66,17 +66,52 @@ export async function processReminder(
   // 2. next_notification_date was calculated based on intervals when reminder was created/updated
   // 3. If cron job failed previously, we need to send overdue notifications regardless of current daysUntilExpiry
 
-  // Check if user opted out
-  const phoneToCheck = reminder.guest_phone || null;
-  if (phoneToCheck) {
-    const { data: optOut } = await supabase
+  // Load profile once for registered users (contact info + notification prefs)
+  const isRegisteredUser = !!reminder.user_id;
+  let profile: {
+    email?: string | null;
+    phone?: string | null;
+    email_enabled?: boolean | null;
+    sms_enabled?: boolean | null;
+  } | null = null;
+
+  if (isRegisteredUser) {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('phone, email_enabled, sms_enabled')
+      .eq('id', reminder.user_id)
+      .maybeSingle();
+    profile = data;
+
+    // Email lives on auth.users, NOT user_profiles (selecting it from the
+    // profile errors out and silently killed every registered-user email)
+    const { data: authUser } = await supabase.auth.admin.getUserById(reminder.user_id!);
+    if (profile) {
+      profile.email = authUser?.user?.email ?? null;
+    } else {
+      profile = { email: authUser?.user?.email ?? null };
+    }
+  }
+
+  // Check if user opted out — guest phone AND the registered user's profile phone
+  const phonesToCheck = [reminder.guest_phone, profile?.phone].filter(
+    (p): p is string => !!p
+  );
+  if (phonesToCheck.length > 0) {
+    const { data: optOuts } = await supabase
       .from('global_opt_outs')
       .select('phone')
-      .eq('phone', phoneToCheck)
-      .single();
+      .in('phone', phonesToCheck);
 
-    if (optOut) {
-      console.log(`[Processor] User opted out: ${phoneToCheck}`);
+    if (optOuts && optOuts.length > 0) {
+      console.log(`[Processor] User opted out: ${optOuts.map((o) => o.phone).join(', ')}`);
+      // Persist the opt-out on the reminder so it is excluded from future runs
+      // instead of being re-fetched and re-skipped every day
+      await supabase
+        .from('reminders')
+        .update({ opt_out: true, opt_out_timestamp: new Date().toISOString() })
+        .eq('id', reminder.id);
+
       return {
         reminderId: reminder.id,
         plate: reminder.plate_number,
@@ -117,13 +152,16 @@ export async function processReminder(
     }
   }
 
-  // Determine notification channels based on user preferences
-  const isRegisteredUser = !!reminder.user_id;
+  // Determine notification channels based on per-reminder preferences AND
+  // profile-level settings toggles (email_enabled / sms_enabled; null = allowed)
   const channels = reminder.notification_channels || { email: true, sms: false };
 
   // For guest users, only SMS is available
-  const shouldSendEmail = isRegisteredUser && (channels.email === true);
-  const shouldSendSMS = channels.sms === true || !isRegisteredUser;
+  const shouldSendEmail =
+    isRegisteredUser && channels.email === true && profile?.email_enabled !== false;
+  const shouldSendSMS =
+    (channels.sms === true || !isRegisteredUser) &&
+    (!isRegisteredUser || profile?.sms_enabled !== false);
 
   console.log(`[Processor] Notification plan: email=${shouldSendEmail}, sms=${shouldSendSMS}, registered=${isRegisteredUser}`);
 
@@ -133,13 +171,6 @@ export async function processReminder(
 
   // Send email (for registered users who opted in)
   if (shouldSendEmail) {
-    // Get user email from user_profiles
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('email')
-      .eq('id', reminder.user_id)
-      .single();
-
     if (profile?.email) {
       console.log(`[Processor] Sending email to ${profile.email}`);
       emailResult = await sendReminderEmail({
@@ -181,18 +212,8 @@ export async function processReminder(
 
   // Send SMS (if user opted in or is a guest user)
   if (shouldSendSMS) {
-    // Get phone number - from user_profiles for registered users, guest_phone for guests
-    let phoneNumber = reminder.guest_phone;
-
-    if (isRegisteredUser) {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('phone')
-        .eq('id', reminder.user_id)
-        .single();
-
-      phoneNumber = profile?.phone || null;
-    }
+    // Get phone number - profile phone for registered users, guest_phone as fallback
+    const phoneNumber = (isRegisteredUser ? profile?.phone : null) || reminder.guest_phone;
 
     if (phoneNumber) {
       console.log(`[Processor] Sending SMS to ${phoneNumber}`);
@@ -336,15 +357,24 @@ export async function processReminder(
     }
   }
 
-  // Update reminder with next notification date
-  await supabase
-    .from('reminders')
-    .update({
-      next_notification_date: nextNotificationDate,
-    })
-    .eq('id', reminder.id);
-
   const success = !!(emailResult?.success || smsResult?.success);
+  const attempted = emailResult !== undefined || smsResult !== undefined;
+
+  // Advance the schedule when something was delivered, or when nothing could be
+  // attempted (no contact info — avoids reprocessing the same row forever).
+  // When a send was attempted and failed (transient outage), keep the date so
+  // tomorrow's run retries the missed interval.
+  if (success || !attempted) {
+    await supabase
+      .from('reminders')
+      .update({
+        next_notification_date: nextNotificationDate,
+        last_notification_sent_at: success ? new Date().toISOString() : undefined,
+      })
+      .eq('id', reminder.id);
+  } else {
+    console.warn(`[Processor] All sends failed for ${reminder.id} — keeping next_notification_date for retry`);
+  }
 
   return {
     reminderId: reminder.id,
@@ -386,7 +416,9 @@ export async function processRemindersForToday() {
     .from('reminders')
     .select('*')
     .lte('next_notification_date', today)
-    .not('next_notification_date', 'is', null);
+    .not('next_notification_date', 'is', null)
+    .is('deleted_at', null)
+    .or('opt_out.is.null,opt_out.eq.false');
 
   if (remindersError) {
     console.error('[Processor] Error fetching reminders:', remindersError);

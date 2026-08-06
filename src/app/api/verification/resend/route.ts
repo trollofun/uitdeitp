@@ -6,7 +6,7 @@ import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/midd
 
 const resendSchema = z.object({
   phone: z.string().min(9).max(15),
-  stationSlug: z.string().min(1),
+  stationSlug: z.string().min(1).nullable().optional(),
 });
 
 /**
@@ -68,19 +68,26 @@ export async function POST(req: NextRequest) {
     // Note: Old unverified codes will expire naturally after 10 minutes
     // No need to manually invalidate them
 
-    // Get station_id from slug
-    const { data: station, error: stationError } = await supabase
-      .from('kiosk_stations')
-      .select('id')
-      .eq('slug', stationSlug)
-      .single();
+    // Get station_id from slug (null for dashboard/profile verification)
+    let stationId: string | null = null;
+    let source = 'profile_update';
 
-    if (stationError || !station) {
-      console.error('[Resend] Station not found:', { slug: stationSlug, error: stationError });
-      return NextResponse.json(
-        { error: 'Stația nu a fost găsită' },
-        { status: 400 }
-      );
+    if (stationSlug) {
+      const { data: station, error: stationError } = await supabase
+        .from('kiosk_stations')
+        .select('id')
+        .eq('slug', stationSlug)
+        .single();
+
+      if (stationError || !station) {
+        console.error('[Resend] Station not found:', { slug: stationSlug, error: stationError });
+        return NextResponse.json(
+          { error: 'Stația nu a fost găsită' },
+          { status: 400 }
+        );
+      }
+      stationId = station.id;
+      source = 'kiosk';
     }
 
     // Generate new 6-digit code
@@ -92,8 +99,8 @@ export async function POST(req: NextRequest) {
       .insert({
         phone_number: formattedPhone,
         verification_code: code,
-        source: 'kiosk',  // Required by RLS policy
-        station_id: station.id,
+        source: source,
+        station_id: stationId,
         verified: false,  // Required by RLS policy
         attempts: 0,      // Required by RLS policy
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),

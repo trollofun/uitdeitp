@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/service';
+import { createServerClient } from '@/lib/supabase/server';
 import { formatPhoneNumber } from '@/lib/services/phone';
 import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
 
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if expired or too many attempts (use same generic error)
+    // Check if expired or too many attempts (actionable message: the code itself was correct)
     if (new Date(record.expires_at) < new Date() || record.attempts >= 3) {
       // Add timing protection
       await addTimingProtection();
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: GENERIC_ERROR
+          error: 'Codul a expirat sau a fost încercat de prea multe ori. Apasă „Retrimite" pentru un cod nou.'
         },
         { status: 400 }
       );
@@ -155,6 +156,46 @@ export async function POST(req: NextRequest) {
         { error: GENERIC_ERROR },
         { status: 400 }
       );
+    }
+
+    // If the request comes from a logged-in user (dashboard/profile verification),
+    // persist the verified phone on their profile server-side and claim any
+    // guest (kiosk) reminders registered under this phone. Kiosk guests have no
+    // session, so this block is a no-op for the kiosk flow.
+    try {
+      const authClient = createServerClient();
+      const {
+        data: { user },
+      } = await authClient.auth.getUser();
+
+      if (user) {
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .update({
+            phone: formattedPhone,
+            phone_verified: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+
+        if (profileError) {
+          console.error('[Verify] Failed to persist verified phone on profile:', profileError);
+        } else {
+          // Claim guest reminders by verified phone (RPC may not exist until the
+          // unification migration is applied — never fail verification over it)
+          const { data: claimed, error: claimError } = await supabase.rpc(
+            'claim_guest_reminders' as any,
+            { p_user_id: user.id, p_phone: formattedPhone } as any
+          );
+          if (claimError) {
+            console.warn('[Verify] claim_guest_reminders unavailable or failed:', claimError.message);
+          } else if (claimed) {
+            console.log(`[Verify] Claimed ${claimed} guest reminder(s) for user ${user.id}`);
+          }
+        }
+      }
+    } catch (linkError) {
+      console.error('[Verify] Post-verification profile link error:', linkError);
     }
 
     // Add timing protection for success path too

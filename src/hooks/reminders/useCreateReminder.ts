@@ -15,7 +15,7 @@ export interface CreateReminderInput {
   reminder_type: 'itp' | 'rca' | 'rovinieta';
   expiry_date: string;
   notification_intervals?: number[];
-  notification_channels?: string[];
+  notification_channels?: { sms: boolean; email: boolean };
   source: 'web' | 'kiosk' | 'whatsapp' | 'voice' | 'import';
   station_id?: string | null;
   consent_given?: boolean;
@@ -72,20 +72,28 @@ export function useCreateReminder(
         throw new Error('Source is required');
       }
 
+      // Attribute the reminder to the logged-in user unless explicitly overridden;
+      // without user_id the row is invisible in the user's dashboard (filtered by user_id)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const userId = input.user_id !== undefined ? input.user_id : user?.id ?? null;
+      const consentGiven = input.consent_given ?? !!userId;
+
       // Prepare insert data
       const reminderData: ReminderInsert = {
-        user_id: input.user_id,
+        user_id: userId,
         guest_phone: input.guest_phone,
         guest_name: input.guest_name,
         plate_number: input.plate_number.toUpperCase().trim(),
         reminder_type: input.reminder_type || 'itp',
         expiry_date: input.expiry_date,
-        notification_intervals: input.notification_intervals || [5, 3, 1],
-        notification_channels: input.notification_channels || ['sms'],
+        notification_intervals: input.notification_intervals || [5, 1],
+        notification_channels: input.notification_channels || { sms: true, email: true },
         source: input.source,
         station_id: input.station_id,
-        consent_given: input.consent_given ?? false,
-        consent_timestamp: input.consent_given ? new Date().toISOString() : null,
+        consent_given: consentGiven,
+        consent_timestamp: consentGiven ? new Date().toISOString() : null,
         consent_ip: input.consent_ip,
       };
 
@@ -121,8 +129,8 @@ export function useCreateReminder(
         plate_number: newReminder.plate_number.toUpperCase().trim(),
         reminder_type: newReminder.reminder_type || 'itp',
         expiry_date: newReminder.expiry_date,
-        notification_intervals: newReminder.notification_intervals || [5, 3, 1],
-        notification_channels: newReminder.notification_channels || ['sms'],
+        notification_intervals: newReminder.notification_intervals || [5, 1],
+        notification_channels: newReminder.notification_channels || { sms: true, email: true },
         last_notification_sent_at: null,
         next_notification_date: null,
         source: newReminder.source,
@@ -201,8 +209,8 @@ export function useCreateReminders(
         plate_number: input.plate_number.toUpperCase().trim(),
         reminder_type: input.reminder_type || 'itp',
         expiry_date: input.expiry_date,
-        notification_intervals: input.notification_intervals || [5, 3, 1],
-        notification_channels: input.notification_channels || ['sms'],
+        notification_intervals: input.notification_intervals || [5, 1],
+        notification_channels: input.notification_channels || { sms: true, email: true },
         source: input.source,
         station_id: input.station_id,
         consent_given: input.consent_given ?? false,

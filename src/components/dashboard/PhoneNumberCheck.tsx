@@ -8,7 +8,6 @@ import { useToast } from '@/hooks/useToast';
 export function PhoneNumberCheck() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const supabase = createBrowserClient();
   const { toast } = useToast();
 
@@ -21,8 +20,6 @@ export function PhoneNumberCheck() {
         } = await supabase.auth.getUser();
 
         if (!authUser) return;
-
-        setUser(authUser);
 
         // Get user profile with phone verification status
         const { data: profile, error } = await supabase
@@ -62,35 +59,15 @@ export function PhoneNumberCheck() {
   }, [supabase]);
 
   const handleVerified = async (phone: string) => {
-    if (!user) return;
+    // The phone and phone_verified flag are persisted server-side by
+    // /api/verification/verify — the client only confirms and refreshes.
+    toast({
+      title: 'Telefon verificat cu succes!',
+      description: 'Acum poți primi notificări SMS.',
+      variant: 'success',
+    });
 
-    try {
-      // Update user profile with verified phone
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          phone: phone,
-          phone_verified: true,
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Telefon verificat cu succes!',
-        description: 'Acum poți primi notificări SMS.',
-        variant: 'success',
-      });
-
-      setIsModalOpen(false);
-    } catch (error) {
-      console.error('Error updating phone:', error);
-      toast({
-        title: 'Eroare la salvarea numărului de telefon',
-        description: 'Te rugăm să încerci din nou.',
-        variant: 'destructive',
-      });
-    }
+    setIsModalOpen(false);
   };
 
   const handleClose = () => {

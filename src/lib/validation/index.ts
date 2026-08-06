@@ -12,19 +12,12 @@ export const plateNumberSchema = z
   .string()
   .min(6, 'Număr de înmatriculare prea scurt')
   .max(15, 'Număr de înmatriculare prea lung')
-  .transform((val) => {
-    // Remove all non-alphanumeric characters and convert to uppercase
-    const normalized = val.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-
-    // Validate structure: 1-2 letters + 2-3 digits + 3 letters
-    const platePattern = /^[A-Z]{1,2}[0-9]{2,3}[A-Z]{3}$/;
-
-    if (!platePattern.test(normalized)) {
-      throw new Error('Număr de înmatriculare invalid (ex: B123ABC, B-123-ABC)');
-    }
-
-    return normalized; // Returns: B123ABC (without separators)
-  });
+  .transform((val) => val.replace(/[^A-Z0-9]/gi, '').toUpperCase())
+  .refine(
+    // Structure: 1-2 letters + 2-3 digits + 2-3 letters (older plates end in 2 letters)
+    (normalized) => /^[A-Z]{1,2}[0-9]{2,3}[A-Z]{2,3}$/.test(normalized),
+    'Număr de înmatriculare invalid (ex: B123ABC, B-123-ABC)'
+  ); // Returns: B123ABC (without separators)
 
 // Email validation
 export const emailSchema = z.string().email('Email invalid');
@@ -36,7 +29,15 @@ export const userProfileSchema = z.object({
   prefers_sms: z.boolean().default(false),
 });
 
-export const userProfileUpdateSchema = userProfileSchema.partial();
+export const userProfileUpdateSchema = userProfileSchema.partial().extend({
+  // Profile settings persisted from the dashboard (previously stripped silently)
+  city: z.string().max(100).nullable().optional(),
+  country: z.string().max(100).nullable().optional(),
+  avatar_url: z.string().url().nullable().optional().or(z.literal('')),
+  use_manual_location: z.boolean().optional(),
+  // NOTE: phone_verified is intentionally NOT accepted here — it is set
+  // server-side by /api/verification/verify after a successful SMS check.
+});
 
 // Reminder schemas
 export const reminderTypeSchema = z.enum(['itp', 'rca', 'rovinieta']);

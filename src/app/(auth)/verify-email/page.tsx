@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createBrowserClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/auth/input';
 import { Label } from '@/components/auth/label';
@@ -10,16 +11,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Mail, CheckCircle, Loader2 } from 'lucide-react';
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [email, setEmail] = useState(searchParams.get('email') || '');
   const [verificationCode, setVerificationCode] = useState('');
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [lastResendTime, setLastResendTime] = useState<number>(0);
 
   async function handleResendEmail() {
+    if (!email) {
+      toast({
+        variant: 'destructive',
+        title: 'Eroare',
+        description: 'Introduceți adresa de email pentru a retrimite verificarea.',
+      });
+      return;
+    }
+
     // Rate limit: 1 resend per minute
     const now = Date.now();
     if (now - lastResendTime < 60000) {
@@ -35,21 +47,22 @@ export default function VerifyEmailPage() {
     setResending(true);
 
     try {
-      // Call resend endpoint
-      const response = await fetch('/api/verification/resend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const supabase = createBrowserClient();
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
 
-      if (response.ok) {
-        setLastResendTime(now);
-        toast({
-          title: 'Email trimis',
-          description: 'Am retrimis emailul de verificare. Verificați inbox-ul.',
-        });
-      } else {
-        throw new Error('Failed to resend email');
-      }
+      if (error) throw error;
+
+      setLastResendTime(now);
+      toast({
+        title: 'Email trimis',
+        description: 'Am retrimis emailul de verificare. Verificați inbox-ul.',
+      });
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -64,6 +77,15 @@ export default function VerifyEmailPage() {
   async function handleVerifyCode(e: React.FormEvent) {
     e.preventDefault();
 
+    if (!email) {
+      toast({
+        variant: 'destructive',
+        title: 'Eroare',
+        description: 'Introduceți adresa de email.',
+      });
+      return;
+    }
+
     if (verificationCode.length !== 6) {
       toast({
         variant: 'destructive',
@@ -76,22 +98,20 @@ export default function VerifyEmailPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/verification/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: verificationCode }),
+      const supabase = createBrowserClient();
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: verificationCode,
+        type: 'signup',
       });
 
-      if (response.ok) {
-        toast({
-          title: 'Verificare reușită',
-          description: 'Contul dvs. a fost verificat cu succes!',
-        });
-        router.push('/dashboard');
-      } else {
-        const data = await response.json();
-        throw new Error(data.error || 'Verification failed');
-      }
+      if (error) throw new Error('Cod de verificare invalid sau expirat.');
+
+      toast({
+        title: 'Verificare reușită',
+        description: 'Contul dvs. a fost verificat cu succes!',
+      });
+      router.push('/dashboard');
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -131,6 +151,18 @@ export default function VerifyEmailPage() {
           </div>
 
           <div className="space-y-3">
+            {!searchParams.get('email') && (
+              <div className="space-y-2">
+                <Label htmlFor="email">Adresa de email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@exemplu.ro"
+                />
+              </div>
+            )}
             <Button
               onClick={handleResendEmail}
               disabled={resending}
@@ -196,7 +228,7 @@ export default function VerifyEmailPage() {
           <div className="pt-4 text-center">
             <p className="text-sm text-gray-600">
               Înapoi la{' '}
-              <Link href="/auth/login" className="font-medium text-blue-600 hover:underline">
+              <Link href="/login" className="font-medium text-blue-600 hover:underline">
                 autentificare
               </Link>
             </p>
@@ -204,5 +236,13 @@ export default function VerifyEmailPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={null}>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

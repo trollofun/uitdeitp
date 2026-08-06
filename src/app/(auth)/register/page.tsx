@@ -65,8 +65,8 @@ export default function RegisterPage() {
       });
       setLoading(false);
     } else {
-      // Redirect to verification page
-      router.push('/auth/verify-email');
+      // Redirect to verification page (email passed so it can resend/verify)
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
     }
   }
 

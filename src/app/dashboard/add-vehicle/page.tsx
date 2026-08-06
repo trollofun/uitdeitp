@@ -69,8 +69,8 @@ export default function AddVehiclePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           plate_number: plateNumber,
-          itp_expiry_date: expiryDate,
-          sms_notifications_enabled: smsNotifications,
+          expiry_date: expiryDate,
+          notification_channels: { sms: smsNotifications, email: true },
         }),
       });
 

@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { createReminderSchema } from '@/lib/validation';
 
@@ -38,14 +39,18 @@ export async function POST(request: NextRequest) {
       notification_channels,
     } = validated.data;
 
-    // Check if reminder already exists for this plate number and user
-    const { data: existing } = await supabase
+    // Admin client: the insert must be attributed to the user regardless of RLS drift
+    const admin = createAdminClient();
+
+    // Check if an active reminder already exists for this plate number and user
+    const { data: existing } = await admin
       .from('reminders')
       .select('id')
       .eq('plate_number', plate_number)
-      .eq('guest_phone', user.phone || user.email)
+      .eq('user_id', user.id)
+      .eq('reminder_type', reminder_type)
       .is('deleted_at', null)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       return NextResponse.json(
@@ -54,22 +59,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate confirmation code
-    const confirmationCode = 'ITP' + Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    // Create reminder with user-selected notification preferences
-    const { data: reminder, error } = await supabase
+    // Create reminder owned by the authenticated user
+    const { data: reminder, error } = await admin
       .from('reminders')
       .insert({
-        guest_phone: user.phone || user.email,
-        plate_number: plate_number.toUpperCase(),
+        user_id: user.id,
+        plate_number: plate_number,
         expiry_date: expiry_date.toISOString(),
         reminder_type: reminder_type,
         consent_given: true,
+        consent_timestamp: new Date().toISOString(),
         notification_intervals: notification_intervals,
         notification_channels: notification_channels,
-        source: 'dashboard',
-        confirmation_code: confirmationCode,
+        source: 'web',
       })
       .select()
       .single();

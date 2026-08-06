@@ -90,6 +90,11 @@ export async function PATCH(req: NextRequest) {
     const validated = await validateRequestBody(req, userProfileUpdateSchema);
     const supabase = createServerClient();
 
+    const updatePayload: Record<string, unknown> = {
+      ...validated,
+      updated_at: new Date().toISOString(),
+    };
+
     // Check if phone is being changed and is already in use
     if (validated.phone) {
       const { data: existingPhone } = await supabase
@@ -97,7 +102,7 @@ export async function PATCH(req: NextRequest) {
         .select('id')
         .eq('phone', validated.phone)
         .neq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (existingPhone) {
         throw new ApiError(
@@ -106,15 +111,23 @@ export async function PATCH(req: NextRequest) {
           409
         );
       }
+
+      // A changed phone must be re-verified via SMS before it counts as verified
+      const { data: currentProfile } = await supabase
+        .from('user_profiles')
+        .select('phone')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (currentProfile && currentProfile.phone !== validated.phone) {
+        updatePayload.phone_verified = false;
+      }
     }
 
     // Update profile
     const { data, error } = await supabase
       .from('user_profiles')
-      .update({
-        ...validated,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', user.id)
       .select()
       .single();

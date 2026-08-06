@@ -178,7 +178,19 @@ export function PhoneVerificationStep({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Cod invalid');
-      if (data.verified) onVerified(phone, consent);  // Return both phone and consent
+      if (data.verified) {
+        // Always hand back E.164 (+40...) — profile/API/DB all require this format
+        const digits = phone.replace(/\D/g, '');
+        const e164 =
+          digits.length === 10 && digits.startsWith('0')
+            ? `+40${digits.slice(1)}`
+            : digits.length === 9
+              ? `+40${digits}`
+              : phone.startsWith('+')
+                ? phone
+                : `+${digits}`;
+        onVerified(e164, consent);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cod invalid');
     } finally {

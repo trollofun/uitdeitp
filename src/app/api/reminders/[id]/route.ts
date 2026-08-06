@@ -1,5 +1,44 @@
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
+import type { User } from '@supabase/supabase-js';
+
+/**
+ * Ownership: the reminder belongs to the user if user_id matches, or if it is a
+ * guest (kiosk) reminder whose phone equals the user's VERIFIED profile phone.
+ */
+async function getOwnedReminder(user: User, reminderId: string) {
+  const admin = createAdminClient();
+
+  const { data: reminder, error } = await admin
+    .from('reminders')
+    .select('*')
+    .eq('id', reminderId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error || !reminder) {
+    return { reminder: null, owned: false };
+  }
+
+  if (reminder.user_id === user.id) {
+    return { reminder, owned: true };
+  }
+
+  if (!reminder.user_id && reminder.guest_phone) {
+    const { data: profile } = await admin
+      .from('user_profiles')
+      .select('phone, phone_verified')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profile?.phone_verified && profile.phone === reminder.guest_phone) {
+      return { reminder, owned: true };
+    }
+  }
+
+  return { reminder, owned: false };
+}
 
 /**
  * GET /api/reminders/[id]
@@ -12,7 +51,6 @@ export async function GET(
   try {
     const supabase = createServerClient();
 
-    // Check authentication
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -21,19 +59,12 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get reminder
-    const { data: reminder, error } = await supabase
-      .from('reminders')
-      .select('*')
-      .eq('id', params.id)
-      .single();
+    const { reminder, owned } = await getOwnedReminder(user, params.id);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 404 });
+    if (!reminder) {
+      return NextResponse.json({ error: 'Reminder not found' }, { status: 404 });
     }
-
-    // Check if user owns this reminder
-    if (reminder.guest_phone !== user.phone && reminder.guest_phone !== user.email) {
+    if (!owned) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -58,7 +89,6 @@ export async function PUT(
   try {
     const supabase = createServerClient();
 
-    // Check authentication
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -67,27 +97,24 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get current reminder
-    const { data: existingReminder, error: fetchError } = await supabase
-      .from('reminders')
-      .select('*')
-      .eq('id', params.id)
-      .single();
+    const { reminder: existingReminder, owned } = await getOwnedReminder(user, params.id);
 
-    if (fetchError) {
+    if (!existingReminder) {
       return NextResponse.json({ error: 'Reminder not found' }, { status: 404 });
     }
-
-    // Check ownership
-    if (existingReminder.guest_phone !== user.phone && existingReminder.guest_phone !== user.email) {
+    if (!owned) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Parse request body
     const body = await request.json();
-    const { expiry_date, sms_notifications_enabled } = body;
+    const {
+      expiry_date,
+      notification_intervals,
+      notification_channels,
+      sms_notifications_enabled,
+    } = body;
 
-    // Validate data
     if (expiry_date) {
       const expiryDate = new Date(expiry_date);
       if (isNaN(expiryDate.getTime())) {
@@ -98,13 +125,33 @@ export async function PUT(
       }
     }
 
-    // Update reminder
     const updateData: any = {};
     if (expiry_date !== undefined) updateData.expiry_date = expiry_date;
-    if (sms_notifications_enabled !== undefined) updateData.sms_notifications_enabled = sms_notifications_enabled;
+    if (Array.isArray(notification_intervals)) {
+      updateData.notification_intervals = notification_intervals;
+    }
+    if (notification_channels && typeof notification_channels === 'object') {
+      updateData.notification_channels = {
+        sms: !!notification_channels.sms,
+        email: !!notification_channels.email,
+      };
+    } else if (sms_notifications_enabled !== undefined) {
+      // Legacy clients send a boolean; map it onto notification_channels
+      const channels =
+        existingReminder.notification_channels &&
+        typeof existingReminder.notification_channels === 'object' &&
+        !Array.isArray(existingReminder.notification_channels)
+          ? (existingReminder.notification_channels as { sms?: boolean; email?: boolean })
+          : { sms: true, email: false };
+      updateData.notification_channels = {
+        ...channels,
+        sms: !!sms_notifications_enabled,
+      };
+    }
     updateData.updated_at = new Date().toISOString();
 
-    const { data: reminder, error } = await supabase
+    const admin = createAdminClient();
+    const { data: reminder, error } = await admin
       .from('reminders')
       .update(updateData)
       .eq('id', params.id)
@@ -127,7 +174,7 @@ export async function PUT(
 
 /**
  * DELETE /api/reminders/[id]
- * Delete a reminder (soft delete by setting status to 'deleted')
+ * Delete a reminder (soft delete via deleted_at)
  */
 export async function DELETE(
   request: NextRequest,
@@ -136,7 +183,6 @@ export async function DELETE(
   try {
     const supabase = createServerClient();
 
-    // Check authentication
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -145,24 +191,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get current reminder
-    const { data: existingReminder, error: fetchError } = await supabase
-      .from('reminders')
-      .select('*')
-      .eq('id', params.id)
-      .single();
+    const { reminder: existingReminder, owned } = await getOwnedReminder(user, params.id);
 
-    if (fetchError) {
+    if (!existingReminder) {
       return NextResponse.json({ error: 'Reminder not found' }, { status: 404 });
     }
-
-    // Check ownership
-    if (existingReminder.guest_phone !== user.phone && existingReminder.guest_phone !== user.email) {
+    if (!owned) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Soft delete - set status to 'deleted'
-    const { error } = await supabase
+    const admin = createAdminClient();
+    const { error } = await admin
       .from('reminders')
       .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', params.id);
