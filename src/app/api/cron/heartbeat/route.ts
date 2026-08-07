@@ -36,6 +36,13 @@ export async function GET() {
  */
 export async function POST(request: Request) {
   try {
+    // The GET stays public (UptimeRobot polls it); the POST is only for the
+    // cron's own completion signal and must not be an open log-injection sink.
+    const authHeader = request.headers.get('authorization');
+    if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return NextResponse.json({ status: 'unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json().catch(() => ({}));
 
     // Log heartbeat with optional metadata
