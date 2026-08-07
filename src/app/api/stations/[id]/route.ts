@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -22,7 +23,36 @@ const StationUpdateSchema = z.object({
   default_intervals: z.array(z.number().int().min(1).max(60)).min(1).max(4).optional(),
   ingest_enabled: z.boolean().optional(),
   hmac_mode: z.enum(['log', 'enforce']).optional(),
+  // Post-inspection review request (F2.5). Owner-editable: the station's own
+  // Google link and wording. Sending stays gated on REVIEW_SMS_ENABLED.
+  review_link: z.string().url().optional().nullable(),
+  review_sms_enabled: z.boolean().optional(),
+  review_delay_days: z.number().int().min(1).max(30).optional(),
+  sms_template_review: z.string().min(10).max(320).optional().nullable(),
+  /**
+   * Admin-only: hands the station to an existing account by email. Resolved to
+   * owner_id server-side — the caller never supplies a user id, and an unknown
+   * email is an error rather than a silent no-op. Without this, every new
+   * station needed a hand-written UPDATE before its owner could sign in.
+   */
+  owner_email: z.string().email().optional().nullable(),
 });
+
+/**
+ * Fields that decide identity, ecosystem wiring or security posture. The RLS
+ * policy on kiosk_stations grants UPDATE to the owner for the whole row, so
+ * without this list a station owner could rename their own slug, flip
+ * hmac_mode to 'log', enable ingest, or claim another station's RAR code.
+ * Editing branding and message wording is theirs; this is not.
+ */
+const ADMIN_ONLY_FIELDS = [
+  'slug',
+  'is_active',
+  'rar_code',
+  'ingest_enabled',
+  'hmac_mode',
+  'owner_email',
+] as const;
 
 /**
  * PATCH /api/stations/[id]
@@ -59,6 +89,60 @@ export async function PATCH(
     }
 
     const updateData = validation.data;
+
+    // Reject admin-only fields for non-admins instead of silently dropping
+    // them: a station owner who tries to change their RAR code should be told
+    // no, not left believing it saved.
+    const attemptedAdminFields = ADMIN_ONLY_FIELDS.filter((field) => field in updateData);
+
+    if (attemptedAdminFields.length > 0) {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile?.role !== 'admin') {
+        return NextResponse.json(
+          {
+            error: 'Aceste setări pot fi schimbate doar de administrator',
+            fields: attemptedAdminFields,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Handing over ownership: resolve the email to a real account and set both
+    // owner_id (what RLS uses) and owner_email (the denormalised copy the cron
+    // reads for alerts) together, so the two can never drift apart.
+    if ('owner_email' in updateData) {
+      const email = updateData.owner_email?.trim().toLowerCase() ?? null;
+
+      if (email) {
+        const admin = createAdminClient();
+        const { data: ownerId, error: lookupError } = await admin.rpc('find_user_id_by_email', {
+          p_email: email,
+        });
+
+        if (lookupError) {
+          console.error('[Stations] owner lookup failed:', lookupError);
+          return NextResponse.json({ error: 'Eroare la căutarea contului' }, { status: 500 });
+        }
+
+        if (!ownerId) {
+          return NextResponse.json(
+            { error: `Nu există un cont cu adresa ${email}. Utilizatorul trebuie să se înregistreze întâi.` },
+            { status: 400 }
+          );
+        }
+
+        (updateData as Record<string, unknown>).owner_id = ownerId;
+        (updateData as Record<string, unknown>).owner_email = email;
+      } else {
+        (updateData as Record<string, unknown>).owner_id = null;
+      }
+    }
 
     // If updating slug, check for conflicts
     if (updateData.slug) {

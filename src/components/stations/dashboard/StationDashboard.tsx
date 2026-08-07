@@ -80,9 +80,14 @@ export function StationDashboard({ station }: { station: StationInfo }) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">{station.name}</h1>
-        <p className="text-gray-600">Clienții tăi și mesajele trimise</p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">{station.name}</h1>
+          <p className="text-gray-600">Clienții tăi și mesajele trimise</p>
+        </div>
+        <Button variant="outline" asChild>
+          <Link href="/stations/dashboard/setari">Setări</Link>
+        </Button>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2">

@@ -667,6 +667,7 @@ export type Database = {
       }
       check_station_otp_cap: { Args: { p_station_id: string }; Returns: Json }
       cleanup_rate_limit_events: { Args: never; Returns: number }
+      find_user_id_by_email: { Args: { p_email: string }; Returns: string | null }
       secret_get: { Args: { p_id: string }; Returns: string }
       secret_put: {
         Args: { p_name: string; p_secret: string }

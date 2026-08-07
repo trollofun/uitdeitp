@@ -37,6 +37,7 @@ const stationSchema = z.object({
     .or(z.literal('')),
   ingest_enabled: z.boolean().optional(),
   hmac_mode: z.enum(['log', 'enforce']).optional(),
+  owner_email: z.string().email('Email invalid').optional().or(z.literal('')),
 });
 
 type StationFormData = z.infer<typeof stationSchema>;
@@ -50,6 +51,7 @@ interface Station {
   logo_url: string | null;
   primary_color: string;
   rar_code?: string | null;
+  owner_email?: string | null;
   default_intervals?: unknown;
   ingest_enabled?: boolean | null;
   hmac_mode?: string | null;
@@ -87,6 +89,7 @@ export function StationForm({ station }: StationFormProps) {
       logo_url: station?.logo_url || '',
       primary_color: station?.primary_color || '#3B82F6',
       rar_code: station?.rar_code || '',
+      owner_email: station?.owner_email || '',
       default_intervals: Array.isArray(station?.default_intervals)
         ? (station.default_intervals as number[]).join(', ')
         : '',
@@ -122,10 +125,13 @@ export function StationForm({ station }: StationFormProps) {
 
       // The API validates rar_code/default_intervals strictly, so empty inputs
       // are omitted rather than sent as '' (which would 400 the whole save).
-      const { rar_code, default_intervals, ...rest } = data;
+      const { rar_code, default_intervals, owner_email, ...rest } = data;
       const payload: Record<string, unknown> = { ...rest };
 
       if (rar_code?.trim()) payload.rar_code = rar_code.trim().toUpperCase();
+      // Only sent when the admin actually typed something: an empty field must
+      // not be read as "remove the current owner".
+      if (owner_email?.trim()) payload.owner_email = owner_email.trim();
       if (default_intervals?.trim()) {
         payload.default_intervals = default_intervals
           .split(',')
@@ -264,6 +270,19 @@ export function StationForm({ station }: StationFormProps) {
           din pagina stației.
         </p>
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Proprietar (email)</label>
+            <Input
+              {...register('owner_email')}
+              placeholder="patron@statie.ro"
+              error={errors.owner_email?.message}
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              Contul care vede dashboard-ul stației și primește alertele. Trebuie să fie
+              deja înregistrat pe platformă.
+            </p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-2">Cod RAR</label>
             <Input
