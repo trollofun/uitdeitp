@@ -97,13 +97,23 @@ export const contractALiteSchema = z
  * accepts plain objects (it throws at module load otherwise).
  */
 export function parseContractA(input: unknown): ContractAPayload {
-  const variant = z
-    .object({ payload_variant: z.enum(['full', 'lite']) })
-    .parse(input).payload_variant;
+  const declared = z
+    .object({ payload_variant: z.enum(['full', 'lite']).optional() })
+    .passthrough()
+    .parse(input);
+
+  // The existing SIRAR CRM payload predates payload_variant, so infer it from
+  // the shape rather than rejecting: an `inspectie` block means full, a bare
+  // plate means lite. Declared value always wins.
+  const variant =
+    declared.payload_variant ??
+    (typeof declared === 'object' && declared !== null && 'inspectie' in declared
+      ? 'full'
+      : 'lite');
 
   return variant === 'full'
-    ? contractAFullSchema.parse(input)
-    : contractALiteSchema.parse(input);
+    ? contractAFullSchema.parse({ ...declared, payload_variant: 'full' })
+    : contractALiteSchema.parse({ ...declared, payload_variant: 'lite' });
 }
 
 export type ContractAFull = z.infer<typeof contractAFullSchema>;

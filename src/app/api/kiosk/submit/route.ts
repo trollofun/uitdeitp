@@ -17,6 +17,13 @@ import {
   getClientIp,
 } from '@/lib/api/middleware';
 
+/**
+ * Version tag for the consent wording shown on the kiosk. Distinct from the
+ * ecosystem's canonical 'v1' (see CANONICAL_CONSENT_VERSIONS) because the kiosk
+ * checkbox does not mention the post-inspection feedback SMS.
+ */
+const KIOSK_CONSENT_VERSION = 'kiosk-reminder-v1';
+
 const ALLOWED_ORIGINS = new Set([
   'https://euroautoservice.ro',
   'https://www.euroautoservice.ro',
@@ -164,6 +171,11 @@ export async function POST(req: NextRequest) {
         consent_given: true,
         consent_timestamp: new Date().toISOString(),
         consent_ip: clientIp,
+        // Records WHICH wording the client accepted. Deliberately not the
+        // ecosystem's canonical 'v1': the kiosk checkbox only covers ITP
+        // reminders, not the post-inspection feedback message, so these clients
+        // must stay outside the review-request gate until the text is aligned.
+        consent_version: KIOSK_CONSENT_VERSION,
       })
       .select()
       .single();
