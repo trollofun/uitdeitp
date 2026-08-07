@@ -92,3 +92,6 @@ claude-flow
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
 .env.vercel.production
+
+# Root-level SQL scratch files (migrations live in supabase/migrations/)
+/*.sql
