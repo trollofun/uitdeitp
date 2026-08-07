@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { handleApiError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
+import { notifyHub } from '@/lib/services/notifyhub';
+import { logSms } from '@/lib/services/notification-log';
 import { z } from 'zod';
 
 // Force dynamic rendering
@@ -82,72 +83,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send SMS via NotifyHub
-    const notifyHubUrl = process.env.NOTIFYHUB_URL;
-    const notifyHubApiKey = process.env.NOTIFYHUB_API_KEY;
-
-    if (!notifyHubUrl || !notifyHubApiKey) {
-      console.error('NotifyHub credentials not configured');
-      throw new Error('Serviciul SMS nu este configurat');
-    }
-
-    const smsResponse = await fetch(`${notifyHubUrl}/api/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${notifyHubApiKey}`,
+    const smsResult = await notifyHub.sendSms({
+      to: phone_number,
+      message,
+      metadata: {
+        reminder_id,
+        plate_number: reminder.plate_number,
+        reminder_type: reminder.reminder_type,
+        source: 'manual',
       },
-      body: JSON.stringify({
-        to: phone_number,
-        message,
-        metadata: {
-          reminder_id,
-          plate_number: reminder.plate_number,
-          reminder_type: reminder.reminder_type,
-          source: 'manual',
-        },
-      }),
     });
 
-    if (!smsResponse.ok) {
-      const errorData = await smsResponse.json();
-      console.error('NotifyHub error:', errorData);
+    await logSms({
+      reminderId: reminder_id,
+      recipient: phone_number,
+      messageBody: message,
+      result: smsResult,
+      metadata: { source: 'manual', user_initiated: true },
+    });
+
+    // The canonical client resolves instead of throwing; keep the original
+    // error surface for this route.
+    if (!smsResult.success) {
+      console.error('NotifyHub error:', smsResult.error);
       throw new Error('Eroare la trimiterea SMS-ului');
-    }
-
-    const smsData = await smsResponse.json();
-
-    // Log notification. notification_log writes go through the service-role
-    // client: RLS on this table is service-role-only (it becomes the billing
-    // ledger), while ownership checks above stay on the user's session.
-    const { error: logError } = await createAdminClient()
-      .from('notification_log')
-      .insert({
-        reminder_id,
-        channel: 'sms',
-        type: 'sms',
-        recipient: phone_number,
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-        provider_message_id: smsData.message_id || null,
-        metadata: {
-          source: 'manual',
-          user_initiated: true,
-        },
-      });
-    if (logError) {
-      console.warn('[RLS-AUDIT] notification_log insert failed', {
-        route: 'send-sms',
-        code: logError.code,
-        message: logError.message,
-      });
     }
 
     return NextResponse.json(
       {
         success: true,
         message: 'SMS trimis cu succes',
-        message_id: smsData.message_id,
+        message_id: smsResult.messageId,
       },
       { status: 200 }
     );

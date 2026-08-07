@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { handleApiError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
+import { notifyHub } from '@/lib/services/notifyhub';
 import { z } from 'zod';
 
 // Force dynamic rendering
@@ -60,47 +61,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send test SMS via NotifyHub
-    const notifyHubUrl = process.env.NOTIFYHUB_URL;
-    const notifyHubApiKey = process.env.NOTIFYHUB_API_KEY;
-
-    if (!notifyHubUrl || !notifyHubApiKey) {
-      console.error('NotifyHub credentials not configured');
-      throw new Error('Serviciul SMS nu este configurat');
-    }
-
     const testMessage = `Test SMS de la uitdeITP. Serviciul de notificări funcționează corect! Trimis la ${new Date().toLocaleTimeString('ro-RO')}`;
 
-    const smsResponse = await fetch(`${notifyHubUrl}/api/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${notifyHubApiKey}`,
+    const smsResult = await notifyHub.sendSms({
+      to: phone_number,
+      message: testMessage,
+      metadata: {
+        type: 'test',
+        sent_by: user.id,
+        sent_at: new Date().toISOString(),
       },
-      body: JSON.stringify({
-        to: phone_number,
-        message: testMessage,
-        metadata: {
-          type: 'test',
-          sent_by: user.id,
-          sent_at: new Date().toISOString(),
-        },
-      }),
     });
 
-    if (!smsResponse.ok) {
-      const errorData = await smsResponse.json();
-      console.error('NotifyHub error:', errorData);
+    // The canonical client resolves instead of throwing; keep this route's
+    // original error surface.
+    if (!smsResult.success) {
+      console.error('NotifyHub error:', smsResult.error);
       throw new Error('Eroare la trimiterea SMS-ului de test');
     }
-
-    const smsData = await smsResponse.json();
 
     return NextResponse.json(
       {
         success: true,
         message: 'SMS de test trimis cu succes',
-        message_id: smsData.message_id,
+        message_id: smsResult.messageId,
         sent_to: phone_number,
       },
       { status: 200 }

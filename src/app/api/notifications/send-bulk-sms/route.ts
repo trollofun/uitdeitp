@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { handleApiError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
+import { notifyHub } from '@/lib/services/notifyhub';
+import { logSms } from '@/lib/services/notification-log';
 import { z } from 'zod';
 
 // Force dynamic rendering
@@ -106,14 +107,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // NotifyHub credentials
-    const notifyHubUrl = process.env.NOTIFYHUB_URL;
-    const notifyHubApiKey = process.env.NOTIFYHUB_API_KEY;
-
-    if (!notifyHubUrl || !notifyHubApiKey) {
-      throw new Error('Serviciul SMS nu este configurat');
-    }
-
     // Send SMS for each reminder
     const results = {
       success: 0,
@@ -144,58 +137,32 @@ export async function POST(req: NextRequest) {
           `ITP pentru ${reminder.plate_number} expira pe ${new Date(reminder.expiry_date).toLocaleDateString('ro-RO')}. Programeaza inspectia!`;
 
         // Send SMS
-        const smsResponse = await fetch(`${notifyHubUrl}/api/send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${notifyHubApiKey}`,
+        const smsResult = await notifyHub.sendSms({
+          to: reminder.guest_phone!,
+          message,
+          metadata: {
+            reminder_id: reminder.id,
+            plate_number: reminder.plate_number,
+            reminder_type: reminder.reminder_type,
+            source: 'bulk',
+            sent_by: user.id,
           },
-          body: JSON.stringify({
-            to: reminder.guest_phone,
-            message,
-            metadata: {
-              reminder_id: reminder.id,
-              plate_number: reminder.plate_number,
-              reminder_type: reminder.reminder_type,
-              source: 'bulk',
-              sent_by: user.id,
-            },
-          }),
         });
 
-        if (!smsResponse.ok) {
+        await logSms({
+          reminderId: reminder.id,
+          recipient: reminder.guest_phone!,
+          messageBody: message,
+          result: smsResult,
+          metadata: { source: 'bulk', sent_by: user.id },
+        });
+
+        if (!smsResult.success) {
           results.failed++;
           results.errors.push(
             `${reminder.plate_number}: Eroare trimitere SMS`
           );
           continue;
-        }
-
-        const smsData = await smsResponse.json();
-
-        // Log notification via service-role client (notification_log RLS is
-        // service-role-only; ownership/RLS stays on the reads above)
-        const { error: logError } = await createAdminClient()
-          .from('notification_log')
-          .insert({
-            reminder_id: reminder.id,
-            channel: 'sms',
-            type: 'sms',
-            recipient: reminder.guest_phone,
-            status: 'sent',
-            sent_at: new Date().toISOString(),
-            provider_message_id: smsData.message_id || null,
-            metadata: {
-              source: 'bulk',
-              sent_by: user.id,
-            },
-          });
-        if (logError) {
-          console.warn('[RLS-AUDIT] notification_log insert failed', {
-            route: 'send-bulk-sms',
-            code: logError.code,
-            message: logError.message,
-          });
         }
 
         results.success++;

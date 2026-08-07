@@ -13,9 +13,9 @@
 // Service-role client: phone_verifications RLS only allows anon inserts, so the
 // authenticated dashboard flow must bypass RLS for these system operations.
 import { createServiceClient } from '@/lib/supabase/service';
+import { notifyHub } from '@/lib/services/notifyhub';
+import { logSms } from '@/lib/services/notification-log';
 
-const NOTIFYHUB_URL = process.env.NOTIFYHUB_URL!;
-const NOTIFYHUB_API_KEY = process.env.NOTIFYHUB_API_KEY!;
 const CODE_EXPIRY_MINUTES = 5;
 const MAX_SMS_PER_HOUR = 3;
 const MAX_VERIFICATION_ATTEMPTS = 10;
@@ -92,25 +92,22 @@ async function checkRateLimit(phone: string): Promise<boolean> {
  */
 async function sendSMS(phone: string, code: string): Promise<boolean> {
   try {
-    const response = await fetch(`${NOTIFYHUB_URL}/api/send`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${NOTIFYHUB_API_KEY}`,
-        'Content-Type': 'application/json',
+    const result = await notifyHub.sendVerificationCode(phone, code, undefined, {
+      message: `Cod ${code} pentru uitdeITP\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`,
+      templateId: 'phone_verification',
+      metadata: {
+        verificationType: 'registration',
+        codeExpiry: CODE_EXPIRY_MINUTES,
       },
-      body: JSON.stringify({
-        to: phone,
-        message: `Cod ${code} pentru uitdeITP\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`,
-        templateId: 'phone_verification',
-        metadata: {
-          verificationType: 'registration',
-          codeExpiry: CODE_EXPIRY_MINUTES,
-        },
-      }),
     });
 
-    const data = await response.json();
-    return data.success === true;
+    await logSms({
+      recipient: phone,
+      result,
+      metadata: { kind: 'otp', source: 'registration', route: 'phone-verification-service' },
+    });
+
+    return result.success === true;
   } catch (error) {
     console.error('NotifyHub SMS send error:', error);
     return false;

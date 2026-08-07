@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { manualNotificationSchema } from '@/app/api/types';
 import {
   handleApiError,
@@ -17,7 +16,8 @@ import {
   addRateLimitHeaders,
 } from '@/lib/api/middleware';
 import { notifyHub } from '@/lib/services/notifyhub';
-import { SMS_TEMPLATES, createNotifyHubClient } from '@/lib/clients/notifyhub';
+import { SMS_TEMPLATES } from '@/lib/services/notification';
+import { logSms } from '@/lib/services/notification-log';
 import { logger } from '@/lib/logger';
 
 /**
@@ -130,69 +130,53 @@ export async function POST(req: NextRequest) {
     const defaultTemplate = SMS_TEMPLATES[reminder.reminder_type as keyof typeof SMS_TEMPLATES];
     const template = reminder.station?.sms_template || defaultTemplate;
 
-    // Initialize NotifyHub client
-    const notifyHub = createNotifyHubClient();
-
-    // Send SMS with template
-    const smsResult = await notifyHub.sendSmsWithTemplate(
-      recipientPhone,
-      template,
-      {
-        name: recipientName,
-        plate: reminder.plate_number,
-        expiry_date: expiryDate,
-        station_name: stationName,
-      },
-      'high' // Manual sends are high priority
+    // Render the {{placeholder}} template, then send on the canonical client.
+    // The legacy client this route used pointed at NOTIFYHUB_BASE_URL, which is
+    // not set in production, so every manual send hit http://localhost:3001.
+    const message = Object.entries({
+      name: recipientName,
+      plate: reminder.plate_number,
+      expiry_date: expiryDate,
+      station_name: stationName,
+    }).reduce(
+      (acc, [key, value]) => acc.replace(new RegExp(`{{${key}}}`, 'g'), String(value)),
+      template
     );
+
+    const smsResult = await notifyHub.sendSms({
+      to: recipientPhone,
+      message,
+      metadata: {
+        reminder_id: validated.reminder_id,
+        source: 'manual',
+        sent_by: user.id,
+      },
+    });
+
+    await logSms({
+      reminderId: validated.reminder_id,
+      recipient: recipientPhone,
+      messageBody: message,
+      result: smsResult,
+      metadata: { source: 'manual', sent_by: user.id },
+    });
 
     if (!smsResult.success) {
       throw new ApiError(
         ApiErrorCode.EXTERNAL_SERVICE_ERROR,
-        `Eroare la trimiterea SMS: ${smsResult.error?.message}`,
+        `Eroare la trimiterea SMS: ${smsResult.error}`,
         500
       );
-    }
-
-    // Log notification via the service-role client (notification_log RLS is
-    // service-role-only). Columns fixed to the real schema: channel/type are
-    // required, message_body is the actual column (message_content never existed
-    // — this insert has silently failed since day one).
-    const { data: logEntry, error: logError } = await createAdminClient()
-      .from('notification_log')
-      .insert({
-        reminder_id: validated.reminder_id,
-        channel: 'sms',
-        type: 'sms',
-        provider: 'calisero',
-        provider_message_id: smsResult.data?.messageId,
-        recipient: recipientPhone,
-        message_body: smsResult.data?.messageLength
-          ? `SMS sent with ${smsResult.data.parts} part(s)`
-          : 'SMS sent',
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (logError) {
-      console.warn('[RLS-AUDIT] notification_log insert failed', {
-        route: 'send-manual',
-        code: logError.code,
-        message: logError.message,
-      });
     }
 
     const response = createSuccessResponse({
       success: true,
       notification: {
-        id: logEntry?.id,
-        messageId: smsResult.data?.messageId,
+        messageId: smsResult.messageId,
         recipient: recipientPhone,
         status: 'sent',
         sentAt: new Date().toISOString(),
-        provider: 'calisero',
+        provider: smsResult.provider ?? 'calisero',
       },
     });
 

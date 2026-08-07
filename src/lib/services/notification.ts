@@ -117,3 +117,33 @@ export function formatReminderNotification(data: NotificationData): string {
 export async function sendSms(to: string, message: string, templateId?: string, data?: Record<string, any>) {
   return await notifyHub.sendSms({ to, message, templateId, data });
 }
+
+// Default SMS templates
+export const SMS_TEMPLATES = {
+  itp: `Buna {{name}},
+
+Te informam ca ITP pentru vehiculul {{plate}} expira pe {{expiry_date}}.
+
+Este recomandat sa programezi revizia tehnica cu cel putin 7 zile inainte.
+
+Multumim,
+{{station_name}}`,
+
+  rca: `Buna {{name}},
+
+RCA pentru vehiculul {{plate}} expira pe {{expiry_date}}.
+
+Asigura-te ca innoiesti asigurarea pentru a evita amenzile.
+
+Multumim,
+{{station_name}}`,
+
+  rovinieta: `Buna {{name}},
+
+Rovinieta pentru vehiculul {{plate}} expira pe {{expiry_date}}.
+
+Poti reinnoi rovinieta online pe: https://roviniete.ro
+
+Multumim,
+{{station_name}}`,
+};

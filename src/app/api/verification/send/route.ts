@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/service';
+import { notifyHub } from '@/lib/services/notifyhub';
+import { logSms } from '@/lib/services/notification-log';
 import { formatPhoneNumber } from '@/lib/services/phone';
 import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
 
@@ -135,30 +137,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send SMS via NotifyHub
+    // Send SMS via NotifyHub (canonical client: retry + timeout + normalized
+    // response). Message wording unchanged.
     try {
-      const notifyHubUrl = process.env.NOTIFYHUB_URL;
-      const notifyHubKey = process.env.NOTIFYHUB_API_KEY;
-
-      if (!notifyHubUrl || !notifyHubKey) {
-        throw new Error('NotifyHub not configured');
-      }
-
-      const smsResponse = await fetch(`${notifyHubUrl}/api/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${notifyHubKey}`,
-        },
-        body: JSON.stringify({
-          to: formattedPhone,
-          message: `Codul tău de verificare: ${code}\n\nCodul expiră în 10 minute.\n\nuitdeitp.ro`,
-        }),
+      const smsResult = await notifyHub.sendVerificationCode(formattedPhone, code, undefined, {
+        message: `Codul tău de verificare: ${code}\n\nCodul expiră în 10 minute.\n\nuitdeitp.ro`,
       });
 
-      if (!smsResponse.ok) {
-        const errorText = await smsResponse.text();
-        console.error('NotifyHub error:', errorText);
+      // OTP sends now land in notification_log too — they consume the same
+      // SMS budget and were previously invisible to any accounting.
+      await logSms({
+        recipient: formattedPhone,
+        result: smsResult,
+        metadata: { kind: 'otp', source, station_id: stationId, route: 'verification/send' },
+      });
+
+      // The canonical client resolves instead of throwing; preserve the
+      // original control flow (dev tolerates failures, prod does not).
+      if (!smsResult.success) {
+        console.error('NotifyHub error:', smsResult.error);
         throw new Error('Failed to send SMS');
       }
     } catch (smsError) {
