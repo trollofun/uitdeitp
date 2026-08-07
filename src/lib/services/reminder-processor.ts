@@ -330,12 +330,21 @@ export async function processReminder(
         ? await getStationSendKey(stationCredit)
         : undefined;
 
+      // One key per reminder per interval: sendSms retries 3× on 5xx/timeout,
+      // and the daily cron can re-run, so without this a response lost on the
+      // wire becomes a second real SMS to the client.
+      const idempotencyKey = `${reminder.id}:${daysUntilExpiry}`;
+
       const smsResponse = await sendSms(
         phoneNumber,
         renderedMessage,
         undefined,
         undefined,
-        stationApiKey ? { apiKey: stationApiKey } : undefined
+        {
+          ...(stationApiKey ? { apiKey: stationApiKey } : {}),
+          idempotencyKey,
+          messageType: 'reminder',
+        }
       );
 
       if (smsResponse.success) {
@@ -405,6 +414,23 @@ export async function processReminder(
           console.warn(
             `[Processor] Insufficient credits for station ${reminder.station_id}: ${creditBlocked} (attempt ${attempts})`
           );
+        }
+
+        // A station key that is rejected (not out of credit — simply not
+        // accepted) fails identically every single day: the generic branch
+        // below keeps the schedule unchanged, so the reminder would be retried
+        // for ever while the client never hears from us and nothing looks
+        // broken. Shout about it, distinctly enough to alert on.
+        if (
+          stationApiKey &&
+          (smsResponse.httpStatus === 401 || smsResponse.httpStatus === 403)
+        ) {
+          console.error('[STATION-KEY-REJECTED]', {
+            station_id: reminder.station_id,
+            reminder_id: reminder.id,
+            httpStatus: smsResponse.httpStatus,
+            hint: 'cheia stației nu e acceptată de NotifyHub — verifică AUTH_ENFORCE_DB_KEYS și provisionarea',
+          });
         }
 
         const { error: logError } = await supabase.from('notification_log').insert({

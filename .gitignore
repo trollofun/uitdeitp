@@ -98,3 +98,4 @@ hive-mind-prompt-*.txt
 
 # Next.js incremental typecheck cache — noise in every diff
 tsconfig.tsbuildinfo
+.env*.local

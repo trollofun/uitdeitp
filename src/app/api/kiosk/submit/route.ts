@@ -24,6 +24,13 @@ import {
  */
 const KIOSK_CONSENT_VERSION = 'kiosk-reminder-v1';
 
+/**
+ * Every customer at a station submits from that station's single public IP, so
+ * this bucket is per-station in practice. See the same note in
+ * /api/verification/send — the tight limits are per phone, not per IP.
+ */
+const KIOSK_IP_LIMIT = 30;
+
 const ALLOWED_ORIGINS = new Set([
   'https://euroautoservice.ro',
   'https://www.euroautoservice.ro',
@@ -63,8 +70,8 @@ export async function POST(req: NextRequest) {
     // Rate limiting by IP (no user auth)
     const rateLimitId = getRateLimitIdentifier(req);
     const rateLimit = checkRateLimit(rateLimitId, {
-      maxRequests: 10,
-      windowMs: 60 * 60 * 1000, // 10 per hour per IP
+      maxRequests: KIOSK_IP_LIMIT,
+      windowMs: 60 * 60 * 1000,
     });
 
     // Durable limiter (Postgres). The in-memory one above is per-lambda and
@@ -73,7 +80,7 @@ export async function POST(req: NextRequest) {
     const durableLimit = await checkDurableRateLimit({
       bucket: 'kiosk_submit:ip',
       key: rateLimitId,
-      limit: 10,
+      limit: KIOSK_IP_LIMIT,
       windowSeconds: 60 * 60,
     });
 
@@ -198,7 +205,7 @@ export async function POST(req: NextRequest) {
 
     addRateLimitHeaders(
       response.headers,
-      10,
+      KIOSK_IP_LIMIT,
       rateLimit.remaining,
       rateLimit.resetTime
     );

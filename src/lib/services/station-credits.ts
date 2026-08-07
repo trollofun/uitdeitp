@@ -138,7 +138,12 @@ export async function getStationBalance(stationId: string): Promise<StationBalan
       balance_parts: payload.balance_parts,
       sent_today: payload.sent_today,
       sent_month: payload.sent_month,
-      last_topup: payload.last_topup ?? null,
+      // NotifyHub returns an object {at, parts, payment_ref}; we only surface
+      // the timestamp. Tolerate the plain-string form too.
+      last_topup:
+        typeof payload.last_topup === 'object' && payload.last_topup !== null
+          ? (payload.last_topup.at ?? null)
+          : (payload.last_topup ?? null),
     };
   } catch (err) {
     console.warn('[Credits] balance fetch failed', {
@@ -157,9 +162,11 @@ export interface TopupResult {
 }
 
 /**
- * Credits a station's ledger after a confirmed payment.
- * BLOCKED until NotifyHub exposes POST /api/admin/credits; purchases stay
- * `pending` and are replayed by scripts/replay-pending-credits.ts.
+ * Credits (or debits) a station's ledger after a confirmed payment.
+ *
+ * Requires NOTIFYHUB_ADMIN_KEY and a provisioned notifyhub_api_key_id; without
+ * either, purchases stay `pending` and are replayed later by
+ * scripts/replay-pending-credits.ts.
  */
 export async function topupStation({
   stationId,
@@ -167,6 +174,7 @@ export async function topupStation({
   paymentRef,
 }: {
   stationId: string;
+  /** Negative for a refund — the transaction type is derived from the sign. */
   amountParts: number;
   paymentRef: string;
 }): Promise<TopupResult> {
@@ -188,6 +196,10 @@ export async function topupStation({
         api_key_id: config.notifyhub_api_key_id,
         amount_parts: amountParts,
         payment_ref: paymentRef,
+        // NotifyHub rejects a negative amount unless it is declared a refund
+        // ("Negative amounts require type=refund"). Without this every Gumroad
+        // refund would sit at `pending` for ever.
+        type: amountParts < 0 ? 'refund' : 'topup',
       }),
       signal: AbortSignal.timeout(8000),
     });

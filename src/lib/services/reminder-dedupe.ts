@@ -8,9 +8,9 @@
  *    submit takes over the client
  *  - 'per_station' (after the F1.3 migration): each station keeps its own row
  *
- * Precedence on conflict: the later expiry_date wins. The loser is marked
- * superseded; it is additionally soft-deleted while the scope is global,
- * because the global unique index would otherwise reject the insert.
+ * Precedence on conflict: the later expiry_date wins. The loser is always
+ * marked superseded, and is additionally soft-deleted when it would otherwise
+ * collide with the incoming row's unique-index entry — see collidesWithIncoming.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -31,6 +31,26 @@ export interface ResolveDuplicateResult {
   /** Rows superseded by the incoming reminder */
   supersededIds: string[];
   scope: 'global' | 'per_station';
+}
+
+/**
+ * Does the losing row occupy the same unique-index slot as the incoming one?
+ * If so it must be soft-deleted, otherwise the INSERT fails with 23505 and the
+ * caller returns 409 to a kiosk client who did nothing wrong.
+ *
+ * - scope 'global': one index over (guest_phone, plate_number) — every match
+ *   collides, whichever station it belongs to.
+ * - scope 'per_station' (after F1.3): the index is (station_id, guest_phone,
+ *   plate_number), plus a partial one for station-less rows. Only a row from
+ *   the SAME station collides; a row from another station is left alive on
+ *   purpose — that is the whole point of F1.3, each station keeps its client.
+ */
+function collidesWithIncoming(
+  scope: 'global' | 'per_station',
+  rowStationId: string | null,
+  incomingStationId: string | null
+): boolean {
+  return scope === 'global' || rowStationId === incomingStationId;
 }
 
 export async function resolveDuplicate({
@@ -78,9 +98,7 @@ export async function resolveDuplicate({
     }
 
     const update: Record<string, unknown> = { superseded_at: now };
-    if (scope === 'global') {
-      // Required by the current global unique index; once the index is
-      // per-station, losers keep their row so the station retains its record.
+    if (collidesWithIncoming(scope, row.station_id ?? null, stationId)) {
       update.deleted_at = now;
     }
 

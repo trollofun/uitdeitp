@@ -22,6 +22,14 @@ interface SendSmsRequest {
   data?: Record<string, any>;
   /** Free-form context forwarded to NotifyHub (used by the manual/bulk paths) */
   metadata?: Record<string, any>;
+  /**
+   * Deduplication key for NotifyHub (Contract C). Matters because sendSms
+   * itself retries 3× on 5xx/timeout: without it, a response lost on the wire
+   * turns into a second real SMS to the client.
+   */
+  idempotency_key?: string;
+  /** 'otp' | 'reminder' | … — lets NotifyHub bill and report by kind */
+  message_type?: string;
 }
 
 interface SendSmsResponse {
@@ -42,6 +50,10 @@ interface SendSmsOptions {
    * Used once stations have their own NotifyHub key (per-station credits).
    */
   apiKey?: string;
+  /** Forwarded as `idempotency_key` in the request body (Contract C) */
+  idempotencyKey?: string;
+  /** Forwarded as `message_type` — 'reminder', 'otp', … */
+  messageType?: string;
 }
 
 class NotifyHubClient {
@@ -75,6 +87,12 @@ class NotifyHubClient {
     const apiKey = options.apiKey || this.apiKey;
     let lastError: SendSmsResponse | null = null;
 
+    const payload: SendSmsRequest = {
+      ...request,
+      ...(options.idempotencyKey ? { idempotency_key: options.idempotencyKey } : {}),
+      ...(options.messageType ? { message_type: options.messageType } : {}),
+    };
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const response = await fetch(`${this.baseUrl}/api/send`, {
@@ -83,7 +101,7 @@ class NotifyHubClient {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
           },
-          body: JSON.stringify(request),
+          body: JSON.stringify(payload),
           signal: AbortSignal.timeout(5000), // 5s timeout per attempt
         });
 

@@ -7,7 +7,19 @@ import { formatPhoneNumber } from '@/lib/services/phone';
 import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
 import { checkDurableRateLimit, checkStationOtpCap } from '@/lib/api/rate-limit';
 import { verifyTurnstile } from '@/lib/services/turnstile';
+import { sendOpsAlert } from '@/lib/services/ops-alert';
 import { flags } from '@/lib/config/flags';
+
+/**
+ * Everyone at a kiosk station shares that station's single public IP, so the
+ * per-IP bucket is really a per-station bucket. Measured peak at the live
+ * station is 6 codes/hour; 10 left almost no headroom and a busy Saturday
+ * would have locked out every customer at once once enforcement is on.
+ *
+ * The real anti-pumping protections are narrower and stay tight: 3/hour per
+ * PHONE (below) and the daily cap per station.
+ */
+const OTP_IP_LIMIT = 30;
 
 const sendSchema = z.object({
   phone: z.string().min(9).max(15),
@@ -29,7 +41,7 @@ export async function POST(req: NextRequest) {
     // IP-based rate limiting (10 verification requests per hour per IP)
     const clientIp = getClientIp(req);
     const ipRateLimit = checkRateLimit(`verification:ip:${clientIp}`, {
-      maxRequests: 10,
+      maxRequests: OTP_IP_LIMIT,
       windowMs: 60 * 60 * 1000, // 1 hour
     });
 
@@ -38,7 +50,7 @@ export async function POST(req: NextRequest) {
     const durableIpLimit = await checkDurableRateLimit({
       bucket: 'otp_send:ip',
       key: clientIp,
-      limit: 10,
+      limit: OTP_IP_LIMIT,
       windowSeconds: 60 * 60,
     });
 
@@ -48,7 +60,7 @@ export async function POST(req: NextRequest) {
         { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
         { status: 400 }
       );
-      addRateLimitHeaders(response.headers, 10, ipRateLimit.remaining, ipRateLimit.resetTime);
+      addRateLimitHeaders(response.headers, OTP_IP_LIMIT, ipRateLimit.remaining, ipRateLimit.resetTime);
       return response;
     }
 
@@ -123,7 +135,7 @@ export async function POST(req: NextRequest) {
     if (stationSlug) {
       const { data: station, error: stationError } = await supabase
         .from('kiosk_stations')
-        .select('id')
+        .select('id, name, owner_email, otp_auto_stopped_at, daily_otp_cap')
         .eq('slug', stationSlug)
         .single();
 
@@ -141,16 +153,46 @@ export async function POST(req: NextRequest) {
       // Daily OTP cap per station: the kiosk is unauthenticated and each code
       // costs money, so a pumped station stops automatically.
       const otpCap = await checkStationOtpCap(stationId);
-      if (otpCap.overCap && flags.enforceRateLimit) {
-        await supabase
-          .from('kiosk_stations')
-          .update({ otp_auto_stopped_at: new Date().toISOString() })
-          .eq('id', stationId);
+      if (otpCap.overCap) {
+        // The alert fires in log-only mode too: knowing a station WOULD have
+        // been stopped is the whole point of the window before enforcement.
+        // Throttled to once a day by otp_auto_stopped_at, so a station stuck
+        // over the cap does not mail us on every single request.
+        const lastStop = station.otp_auto_stopped_at
+          ? new Date(station.otp_auto_stopped_at).getTime()
+          : 0;
+        const alreadyAlerted = Date.now() - lastStop < 24 * 60 * 60 * 1000;
 
-        return NextResponse.json(
-          { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
-          { status: 429 }
-        );
+        if (!alreadyAlerted) {
+          await supabase
+            .from('kiosk_stations')
+            .update({ otp_auto_stopped_at: new Date().toISOString() })
+            .eq('id', stationId);
+
+          await sendOpsAlert({
+            subject: `[uitdeITP] Plafon SMS depășit — ${station.name ?? stationSlug}`,
+            extraRecipients: [station.owner_email],
+            lines: [
+              `Stația ${station.name ?? stationSlug} a depășit plafonul zilnic de coduri SMS.`,
+              '',
+              `Coduri trimise în ultimele 24h: ${otpCap.count}`,
+              `Plafon: ${otpCap.cap ?? station.daily_otp_cap ?? 'nesetat'}`,
+              flags.enforceRateLimit
+                ? 'Trimiterea a fost OPRITĂ automat. Clienții primesc un mesaj de reîncercare.'
+                : 'Nu s-a oprit nimic (protecția e încă în mod observare). Doar te anunțăm.',
+              '',
+              'Dacă e trafic normal, ridică plafonul din panoul de administrare.',
+              'Dacă nu recunoști volumul, cineva abuzează formularul de kiosk.',
+            ],
+          });
+        }
+
+        if (flags.enforceRateLimit) {
+          return NextResponse.json(
+            { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
+            { status: 429 }
+          );
+        }
       }
     }
 
