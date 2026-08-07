@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { handleApiError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
 import { z } from 'zod';
@@ -116,18 +117,31 @@ export async function POST(req: NextRequest) {
 
     const smsData = await smsResponse.json();
 
-    // Log notification
-    await supabase.from('notification_log').insert({
-      reminder_id,
-      type: 'sms',
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-      provider_message_id: smsData.message_id || null,
-      metadata: {
-        source: 'manual',
-        user_initiated: true,
-      },
-    });
+    // Log notification. notification_log writes go through the service-role
+    // client: RLS on this table is service-role-only (it becomes the billing
+    // ledger), while ownership checks above stay on the user's session.
+    const { error: logError } = await createAdminClient()
+      .from('notification_log')
+      .insert({
+        reminder_id,
+        channel: 'sms',
+        type: 'sms',
+        recipient: phone_number,
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+        provider_message_id: smsData.message_id || null,
+        metadata: {
+          source: 'manual',
+          user_initiated: true,
+        },
+      });
+    if (logError) {
+      console.warn('[RLS-AUDIT] notification_log insert failed', {
+        route: 'send-sms',
+        code: logError.code,
+        message: logError.message,
+      });
+    }
 
     return NextResponse.json(
       {

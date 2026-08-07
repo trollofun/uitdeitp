@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { manualNotificationSchema } from '@/app/api/types';
 import {
   handleApiError,
@@ -153,15 +154,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Log notification in database
-    const { data: logEntry, error: logError } = await supabase
+    // Log notification via the service-role client (notification_log RLS is
+    // service-role-only). Columns fixed to the real schema: channel/type are
+    // required, message_body is the actual column (message_content never existed
+    // — this insert has silently failed since day one).
+    const { data: logEntry, error: logError } = await createAdminClient()
       .from('notification_log')
       .insert({
         reminder_id: validated.reminder_id,
+        channel: 'sms',
+        type: 'sms',
         provider: 'calisero',
         provider_message_id: smsResult.data?.messageId,
         recipient: recipientPhone,
-        message_content: smsResult.data?.messageLength
+        message_body: smsResult.data?.messageLength
           ? `SMS sent with ${smsResult.data.parts} part(s)`
           : 'SMS sent',
         status: 'sent',
@@ -171,8 +177,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (logError) {
-      logger.error('[Manual Notification] Failed to log notification:', logError);
-      // Don't fail the request if logging fails
+      console.warn('[RLS-AUDIT] notification_log insert failed', {
+        route: 'send-manual',
+        code: logError.code,
+        message: logError.message,
+      });
     }
 
     const response = createSuccessResponse({

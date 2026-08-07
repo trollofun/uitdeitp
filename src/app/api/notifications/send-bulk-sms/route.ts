@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { handleApiError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
 import { z } from 'zod';
@@ -147,18 +148,30 @@ export async function POST(req: NextRequest) {
 
         const smsData = await smsResponse.json();
 
-        // Log notification
-        await supabase.from('notification_log').insert({
-          reminder_id: reminder.id,
-          type: 'sms',
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          provider_message_id: smsData.message_id || null,
-          metadata: {
-            source: 'bulk',
-            sent_by: user.id,
-          },
-        });
+        // Log notification via service-role client (notification_log RLS is
+        // service-role-only; ownership/RLS stays on the reads above)
+        const { error: logError } = await createAdminClient()
+          .from('notification_log')
+          .insert({
+            reminder_id: reminder.id,
+            channel: 'sms',
+            type: 'sms',
+            recipient: reminder.guest_phone,
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+            provider_message_id: smsData.message_id || null,
+            metadata: {
+              source: 'bulk',
+              sent_by: user.id,
+            },
+          });
+        if (logError) {
+          console.warn('[RLS-AUDIT] notification_log insert failed', {
+            route: 'send-bulk-sms',
+            code: logError.code,
+            message: logError.message,
+          });
+        }
 
         results.success++;
       } catch (err) {

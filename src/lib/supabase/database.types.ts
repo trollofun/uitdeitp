@@ -7,14 +7,64 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
+      global_opt_outs: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          opted_out_at: string
+          phone: string
+          reason: string | null
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          opted_out_at?: string
+          phone: string
+          reason?: string | null
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          opted_out_at?: string
+          phone?: string
+          reason?: string | null
+          source?: string | null
+        }
+        Relationships: []
+      }
       kiosk_stations: {
         Row: {
           created_at: string | null
+          email_template_1d: string | null
+          email_template_3d: string | null
+          email_template_5d: string | null
           id: string
           is_active: boolean | null
           logo_url: string | null
@@ -32,6 +82,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          email_template_1d?: string | null
+          email_template_3d?: string | null
+          email_template_5d?: string | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
@@ -49,6 +102,9 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          email_template_1d?: string | null
+          email_template_3d?: string | null
+          email_template_5d?: string | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
@@ -74,14 +130,16 @@ export type Database = {
           error_message: string | null
           estimated_cost: number | null
           id: string
-          message_body: string
+          message_body: string | null
+          metadata: Json | null
           provider: string | null
           provider_message_id: string | null
-          recipient: string
+          recipient: string | null
           reminder_id: string | null
           retry_count: number | null
           sent_at: string | null
           status: string | null
+          type: string | null
         }
         Insert: {
           channel: string
@@ -90,14 +148,16 @@ export type Database = {
           error_message?: string | null
           estimated_cost?: number | null
           id?: string
-          message_body: string
+          message_body?: string | null
+          metadata?: Json | null
           provider?: string | null
           provider_message_id?: string | null
-          recipient: string
+          recipient?: string | null
           reminder_id?: string | null
           retry_count?: number | null
           sent_at?: string | null
           status?: string | null
+          type?: string | null
         }
         Update: {
           channel?: string
@@ -106,16 +166,25 @@ export type Database = {
           error_message?: string | null
           estimated_cost?: number | null
           id?: string
-          message_body?: string
+          message_body?: string | null
+          metadata?: Json | null
           provider?: string | null
           provider_message_id?: string | null
-          recipient?: string
+          recipient?: string | null
           reminder_id?: string | null
           retry_count?: number | null
           sent_at?: string | null
           status?: string | null
+          type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "notification_log_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "admin_reminders_view"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notification_log_reminder_id_fkey"
             columns: ["reminder_id"]
@@ -273,6 +342,7 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          avatar_url: string | null
           city: string | null
           country: string | null
           created_at: string | null
@@ -284,18 +354,22 @@ export type Database = {
           phone: string | null
           phone_verified: boolean | null
           postal_code: string | null
+          preferred_notification_time: string | null
           prefers_sms: boolean | null
           quiet_hours_enabled: boolean | null
           quiet_hours_end: string | null
           quiet_hours_start: string | null
+          quiet_hours_weekdays_only: boolean | null
           reminder_intervals: Json | null
           role: Database["public"]["Enums"]["user_role"]
           sms_enabled: boolean | null
           station_id: string | null
           subdivision: string | null
           updated_at: string | null
+          use_manual_location: boolean | null
         }
         Insert: {
+          avatar_url?: string | null
           city?: string | null
           country?: string | null
           created_at?: string | null
@@ -307,18 +381,22 @@ export type Database = {
           phone?: string | null
           phone_verified?: boolean | null
           postal_code?: string | null
+          preferred_notification_time?: string | null
           prefers_sms?: boolean | null
           quiet_hours_enabled?: boolean | null
           quiet_hours_end?: string | null
           quiet_hours_start?: string | null
+          quiet_hours_weekdays_only?: boolean | null
           reminder_intervals?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
           sms_enabled?: boolean | null
           station_id?: string | null
           subdivision?: string | null
           updated_at?: string | null
+          use_manual_location?: boolean | null
         }
         Update: {
+          avatar_url?: string | null
           city?: string | null
           country?: string | null
           created_at?: string | null
@@ -330,16 +408,19 @@ export type Database = {
           phone?: string | null
           phone_verified?: boolean | null
           postal_code?: string | null
+          preferred_notification_time?: string | null
           prefers_sms?: boolean | null
           quiet_hours_enabled?: boolean | null
           quiet_hours_end?: string | null
           quiet_hours_start?: string | null
+          quiet_hours_weekdays_only?: boolean | null
           reminder_intervals?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
           sms_enabled?: boolean | null
           station_id?: string | null
           subdivision?: string | null
           updated_at?: string | null
+          use_manual_location?: boolean | null
         }
         Relationships: [
           {
@@ -353,6 +434,37 @@ export type Database = {
       }
     }
     Views: {
+      admin_reminders_view: {
+        Row: {
+          created_at: string | null
+          expiry_date: string | null
+          guest_name: string | null
+          guest_phone: string | null
+          id: string | null
+          next_notification_date: string | null
+          notification_channels: Json | null
+          notification_intervals: Json | null
+          plate_number: string | null
+          reminder_type: string | null
+          source: string | null
+          station_id: string | null
+          station_name: string | null
+          updated_at: string | null
+          user_email: string | null
+          user_id: string | null
+          user_name: string | null
+          user_phone: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_reminders_station"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "kiosk_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       current_user_is_admin: {
         Row: {
           is_admin: boolean | null
@@ -382,6 +494,14 @@ export type Database = {
       }
     }
     Functions: {
+      check_verification_rate_limit_rpc: {
+        Args: { p_phone: string }
+        Returns: boolean
+      }
+      claim_guest_reminders: {
+        Args: { p_phone: string; p_user_id: string }
+        Returns: number
+      }
       get_active_verification: {
         Args: { p_phone: string }
         Returns: {
@@ -405,6 +525,7 @@ export type Database = {
           reminder_id: string
         }[]
       }
+      get_user_email: { Args: { p_user_id: string }; Returns: string }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
@@ -425,6 +546,7 @@ export type Database = {
         Args: { p_verification_id: string }
         Returns: boolean
       }
+      is_phone_opted_out: { Args: { p_phone: string }; Returns: boolean }
       is_phone_rate_limited: {
         Args: { p_max_attempts?: number; p_phone: string }
         Returns: boolean
@@ -437,6 +559,11 @@ export type Database = {
       normalize_phone_for_notification: {
         Args: { phone: string }
         Returns: string
+      }
+      opt_in_phone: { Args: { p_phone: string }; Returns: boolean }
+      opt_out_phone: {
+        Args: { p_phone: string; p_reason?: string; p_source?: string }
+        Returns: boolean
       }
     }
     Enums: {
@@ -572,7 +699,3 @@ export const Constants = {
     },
   },
 } as const
-
-// Helper type exports for easier usage
-export type UserRole = Database["public"]["Enums"]["user_role"];
-export type UserProfile = Database["public"]["Tables"]["user_profiles"]["Row"];

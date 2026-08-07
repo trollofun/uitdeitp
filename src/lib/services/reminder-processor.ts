@@ -183,20 +183,31 @@ export async function processReminder(
       });
 
       if (emailResult.success) {
-        await supabase.from('notification_log').insert({
+        // channel is NOT NULL on notification_log — without it these email
+        // log rows have silently failed since day one
+        const { error: logError } = await supabase.from('notification_log').insert({
           reminder_id: reminder.id,
+          channel: 'email',
           type: 'email',
+          recipient: profile?.email ?? null,
           status: 'sent',
           sent_at: new Date().toISOString(),
           provider_message_id: emailResult.messageId,
           metadata: { days_until_expiry: daysUntilExpiry },
         });
+        if (logError) {
+          console.warn('[RLS-AUDIT] notification_log insert failed', {
+            site: 'processor-email-sent', code: logError.code, message: logError.message,
+          });
+        }
         console.log(`[Processor] Email sent successfully: ${emailResult.messageId}`);
       } else {
         console.error(`[Processor] Email failed: ${emailResult.error}`);
-        await supabase.from('notification_log').insert({
+        const { error: logError } = await supabase.from('notification_log').insert({
           reminder_id: reminder.id,
+          channel: 'email',
           type: 'email',
+          recipient: profile?.email ?? null,
           status: 'failed',
           sent_at: new Date().toISOString(),
           metadata: {
@@ -204,6 +215,11 @@ export async function processReminder(
             error: emailResult.error,
           },
         });
+        if (logError) {
+          console.warn('[RLS-AUDIT] notification_log insert failed', {
+            site: 'processor-email-failed', code: logError.code, message: logError.message,
+          });
+        }
       }
     } else {
       console.log(`[Processor] No email found for user ${reminder.user_id}`);
@@ -289,7 +305,7 @@ export async function processReminder(
           cost: smsResponse.cost,
         };
 
-        await supabase.from('notification_log').insert({
+        const { error: logError } = await supabase.from('notification_log').insert({
           reminder_id: reminder.id,
           channel: 'sms',
           type: 'sms',
@@ -305,6 +321,11 @@ export async function processReminder(
             station_id: reminder.station_id,
           },
         });
+        if (logError) {
+          console.warn('[RLS-AUDIT] notification_log insert failed', {
+            site: 'processor-sms-sent', code: logError.code, message: logError.message,
+          });
+        }
         console.log(`[Processor] SMS sent successfully: ${smsResult.messageId}`);
 
         channel = emailResult?.success ? 'email+sms' : 'sms';
@@ -315,7 +336,7 @@ export async function processReminder(
         };
 
         console.error(`[Processor] SMS failed: ${smsResult.error}`);
-        await supabase.from('notification_log').insert({
+        const { error: logError } = await supabase.from('notification_log').insert({
           reminder_id: reminder.id,
           channel: 'sms',
           type: 'sms',
@@ -328,6 +349,11 @@ export async function processReminder(
             template_source: reminder.station_id ? 'custom' : 'default',
           },
         });
+        if (logError) {
+          console.warn('[RLS-AUDIT] notification_log insert failed', {
+            site: 'processor-sms-failed', code: logError.code, message: logError.message,
+          });
+        }
       }
     } else {
       console.log(`[Processor] No phone number found for ${isRegisteredUser ? 'user' : 'guest'}`);
