@@ -20,6 +20,8 @@ interface SendSmsRequest {
   message: string;
   templateId?: string;
   data?: Record<string, any>;
+  /** Free-form context forwarded to NotifyHub (used by the manual/bulk paths) */
+  metadata?: Record<string, any>;
 }
 
 interface SendSmsResponse {
@@ -30,6 +32,16 @@ interface SendSmsResponse {
   cost?: number;
   error?: string;
   code?: string;
+  /** Upstream HTTP status; 402 = insufficient credits (per-station billing) */
+  httpStatus?: number;
+}
+
+interface SendSmsOptions {
+  /**
+   * Send on a specific tenant key instead of the platform key.
+   * Used once stations have their own NotifyHub key (per-station credits).
+   */
+  apiKey?: string;
 }
 
 class NotifyHubClient {
@@ -55,8 +67,12 @@ class NotifyHubClient {
    * - Retries on: NETWORK_ERROR, HTTP 5xx, timeout
    * - No retry on: 4xx errors (bad request, auth failure)
    */
-  async sendSms(request: SendSmsRequest): Promise<SendSmsResponse> {
+  async sendSms(
+    request: SendSmsRequest,
+    options: SendSmsOptions = {}
+  ): Promise<SendSmsResponse> {
     const maxRetries = 3;
+    const apiKey = options.apiKey || this.apiKey;
     let lastError: SendSmsResponse | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -65,19 +81,20 @@ class NotifyHubClient {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
+            'Authorization': `Bearer ${apiKey}`,
           },
           body: JSON.stringify(request),
           signal: AbortSignal.timeout(5000), // 5s timeout per attempt
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
           const errorResponse = {
             success: false,
             error: data.error || 'SMS sending failed',
             code: data.code || 'UNKNOWN_ERROR',
+            httpStatus: response.status,
           };
 
           // Don't retry on 4xx errors (client errors, auth failures)
@@ -114,11 +131,12 @@ class NotifyHubClient {
             provider: data.data.provider,
             parts: data.data.parts,
             cost: data.data.cost,
+            httpStatus: response.status,
           };
         }
 
         // Fallback for old schema (if NotifyHub changes back)
-        return data;
+        return { ...data, httpStatus: response.status };
 
       } catch (error) {
         const errorResponse: SendSmsResponse = {
@@ -155,19 +173,32 @@ class NotifyHubClient {
   async sendVerificationCode(
     phone: string,
     code: string,
-    stationName: string = 'uitdeitp.ro'
+    stationName: string = 'uitdeitp.ro',
+    options: SendSmsOptions & {
+      /** Overrides the default body; each caller keeps its exact wording */
+      message?: string;
+      templateId?: string;
+      metadata?: Record<string, any>;
+    } = {}
   ): Promise<SendSmsResponse> {
-    const message = `Codul tau ${stationName}: ${code}\nIntrodu pe tableta pentru reminder ITP.\nNu ai cerut? Ignora.`;
+    const { message: customMessage, templateId, metadata, ...sendOptions } = options;
+    const message =
+      customMessage ??
+      `Codul tau ${stationName}: ${code}\nIntrodu pe tableta pentru reminder ITP.\nNu ai cerut? Ignora.`;
 
-    return this.sendSms({
-      to: phone,
-      message,
-      templateId: 'verification_code',
-      data: {
-        code,
-        stationName,
+    return this.sendSms(
+      {
+        to: phone,
+        message,
+        templateId: templateId ?? 'verification_code',
+        data: {
+          code,
+          stationName,
+        },
+        ...(metadata ? { metadata } : {}),
       },
-    });
+      sendOptions
+    );
   }
 
   /**
@@ -240,4 +271,4 @@ class NotifyHubClient {
 export const notifyHub = new NotifyHubClient();
 
 // Export types
-export type { SendSmsRequest, SendSmsResponse };
+export type { SendSmsRequest, SendSmsResponse, SendSmsOptions };
