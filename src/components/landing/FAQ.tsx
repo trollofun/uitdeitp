@@ -12,7 +12,7 @@ const faqData: FAQItem[] = [
   {
     id: '1',
     question: 'Este cu adevărat gratuit?',
-    answer: 'Da. Nu cerem bani. Niciodată. Nu există planuri premium sau costuri ascunse.',
+    answer: 'Pentru tine, da. Nu îți cerem bani niciodată. Serviciul este plătit de stația ITP care îți trimite notificarea.',
   },
   {
     id: '2',

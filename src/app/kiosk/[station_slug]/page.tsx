@@ -206,7 +206,7 @@ const IDLE_SLIDES = [
     id: 3,
     icon: ShieldCheck,
     iconSize: 48,
-    badge: "100% Gratuit & Sigur",
+    badge: "Gratuit pentru tine & Sigur",
     badgeColor: "bg-blue-100 text-blue-700",
     title: <>Un singur <br/><span className="text-blue-600">SMS pe an</span></>,
     desc: "Zero Spam. Datele tale sunt în siguranță.",

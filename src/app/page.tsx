@@ -18,7 +18,7 @@ import { ArrowRight, Bell, AlertTriangle } from 'lucide-react';
  * - Urgency messaging: "Nu mai uita de ITP!"
  * - Simplicity promise: "3 pași simpli"
  * - Social proof: "1000+ șoferi"
- * - Risk reversal: "100% Gratuit"
+ * - Risk reversal: gratuit pentru șofer, plătit de stație
  */
 
 export default function HomePage() {
@@ -133,9 +133,9 @@ export default function HomePage() {
 
             <div className="bg-card border rounded-lg p-6 hover:shadow-lg transition-shadow">
               <div className="text-4xl mb-4">💯</div>
-              <h3 className="text-xl font-semibold mb-3">100% Gratuit</h3>
+              <h3 className="text-xl font-semibold mb-3">Gratuit pentru tine</h3>
               <p className="text-muted-foreground">
-                Serviciu <strong>complet gratuit</strong>, fără costuri ascunse și fără publicitate.
+                Nu plătești nimic: serviciul e susținut de stația ta ITP. Fără costuri ascunse, fără publicitate.
               </p>
             </div>
 

@@ -8,7 +8,7 @@ import { Shield, DollarSign, Users, Check } from 'lucide-react';
  * Psychological Principles:
  * - Social Proof: "1000+ șoferi" creates FOMO
  * - Authority: GDPR compliance badge
- * - Price Anchoring: "100% Gratuit" removes cost objection
+ * - Price Anchoring: gratuit pentru șofer (stația plătește) removes cost objection
  */
 
 const signals = [
@@ -23,8 +23,8 @@ const signals = [
     icon: DollarSign,
     iconColor: 'text-blue-600',
     bgColor: 'bg-blue-50',
-    title: 'Complet Gratuit',
-    description: 'Fără costuri ascunse',
+    title: 'Gratuit pentru tine',
+    description: 'Plătit de stația ta',
   },
   {
     icon: Users,

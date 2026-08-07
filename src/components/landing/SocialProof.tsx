@@ -54,7 +54,7 @@ export const SocialProof: React.FC = () => {
                   clipRule="evenodd"
                 />
               </svg>
-              <span className="text-base md:text-lg font-medium">100% Gratuit</span>
+              <span className="text-base md:text-lg font-medium">Gratuit pentru șoferi</span>
             </div>
             <div className="flex items-center gap-3">
               <svg
