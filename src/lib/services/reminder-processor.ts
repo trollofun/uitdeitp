@@ -17,6 +17,7 @@ import { getStationSendKey, resetStationKeyCache } from '@/lib/services/station-
 /** Daily retries before a credit-blocked reminder stops being retried. */
 const MAX_CREDIT_RETRIES = 3;
 import { generateOptOutLink } from '@/lib/utils/opt-out';
+import { appUrl } from '@/lib/config/app-url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -318,7 +319,7 @@ export async function processReminder(
         // number and must never appear in another station's SMS.
         station_phone: stationData.station_phone || '',
         station_address: stationData.station_address || '',
-        app_url: process.env.NEXT_PUBLIC_APP_URL || 'https://uitdeitp.ro',
+        app_url: appUrl(),
         opt_out_link: optOutLink,
       });
 

@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { appPath } from '@/lib/config/app-url';
 import { processRemindersForToday } from '@/lib/services/reminder-processor';
 import { createServiceClient } from '@/lib/supabase/service';
 import { processReviewRequestsForToday } from '@/lib/services/review-processor';
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     // Send heartbeat signal for monitoring (don't fail if heartbeat fails)
     try {
-      const heartbeatUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://uitdeitp.ro'}/api/cron/heartbeat`;
+      const heartbeatUrl = appPath('/api/cron/heartbeat');
       await fetch(heartbeatUrl, {
         method: 'POST',
         headers: {
@@ -186,7 +187,7 @@ export async function GET(req: NextRequest) {
 
     // Send heartbeat signal for monitoring (don't fail if heartbeat fails)
     try {
-      const heartbeatUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://uitdeitp.ro'}/api/cron/heartbeat`;
+      const heartbeatUrl = appPath('/api/cron/heartbeat');
       await fetch(heartbeatUrl, {
         method: 'POST',
         headers: {

@@ -1,5 +1,6 @@
 'use server';
 
+import { appPath } from '@/lib/config/app-url';
 import { createServerClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -135,7 +136,7 @@ export async function register(data: RegisterInput): Promise<ActionResult> {
           country: validated.country,
           sms_notifications: validated.smsNotifications,
         },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        emailRedirectTo: appPath('/auth/callback'),
       },
     });
 
@@ -190,7 +191,7 @@ export async function requestPasswordReset(
     const { error } = await supabase.auth.resetPasswordForEmail(validated.email, {
       // The reset page lives at /reset-password (the (auth) route group does
       // not add a URL segment); /auth/reset-password does not exist
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`,
+      redirectTo: appPath('/reset-password'),
     });
 
     if (error) {
@@ -283,7 +284,7 @@ export async function oauthLogin(
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        redirectTo: appPath('/auth/callback'),
       },
     });
 

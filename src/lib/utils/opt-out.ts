@@ -1,3 +1,4 @@
+import { appUrl } from '@/lib/config/app-url';
 /**
  * Opt-out Link Generator (SMS-Optimized)
  *
@@ -68,7 +69,7 @@ export function decodeOptOutToken(token: string): string | null {
  * Character savings: 20 chars (~12% of SMS length)
  */
 export function generateOptOutLink(phone: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://uitdeitp.ro';
+  const baseUrl = appUrl();
 
   // Encode phone to short base36 token
   const token = encodePhoneToToken(phone);
