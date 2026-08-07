@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { TurnstileGate } from '@/components/kiosk/TurnstileGate';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -86,14 +87,40 @@ export function PhoneVerificationStep({
   const [error, setError] = useState('');
   const [expiresIn, setExpiresIn] = useState(0);
   const [canResend, setCanResend] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [autoSent, setAutoSent] = useState(false);
 
-  // Auto-send SMS code when phone prop is provided (kiosk mode)
-  useEffect(() => {
-    if (phoneProp) {
-      handleSendCode();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Empty unless the site key is configured, in which case TurnstileGate renders.
+  const turnstileConfigured = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+
+  const handleTurnstileToken = useCallback((token: string | null) => {
+    setTurnstileToken(token);
   }, []);
+
+  // Auto-send SMS code when phone prop is provided (kiosk mode).
+  //
+  // With Turnstile configured we wait for its token first — otherwise the very
+  // first send would always arrive tokenless and would start failing the day
+  // TURNSTILE_ENABLED is turned on. The 8s fallback keeps the kiosk moving if
+  // the challenge is slow or blocked; that request is simply tokenless, which
+  // is exactly what the log-only window is meant to surface.
+  useEffect(() => {
+    if (!phoneProp || autoSent) return;
+
+    if (!turnstileConfigured || turnstileToken) {
+      setAutoSent(true);
+      handleSendCode();
+      return;
+    }
+
+    const fallback = setTimeout(() => {
+      setAutoSent(true);
+      handleSendCode();
+    }, 8000);
+
+    return () => clearTimeout(fallback);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phoneProp, turnstileToken, turnstileConfigured, autoSent]);
 
   // Countdown timer for code expiration
   useEffect(() => {
@@ -145,7 +172,7 @@ export function PhoneVerificationStep({
       const response = await fetch('/api/verification/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, stationSlug }),
+        body: JSON.stringify({ phone, stationSlug, turnstileToken }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Eroare la trimiterea codului');
@@ -206,7 +233,7 @@ export function PhoneVerificationStep({
       const response = await fetch('/api/verification/resend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, stationSlug }),
+        body: JSON.stringify({ phone, stationSlug, turnstileToken }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Eroare');
@@ -367,6 +394,11 @@ export function PhoneVerificationStep({
           </div>
         </motion.div>
       )}
+
+      {/* Mounted outside the step switch on purpose: the token has to survive
+          the phone -> code transition so "Retrimite" carries one too. Renders
+          nothing at all until NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. */}
+      <TurnstileGate onToken={handleTurnstileToken} />
     </div>
   );
 }

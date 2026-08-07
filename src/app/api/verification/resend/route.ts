@@ -6,10 +6,13 @@ import { logSms } from '@/lib/services/notification-log';
 import { formatPhoneNumber } from '@/lib/services/phone';
 import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
 import { checkDurableRateLimit } from '@/lib/api/rate-limit';
+import { verifyTurnstile } from '@/lib/services/turnstile';
 
 const resendSchema = z.object({
   phone: z.string().min(9).max(15),
   stationSlug: z.string().min(1).nullable().optional(),
+  // Optional: older kiosk bundles send no token. See /verification/send.
+  turnstileToken: z.string().nullable().optional(),
 });
 
 /**
@@ -46,7 +49,17 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { phone, stationSlug } = resendSchema.parse(body);
+    const { phone, stationSlug, turnstileToken } = resendSchema.parse(body);
+
+    // Challenge check before the SMS is paid for. Log-only until
+    // TURNSTILE_ENABLED is on.
+    const turnstile = await verifyTurnstile(turnstileToken, clientIp);
+    if (!turnstile.allowed) {
+      return NextResponse.json(
+        { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou.' },
+        { status: 400 }
+      );
+    }
 
     // Format phone to E.164
     const formattedPhone = formatPhoneNumber(phone);

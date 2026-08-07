@@ -23,6 +23,20 @@ const stationSchema = z.object({
   station_address: z.string().optional(),
   logo_url: z.string().url('URL invalid').optional().or(z.literal('')),
   primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Culoare invalidă'),
+  // Contract A / ecosystem fields. The API has accepted these since F1; without
+  // them here every new station needed a hand-written UPDATE.
+  rar_code: z
+    .string()
+    .regex(/^[A-Z]{2}[0-9]{3}$/, 'Format cod RAR invalid (ex: CT060)')
+    .optional()
+    .or(z.literal('')),
+  default_intervals: z
+    .string()
+    .regex(/^\s*\d+(\s*,\s*\d+)*\s*$/, 'Zile separate prin virgulă (ex: 7, 3, 1)')
+    .optional()
+    .or(z.literal('')),
+  ingest_enabled: z.boolean().optional(),
+  hmac_mode: z.enum(['log', 'enforce']).optional(),
 });
 
 type StationFormData = z.infer<typeof stationSchema>;
@@ -35,6 +49,10 @@ interface Station {
   station_address: string | null;
   logo_url: string | null;
   primary_color: string;
+  rar_code?: string | null;
+  default_intervals?: unknown;
+  ingest_enabled?: boolean | null;
+  hmac_mode?: string | null;
   sms_template_5d: string | null;
   sms_template_3d: string | null;
   sms_template_1d: string | null;
@@ -68,6 +86,12 @@ export function StationForm({ station }: StationFormProps) {
       station_address: station?.station_address || '',
       logo_url: station?.logo_url || '',
       primary_color: station?.primary_color || '#3B82F6',
+      rar_code: station?.rar_code || '',
+      default_intervals: Array.isArray(station?.default_intervals)
+        ? (station.default_intervals as number[]).join(', ')
+        : '',
+      ingest_enabled: station?.ingest_enabled ?? false,
+      hmac_mode: (station?.hmac_mode === 'enforce' ? 'enforce' : 'log') as 'log' | 'enforce',
     },
   });
 
@@ -96,10 +120,23 @@ export function StationForm({ station }: StationFormProps) {
       const url = station ? `/api/stations/${station.id}` : '/api/stations';
       const method = station ? 'PATCH' : 'POST';
 
+      // The API validates rar_code/default_intervals strictly, so empty inputs
+      // are omitted rather than sent as '' (which would 400 the whole save).
+      const { rar_code, default_intervals, ...rest } = data;
+      const payload: Record<string, unknown> = { ...rest };
+
+      if (rar_code?.trim()) payload.rar_code = rar_code.trim().toUpperCase();
+      if (default_intervals?.trim()) {
+        payload.default_intervals = default_intervals
+          .split(',')
+          .map((part) => Number(part.trim()))
+          .filter((n) => Number.isInteger(n) && n > 0);
+      }
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -215,6 +252,71 @@ export function StationForm({ station }: StationFormProps) {
               placeholder="Str. Exemplu, Nr. 123, București"
               error={errors.station_address?.message}
             />
+          </div>
+        </div>
+      </Card>
+
+      {/* Ecosystem / Contract A */}
+      <Card className="p-8">
+        <h2 className="text-xl font-semibold mb-2">Integrare ecosistem</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Setările folosite de importul automat din SIRAR. Cheile de ingest se emit separat,
+          din pagina stației.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Cod RAR</label>
+            <Input
+              {...register('rar_code')}
+              placeholder="CT060"
+              error={errors.rar_code?.message}
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              Codul autorizației stației. Identifică aceeași stație în toate aplicațiile
+              ecosistemului și e verificat față de cheia de ingest.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Zile de notificare</label>
+            <Input
+              {...register('default_intervals')}
+              placeholder="7, 3, 1"
+              error={errors.default_intervals?.message}
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              Cu câte zile înainte de expirare se trimit mesajele. Gol = 5 zile.
+            </p>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <input
+              id="ingest_enabled"
+              type="checkbox"
+              {...register('ingest_enabled')}
+              className="mt-1 h-4 w-4"
+            />
+            <label htmlFor="ingest_enabled" className="text-sm">
+              <span className="font-medium">Permite importul automat</span>
+              <span className="block text-muted-foreground">
+                Cât e oprit, cererile venite pe cheia acestei stații primesc 403.
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Verificare semnătură</label>
+            <select
+              {...register('hmac_mode')}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="log">Doar înregistrare (recomandat la început)</option>
+              <option value="enforce">Respinge cererile nesemnate corect</option>
+            </select>
+            <p className="text-sm text-muted-foreground mt-1">
+              Treci pe „respinge" abia după ce vezi în log că toate cererile reale ale
+              stației se semnează corect.
+            </p>
           </div>
         </div>
       </Card>

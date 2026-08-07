@@ -95,3 +95,6 @@ hive-mind-prompt-*.txt
 
 # Root-level SQL scratch files (migrations live in supabase/migrations/)
 /*.sql
+
+# Next.js incremental typecheck cache — noise in every diff
+tsconfig.tsbuildinfo

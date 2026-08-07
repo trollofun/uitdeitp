@@ -6,11 +6,15 @@ import { logSms } from '@/lib/services/notification-log';
 import { formatPhoneNumber } from '@/lib/services/phone';
 import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
 import { checkDurableRateLimit, checkStationOtpCap } from '@/lib/api/rate-limit';
+import { verifyTurnstile } from '@/lib/services/turnstile';
 import { flags } from '@/lib/config/flags';
 
 const sendSchema = z.object({
   phone: z.string().min(9).max(15),
   stationSlug: z.string().min(1).nullable().optional(),
+  // Optional on purpose: kiosks running the previous bundle send no token and
+  // must keep working. Enforcement is the server's decision, not the payload's.
+  turnstileToken: z.string().nullable().optional(),
 });
 
 /**
@@ -51,8 +55,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log('[Verification] Received request:', { phone: body.phone, stationSlug: body.stationSlug });
 
-    const { phone, stationSlug } = sendSchema.parse(body);
+    const { phone, stationSlug, turnstileToken } = sendSchema.parse(body);
     console.log('[Verification] Schema validated:', { phone, stationSlug });
+
+    // Challenge check before anything that costs money. Log-only until
+    // TURNSTILE_ENABLED is on; inert entirely without a secret key.
+    const turnstile = await verifyTurnstile(turnstileToken, clientIp);
+    if (!turnstile.allowed) {
+      return NextResponse.json(
+        { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou.' },
+        { status: 400 }
+      );
+    }
 
     // Format phone to E.164
     const formattedPhone = formatPhoneNumber(phone);
