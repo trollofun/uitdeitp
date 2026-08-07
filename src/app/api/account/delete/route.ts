@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { handleApiError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
 
@@ -63,8 +64,10 @@ export async function DELETE(req: NextRequest) {
     // CASCADE DELETE in correct order to avoid FK constraint violations
 
     // 1. Delete notification_log entries (FK: reminder_id → reminders.id)
+    // notification_log is service-role-only for writes/deletes (RLS lockdown);
+    // reminderIds are already scoped to this user above.
     if (reminderIds.length > 0) {
-      const { error: notificationsDeleteError } = await supabase
+      const { error: notificationsDeleteError } = await createAdminClient()
         .from('notification_log')
         .delete()
         .in('reminder_id', reminderIds);
