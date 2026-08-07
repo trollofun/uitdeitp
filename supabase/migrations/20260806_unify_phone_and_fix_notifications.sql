@@ -44,7 +44,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.claim_guest_reminders(UUID, TEXT) FROM public, anon;
+REVOKE ALL ON FUNCTION public.claim_guest_reminders(UUID, TEXT) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_guest_reminders(UUID, TEXT) TO service_role;
 
 -- ----------------------------------------------------------------------------
