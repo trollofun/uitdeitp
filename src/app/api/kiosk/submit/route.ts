@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 import { kioskSubmissionSchema } from '@/lib/validation';
 import {
   handleApiError,
@@ -57,7 +58,18 @@ export async function POST(req: NextRequest) {
       maxRequests: 10,
       windowMs: 60 * 60 * 1000, // 10 per hour per IP
     });
-    if (!rateLimit.allowed) {
+
+    // Durable limiter (Postgres). The in-memory one above is per-lambda and
+    // does not actually limit on Vercel; this one runs log-only until
+    // ENFORCE_RATE_LIMIT is on, then becomes the real gate.
+    const durableLimit = await checkDurableRateLimit({
+      bucket: 'kiosk_submit:ip',
+      key: rateLimitId,
+      limit: 10,
+      windowSeconds: 60 * 60,
+    });
+
+    if (!rateLimit.allowed || !durableLimit.allowed) {
       throw new ApiError(
         ApiErrorCode.RATE_LIMIT_EXCEEDED,
         'Prea multe cereri. Încearcă din nou mai târziu.',

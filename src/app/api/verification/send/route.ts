@@ -5,6 +5,8 @@ import { notifyHub } from '@/lib/services/notifyhub';
 import { logSms } from '@/lib/services/notification-log';
 import { formatPhoneNumber } from '@/lib/services/phone';
 import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
+import { checkDurableRateLimit, checkStationOtpCap } from '@/lib/api/rate-limit';
+import { flags } from '@/lib/config/flags';
 
 const sendSchema = z.object({
   phone: z.string().min(9).max(15),
@@ -27,7 +29,16 @@ export async function POST(req: NextRequest) {
       windowMs: 60 * 60 * 1000, // 1 hour
     });
 
-    if (!ipRateLimit.allowed) {
+    // Durable, cross-instance limiter (the in-memory one is per-lambda).
+    // Log-only until ENFORCE_RATE_LIMIT is enabled.
+    const durableIpLimit = await checkDurableRateLimit({
+      bucket: 'otp_send:ip',
+      key: clientIp,
+      limit: 10,
+      windowSeconds: 60 * 60,
+    });
+
+    if (!ipRateLimit.allowed || !durableIpLimit.allowed) {
       console.error('[Verification] IP rate limit exceeded:', clientIp);
       const response = NextResponse.json(
         { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
@@ -73,8 +84,16 @@ export async function POST(req: NextRequest) {
       count: rateLimitCheck?.length || 0
     });
 
+    // Durable per-phone limiter (3 codes/hour), mirroring the DB check above
+    const durablePhoneLimit = await checkDurableRateLimit({
+      bucket: 'otp_send:phone',
+      key: formattedPhone,
+      limit: 3,
+      windowSeconds: 60 * 60,
+    });
+
     // Allow only if less than 3 codes in last hour
-    if (!rateLimitCheck || rateLimitCheck.length >= 3) {
+    if (!rateLimitCheck || rateLimitCheck.length >= 3 || !durablePhoneLimit.allowed) {
       console.error('[Verification] Rate limit exceeded or check failed');
       // Generic error to prevent enumeration
       return NextResponse.json(
@@ -104,6 +123,21 @@ export async function POST(req: NextRequest) {
 
       stationId = station.id;
       source = 'kiosk';
+
+      // Daily OTP cap per station: the kiosk is unauthenticated and each code
+      // costs money, so a pumped station stops automatically.
+      const otpCap = await checkStationOtpCap(stationId);
+      if (otpCap.overCap && flags.enforceRateLimit) {
+        await supabase
+          .from('kiosk_stations')
+          .update({ otp_auto_stopped_at: new Date().toISOString() })
+          .eq('id', stationId);
+
+        return NextResponse.json(
+          { error: 'Nu am putut trimite codul. Te rugăm să încerci din nou mai târziu.' },
+          { status: 429 }
+        );
+      }
     }
 
     // Generate 6-digit code
@@ -120,6 +154,7 @@ export async function POST(req: NextRequest) {
         station_id: stationId,  // null for dashboard, station UUID for kiosk
         verified: false,  // Required by RLS policy
         attempts: 0,      // Required by RLS policy
+        ip_address: clientIp !== 'unknown' ? clientIp : null,
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       });
 

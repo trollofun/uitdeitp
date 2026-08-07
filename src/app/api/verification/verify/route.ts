@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { createServerClient } from '@/lib/supabase/server';
 import { formatPhoneNumber } from '@/lib/services/phone';
 import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
+import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 
 const verifySchema = z.object({
   phone: z.string().min(9).max(15),
@@ -36,7 +37,14 @@ export async function POST(req: NextRequest) {
       windowMs: 60 * 60 * 1000, // 1 hour
     });
 
-    if (!ipRateLimit.allowed) {
+    const durableIpLimit = await checkDurableRateLimit({
+      bucket: 'otp_verify:ip',
+      key: clientIp,
+      limit: 20,
+      windowSeconds: 60 * 60,
+    });
+
+    if (!ipRateLimit.allowed || !durableIpLimit.allowed) {
       await addTimingProtection();
       const response = NextResponse.json(
         { error: 'Cod invalid. Te rugăm să verifici codul sau să soliciți unul nou.' },

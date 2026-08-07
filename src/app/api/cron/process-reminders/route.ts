@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { processRemindersForToday } from '@/lib/services/reminder-processor';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // Vercel Pro: 60s timeout for cron jobs
 export const maxDuration = 60;
@@ -44,6 +45,13 @@ export async function POST(req: NextRequest) {
   try {
     // Process all reminders due for today
     const result = await processRemindersForToday();
+
+    // Housekeeping: drop rate-limit events older than 7 days (non-fatal)
+    try {
+      await createServiceClient().rpc('cleanup_rate_limit_events');
+    } catch (cleanupError) {
+      console.warn('[Cron] rate_limit_events cleanup failed:', cleanupError);
+    }
 
     const executionTime = Date.now() - startTime;
 
@@ -143,6 +151,13 @@ export async function GET(req: NextRequest) {
   try {
     // Process all reminders due for today
     const result = await processRemindersForToday();
+
+    // Housekeeping: drop rate-limit events older than 7 days (non-fatal)
+    try {
+      await createServiceClient().rpc('cleanup_rate_limit_events');
+    } catch (cleanupError) {
+      console.warn('[Cron] rate_limit_events cleanup failed:', cleanupError);
+    }
 
     const executionTime = Date.now() - startTime;
 

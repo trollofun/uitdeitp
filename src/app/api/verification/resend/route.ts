@@ -5,6 +5,7 @@ import { notifyHub } from '@/lib/services/notifyhub';
 import { logSms } from '@/lib/services/notification-log';
 import { formatPhoneNumber } from '@/lib/services/phone';
 import { checkRateLimit, getClientIp, addRateLimitHeaders } from '@/lib/api/middleware';
+import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 
 const resendSchema = z.object({
   phone: z.string().min(9).max(15),
@@ -27,7 +28,14 @@ export async function POST(req: NextRequest) {
       windowMs: 60 * 60 * 1000, // 1 hour
     });
 
-    if (!ipRateLimit.allowed) {
+    const durableIpLimit = await checkDurableRateLimit({
+      bucket: 'otp_resend:ip',
+      key: clientIp,
+      limit: 5,
+      windowSeconds: 60 * 60,
+    });
+
+    if (!ipRateLimit.allowed || !durableIpLimit.allowed) {
       console.error('[Resend] IP rate limit exceeded:', clientIp);
       const response = NextResponse.json(
         { error: 'Prea multe încercări. Te rugăm să încerci din nou mai târziu.' },
@@ -105,6 +113,7 @@ export async function POST(req: NextRequest) {
         station_id: stationId,
         verified: false,  // Required by RLS policy
         attempts: 0,      // Required by RLS policy
+        ip_address: clientIp !== 'unknown' ? clientIp : null,
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       });
 
