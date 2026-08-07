@@ -5,6 +5,25 @@ export const phoneSchema = z
   .string()
   .regex(/^\+40\d{9}$/, 'Numărul de telefon trebuie să fie în format +40XXXXXXXXX');
 
+/**
+ * Normalizes a Romanian phone number to E.164, then validates it.
+ *
+ * phoneSchema is strict (+40XXXXXXXXX); partner-facing inputs also send
+ * 07XXXXXXXX / 0040... / 7XXXXXXXX, so those are accepted and normalized here.
+ */
+export function normalizeRoPhone(input: string): string {
+  let digits = input.replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+
+  if (digits.startsWith('40') && digits.length === 11) return `+${digits}`;
+  if (digits.startsWith('0') && digits.length === 10) return `+4${digits}`;
+  if (digits.length === 9) return `+40${digits}`;
+
+  return input.trim();
+}
+
+export const roPhoneSchema = z.string().transform(normalizeRoPhone).pipe(phoneSchema);
+
 // Romanian plate number validation
 // Accepts any format: B123ABC, B-123-ABC, B 123 ABC
 // Normalizes to: B123ABC (compact format for SMS savings)
@@ -110,6 +129,11 @@ export const createStationSchema = z.object({
   email_template_5d: z.string().optional(),
   email_template_3d: z.string().optional(),
   email_template_1d: z.string().optional(),
+  // Ecosystem / Contract A
+  rar_code: z.string().min(2).max(16).optional().or(z.literal('')),
+  default_intervals: z.array(z.number().int().min(1).max(60)).min(1).max(4).optional(),
+  ingest_enabled: z.boolean().optional(),
+  hmac_mode: z.enum(['log', 'enforce']).optional(),
 });
 
 export const updateStationSchema = createStationSchema.partial();

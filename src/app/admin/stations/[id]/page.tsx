@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { StationForm } from '@/components/admin/StationForm';
+import { StationApiKeys } from '@/components/admin/StationApiKeys';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -56,6 +57,9 @@ export default async function EditStationPage({
 
       {/* Form */}
       <StationForm station={station} />
+
+      {/* Contract A ingest keys */}
+      <StationApiKeys stationId={params.id} />
     </div>
   );
 }

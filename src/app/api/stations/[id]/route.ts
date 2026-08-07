@@ -18,6 +18,10 @@ const StationUpdateSchema = z.object({
   email_template_3d: z.string().optional().nullable(),
   email_template_1d: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
+  rar_code: z.string().min(2).max(16).optional(),
+  default_intervals: z.array(z.number().int().min(1).max(60)).min(1).max(4).optional(),
+  ingest_enabled: z.boolean().optional(),
+  hmac_mode: z.enum(['log', 'enforce']).optional(),
 });
 
 /**

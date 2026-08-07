@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkDurableRateLimit } from '@/lib/api/rate-limit';
+import { resolveDuplicate, linkSupersededBy } from '@/lib/services/reminder-dedupe';
 import { kioskSubmissionSchema } from '@/lib/validation';
 import {
   handleApiError,
@@ -86,11 +87,12 @@ export async function POST(req: NextRequest) {
       name: string;
       station_phone: string;
       is_active: boolean;
+      default_intervals: number[] | null;
     };
 
     const { data: stationData, error: stationError } = await supabase
       .from('kiosk_stations')
-      .select('id, name, station_phone, is_active')
+      .select('id, name, station_phone, is_active, default_intervals')
       .eq('slug', validated.station_slug)
       .single();
 
@@ -113,28 +115,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check for duplicate submission (same phone + plate) - GLOBAL check across all stations
-    const { data: existing } = await supabase
-      .from('reminders')
-      .select('id, expiry_date, station_id')
-      .eq('guest_phone', validated.guest_phone)
-      .eq('plate_number', validated.plate_number)
-      .is('deleted_at', null)
-      .single();
-
-    if (existing) {
-      // Soft delete old reminder for recurring clients (e.g., new ITP after 6-12 months)
-      const { error: deleteError } = await supabase
-        .from('reminders')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', existing.id);
-
-      if (!deleteError) {
-        console.log(
-          `[Kiosk] Soft deleted old reminder ${existing.id} for plate ${validated.plate_number} (recurring client)`
-        );
-      }
-    }
+    // Duplicate handling lives in one shared module so the kiosk and the
+    // Contract A ingest apply the same rule. With DEDUPE_SCOPE=global (today)
+    // this performs the same lookup and soft-delete as before.
+    const expiryDateOnly = validated.expiry_date.toISOString().split('T')[0];
+    const dedupe = await resolveDuplicate({
+      supabase,
+      stationId: station.id,
+      guestPhone: validated.guest_phone,
+      plateNumber: validated.plate_number,
+      expiryDate: expiryDateOnly,
+    });
 
     // Get client IP
     const clientIp = getClientIp(req);
@@ -166,7 +157,7 @@ export async function POST(req: NextRequest) {
         plate_number: validated.plate_number,
         reminder_type: 'itp',
         expiry_date: validated.expiry_date.toISOString(),
-        notification_intervals: [5],  // Guest users: single reminder at 5 days
+        notification_intervals: station.default_intervals ?? [5],  // per-station default (was hardcoded [5])
         notification_channels: { sms: true, email: false },
         source: 'kiosk',
         station_id: station.id,
@@ -179,8 +170,10 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
-    // TODO: Add increment_station_reminders RPC function to database
-    // Increment station counter would go here
+    await linkSupersededBy(supabase, dedupe.supersededIds, data.id);
+
+    // The station reminder counter is maintained by a DB trigger
+    // (trigger_increment_station_reminder_count).
 
     const response = createSuccessResponse(
       {

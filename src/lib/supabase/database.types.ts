@@ -62,15 +62,21 @@ export type Database = {
       kiosk_stations: {
         Row: {
           created_at: string | null
+          daily_otp_cap: number | null
+          default_intervals: Json | null
           email_template_1d: string | null
           email_template_3d: string | null
           email_template_5d: string | null
+          hmac_mode: string | null
           id: string
+          ingest_enabled: boolean | null
           is_active: boolean | null
           logo_url: string | null
           name: string
+          otp_auto_stopped_at: string | null
           owner_id: string | null
           primary_color: string | null
+          rar_code: string | null
           slug: string
           sms_template_1d: string | null
           sms_template_3d: string | null
@@ -82,15 +88,21 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          daily_otp_cap?: number | null
+          default_intervals?: Json | null
           email_template_1d?: string | null
           email_template_3d?: string | null
           email_template_5d?: string | null
+          hmac_mode?: string | null
           id?: string
+          ingest_enabled?: boolean | null
           is_active?: boolean | null
           logo_url?: string | null
           name: string
+          otp_auto_stopped_at?: string | null
           owner_id?: string | null
           primary_color?: string | null
+          rar_code?: string | null
           slug: string
           sms_template_1d?: string | null
           sms_template_3d?: string | null
@@ -102,15 +114,21 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          daily_otp_cap?: number | null
+          default_intervals?: Json | null
           email_template_1d?: string | null
           email_template_3d?: string | null
           email_template_5d?: string | null
+          hmac_mode?: string | null
           id?: string
+          ingest_enabled?: boolean | null
           is_active?: boolean | null
           logo_url?: string | null
           name?: string
+          otp_auto_stopped_at?: string | null
           owner_id?: string | null
           primary_color?: string | null
+          rar_code?: string | null
           slug?: string
           sms_template_1d?: string | null
           sms_template_3d?: string | null
@@ -252,12 +270,15 @@ export type Database = {
           consent_given: boolean | null
           consent_ip: unknown
           consent_timestamp: string | null
+          consent_version: string | null
           created_at: string | null
           deleted_at: string | null
           expiry_date: string
+          external_ref: string | null
           guest_name: string | null
           guest_phone: string | null
           id: string
+          inspected_at: string | null
           last_notification_sent_at: string | null
           next_notification_date: string | null
           notification_channels: Json | null
@@ -268,7 +289,10 @@ export type Database = {
           plate_number: string
           reminder_type: string | null
           source: string | null
+          source_detail: string | null
           station_id: string | null
+          superseded_at: string | null
+          superseded_by: string | null
           updated_at: string | null
           user_id: string | null
           verification_id: string | null
@@ -277,12 +301,15 @@ export type Database = {
           consent_given?: boolean | null
           consent_ip?: unknown
           consent_timestamp?: string | null
+          consent_version?: string | null
           created_at?: string | null
           deleted_at?: string | null
           expiry_date: string
+          external_ref?: string | null
           guest_name?: string | null
           guest_phone?: string | null
           id?: string
+          inspected_at?: string | null
           last_notification_sent_at?: string | null
           next_notification_date?: string | null
           notification_channels?: Json | null
@@ -293,7 +320,10 @@ export type Database = {
           plate_number: string
           reminder_type?: string | null
           source?: string | null
+          source_detail?: string | null
           station_id?: string | null
+          superseded_at?: string | null
+          superseded_by?: string | null
           updated_at?: string | null
           user_id?: string | null
           verification_id?: string | null
@@ -302,12 +332,15 @@ export type Database = {
           consent_given?: boolean | null
           consent_ip?: unknown
           consent_timestamp?: string | null
+          consent_version?: string | null
           created_at?: string | null
           deleted_at?: string | null
           expiry_date?: string
+          external_ref?: string | null
           guest_name?: string | null
           guest_phone?: string | null
           id?: string
+          inspected_at?: string | null
           last_notification_sent_at?: string | null
           next_notification_date?: string | null
           notification_channels?: Json | null
@@ -318,7 +351,10 @@ export type Database = {
           plate_number?: string
           reminder_type?: string | null
           source?: string | null
+          source_detail?: string | null
           station_id?: string | null
+          superseded_at?: string | null
+          superseded_by?: string | null
           updated_at?: string | null
           user_id?: string | null
           verification_id?: string | null
@@ -339,6 +375,131 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rate_limit_events: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: number
+          key: string
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: number
+          key: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: number
+          key?: string
+        }
+        Relationships: []
+      }
+      station_api_keys: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          hmac_secret_id: string
+          id: string
+          key_hash: string
+          key_prefix: string
+          label: string
+          last_used_at: string | null
+          revoked_at: string | null
+          scopes: string[]
+          station_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          hmac_secret_id: string
+          id?: string
+          key_hash: string
+          key_prefix: string
+          label: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          scopes?: string[]
+          station_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          hmac_secret_id?: string
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          label?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          scopes?: string[]
+          station_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "station_api_keys_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "kiosk_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_request_log: {
+        Row: {
+          body_sha256: string | null
+          client_ip: unknown
+          created_at: string
+          error_code: string | null
+          id: string
+          idempotency_key: string | null
+          key_id: string | null
+          payload_variant: string | null
+          rar_code_match: boolean | null
+          reminder_id: string | null
+          signature_form: string | null
+          signature_present: boolean | null
+          signature_valid: boolean | null
+          station_id: string | null
+          status_code: number | null
+        }
+        Insert: {
+          body_sha256?: string | null
+          client_ip?: unknown
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          idempotency_key?: string | null
+          key_id?: string | null
+          payload_variant?: string | null
+          rar_code_match?: boolean | null
+          reminder_id?: string | null
+          signature_form?: string | null
+          signature_present?: boolean | null
+          signature_valid?: boolean | null
+          station_id?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          body_sha256?: string | null
+          client_ip?: unknown
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          idempotency_key?: string | null
+          key_id?: string | null
+          payload_variant?: string | null
+          rar_code_match?: boolean | null
+          reminder_id?: string | null
+          signature_form?: string | null
+          signature_present?: boolean | null
+          signature_valid?: boolean | null
+          station_id?: string | null
+          status_code?: number | null
+        }
+        Relationships: []
       }
       user_profiles: {
         Row: {
@@ -494,6 +655,23 @@ export type Database = {
       }
     }
     Functions: {
+      check_and_record_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_enforce?: boolean
+          p_key: string
+          p_limit: number
+          p_window: string
+        }
+        Returns: Json
+      }
+      check_station_otp_cap: { Args: { p_station_id: string }; Returns: Json }
+      cleanup_rate_limit_events: { Args: never; Returns: number }
+      secret_get: { Args: { p_id: string }; Returns: string }
+      secret_put: {
+        Args: { p_name: string; p_secret: string }
+        Returns: string
+      }
       check_verification_rate_limit_rpc: {
         Args: { p_phone: string }
         Returns: boolean
