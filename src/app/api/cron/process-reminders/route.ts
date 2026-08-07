@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processRemindersForToday } from '@/lib/services/reminder-processor';
 import { createServiceClient } from '@/lib/supabase/service';
+import { processReviewRequestsForToday } from '@/lib/services/review-processor';
 
 // Vercel Pro: 60s timeout for cron jobs
 export const maxDuration = 60;
@@ -45,6 +46,16 @@ export async function POST(req: NextRequest) {
   try {
     // Process all reminders due for today
     const result = await processRemindersForToday();
+
+    // Post-inspection review requests. Isolated on purpose: a failure here must
+    // never affect ITP reminders.
+    let reviewResult: unknown = { skipped: 'not_run' };
+    try {
+      reviewResult = await processReviewRequestsForToday();
+      console.log('[Cron] Review pass:', reviewResult);
+    } catch (reviewError) {
+      console.warn('[Cron] Review pass failed (reminders unaffected):', reviewError);
+    }
 
     // Housekeeping: drop rate-limit events older than 7 days (non-fatal)
     try {
@@ -151,6 +162,16 @@ export async function GET(req: NextRequest) {
   try {
     // Process all reminders due for today
     const result = await processRemindersForToday();
+
+    // Post-inspection review requests. Isolated on purpose: a failure here must
+    // never affect ITP reminders.
+    let reviewResult: unknown = { skipped: 'not_run' };
+    try {
+      reviewResult = await processReviewRequestsForToday();
+      console.log('[Cron] Review pass:', reviewResult);
+    } catch (reviewError) {
+      console.warn('[Cron] Review pass failed (reminders unaffected):', reviewError);
+    }
 
     // Housekeeping: drop rate-limit events older than 7 days (non-fatal)
     try {
