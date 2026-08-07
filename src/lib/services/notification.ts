@@ -1,6 +1,6 @@
 import { NotificationData } from '@/types';
 import { formatDate } from './date';
-import { notifyHub } from './notifyhub';
+import { notifyHub, type SendSmsOptions } from '@/lib/services/notifyhub';
 
 /**
  * Render SMS template with data
@@ -114,8 +114,14 @@ export function formatReminderNotification(data: NotificationData): string {
 /**
  * Send SMS via NotifyHub
  */
-export async function sendSms(to: string, message: string, templateId?: string, data?: Record<string, any>) {
-  return await notifyHub.sendSms({ to, message, templateId, data });
+export async function sendSms(
+  to: string,
+  message: string,
+  templateId?: string,
+  data?: Record<string, any>,
+  options?: SendSmsOptions
+) {
+  return await notifyHub.sendSms({ to, message, templateId, data }, options);
 }
 
 // Default SMS templates

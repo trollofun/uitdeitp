@@ -12,6 +12,10 @@ import { sendReminderEmail } from '@/lib/services/email';
 import { getDaysUntilExpiry } from '@/lib/services/date';
 import { getUserQuietHours, isInQuietHours, calculateNextAvailableTime } from '@/lib/services/quiet-hours';
 import { renderSmsTemplate, getTemplateForDays, DEFAULT_SMS_TEMPLATES, sendSms } from '@/lib/services/notification';
+import { getStationSendKey, resetStationKeyCache } from '@/lib/services/station-credits';
+
+/** Daily retries before a credit-blocked reminder stops being retried. */
+const MAX_CREDIT_RETRIES = 3;
 import { generateOptOutLink } from '@/lib/utils/opt-out';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -22,7 +26,9 @@ interface Reminder {
   guest_name: string | null;
   guest_phone: string | null;
   guest_email: string | null;
-  type: 'ITP' | 'RCA' | 'Rovinieta';
+  /** NOTE: the actual column is reminder_type; `type` is not selected. */
+  type?: 'ITP' | 'RCA' | 'Rovinieta';
+  reminder_type?: string | null;
   plate_number: string;
   expiry_date: string;
   next_notification_date: string;
@@ -32,7 +38,12 @@ interface Reminder {
     sms: boolean;
   };
   source: 'user' | 'kiosk';
-  station_id: string | null;  // NEW: For fetching custom notification templates
+  station_id: string | null;  // For fetching custom notification templates
+  // Credit-block state (per-station credits); null on every reminder until a
+  // send is refused with 402.
+  blocked_reason?: 'pending_credits' | 'skipped_no_credits' | null;
+  blocked_at?: string | null;
+  blocked_retry_count?: number | null;
 }
 
 export interface ProcessReminderResult {
@@ -115,7 +126,7 @@ export async function processReminder(
       return {
         reminderId: reminder.id,
         plate: reminder.plate_number,
-        type: reminder.type,
+        type: reminder.reminder_type ?? reminder.type ?? 'itp',
         success: false,
         channel: 'sms',
         error: 'User opted out',
@@ -144,7 +155,7 @@ export async function processReminder(
       return {
         reminderId: reminder.id,
         plate: reminder.plate_number,
-        type: reminder.type,
+        type: reminder.reminder_type ?? reminder.type ?? 'itp',
         success: false,
         channel: 'email',
         error: `Quiet hours active - rescheduled to ${nextAvailableTime}`,
@@ -167,6 +178,7 @@ export async function processReminder(
 
   let emailResult: { success: boolean; messageId?: string; error?: string } | undefined;
   let smsResult: { success: boolean; messageId?: string; provider?: string; cost?: number; error?: string } | undefined;
+  let creditBlocked: 'pending_credits' | 'skipped_no_credits' | null = null;
   let channel: 'email' | 'sms' | 'email+sms' = 'email';
 
   // Send email (for registered users who opted in)
@@ -178,7 +190,13 @@ export async function processReminder(
         plate: reminder.plate_number,
         expiryDate: reminder.expiry_date,
         daysUntilExpiry,
-        type: reminder.type,
+        // The row stores lowercase ('itp'); the email helper expects the
+        // display casing.
+        type: ((reminder.reminder_type ?? reminder.type ?? 'itp').toUpperCase() === 'RCA'
+          ? 'RCA'
+          : (reminder.reminder_type ?? reminder.type ?? 'itp').toLowerCase() === 'rovinieta'
+            ? 'Rovinieta'
+            : 'ITP') as 'ITP' | 'RCA' | 'Rovinieta',
         reminderId: reminder.id,
       });
 
@@ -237,13 +255,18 @@ export async function processReminder(
       // NEW: Fetch station custom templates if reminder is from a kiosk station
       let smsTemplate: string | undefined;
       let stationData: { name?: string; station_phone?: string; station_address?: string } = {};
+      let stationCredit: {
+        id: string;
+        use_own_notifyhub_key: boolean | null;
+        notifyhub_key_secret_id: string | null;
+      } | null = null;
 
       if (reminder.station_id) {
         console.log(`[Processor] Fetching custom template for station ${reminder.station_id}`);
 
         const { data: station } = await supabase
           .from('kiosk_stations')
-          .select('name, station_phone, station_address, sms_template_5d, sms_template_3d, sms_template_1d')
+          .select('id, name, station_phone, station_address, sms_template_5d, sms_template_3d, sms_template_1d, use_own_notifyhub_key, notifyhub_key_secret_id')
           .eq('id', reminder.station_id)
           .single();
 
@@ -252,6 +275,11 @@ export async function processReminder(
             name: station.name,
             station_phone: station.station_phone || undefined,
             station_address: station.station_address || undefined,
+          };
+          stationCredit = {
+            id: station.id,
+            use_own_notifyhub_key: station.use_own_notifyhub_key,
+            notifyhub_key_secret_id: station.notifyhub_key_secret_id,
           };
 
           // Select appropriate template based on days until expiry
@@ -286,7 +314,9 @@ export async function processReminder(
         date: reminder.expiry_date,
         days_until: daysUntilExpiry,  // NEW: Pass calculated days for {days_until} variable
         station_name: stationData.name || 'uitdeITP',
-        station_phone: stationData.station_phone || '+40729440127', // Default: Euro Auto Service
+        // No cross-station fallback: '+40729440127' is one specific station's
+        // number and must never appear in another station's SMS.
+        station_phone: stationData.station_phone || '',
         station_address: stationData.station_address || '',
         app_url: process.env.NEXT_PUBLIC_APP_URL || 'https://uitdeitp.ro',
         opt_out_link: optOutLink,
@@ -294,8 +324,19 @@ export async function processReminder(
 
       console.log(`[Processor] Rendered message (${renderedMessage.length} chars): ${renderedMessage.substring(0, 100)}...`);
 
-      // Send SMS via NotifyHub with rendered message
-      const smsResponse = await sendSms(phoneNumber, renderedMessage);
+      // Send on the station's own NotifyHub key when per-station credits are
+      // enabled for it; otherwise the platform key, exactly as before.
+      const stationApiKey = stationCredit
+        ? await getStationSendKey(stationCredit)
+        : undefined;
+
+      const smsResponse = await sendSms(
+        phoneNumber,
+        renderedMessage,
+        undefined,
+        undefined,
+        stationApiKey ? { apiKey: stationApiKey } : undefined
+      );
 
       if (smsResponse.success) {
         smsResult = {
@@ -328,6 +369,14 @@ export async function processReminder(
         }
         console.log(`[Processor] SMS sent successfully: ${smsResult.messageId}`);
 
+        // A previously credit-blocked reminder is unblocked by a successful send
+        if (reminder.blocked_reason) {
+          await supabase
+            .from('reminders')
+            .update({ blocked_reason: null, blocked_at: null, blocked_retry_count: 0 })
+            .eq('id', reminder.id);
+        }
+
         channel = emailResult?.success ? 'email+sms' : 'sms';
       } else {
         smsResult = {
@@ -336,16 +385,39 @@ export async function processReminder(
         };
 
         console.error(`[Processor] SMS failed: ${smsResult.error}`);
+
+        // 402 = the station is out of credit. Retry daily for MAX_CREDIT_RETRIES
+        // (the schedule is simply not advanced), then give up and let the
+        // schedule move on so the row is not re-fetched forever.
+        if (smsResponse.httpStatus === 402) {
+          const attempts = (reminder.blocked_retry_count ?? 0) + 1;
+          creditBlocked = attempts < MAX_CREDIT_RETRIES ? 'pending_credits' : 'skipped_no_credits';
+
+          await supabase
+            .from('reminders')
+            .update({
+              blocked_reason: creditBlocked,
+              blocked_at: reminder.blocked_at ?? new Date().toISOString(),
+              blocked_retry_count: attempts,
+            })
+            .eq('id', reminder.id);
+
+          console.warn(
+            `[Processor] Insufficient credits for station ${reminder.station_id}: ${creditBlocked} (attempt ${attempts})`
+          );
+        }
+
         const { error: logError } = await supabase.from('notification_log').insert({
           reminder_id: reminder.id,
           channel: 'sms',
           type: 'sms',
           status: 'failed',
           sent_at: new Date().toISOString(),
-          error_message: smsResult.error,
+          error_message: creditBlocked ? 'insufficient_credits' : smsResult.error,
           metadata: {
             days_until_expiry: daysUntilExpiry,
             error: smsResult.error,
+            blocked_reason: creditBlocked,
             template_source: reminder.station_id ? 'custom' : 'default',
           },
         });
@@ -390,7 +462,7 @@ export async function processReminder(
   // attempted (no contact info — avoids reprocessing the same row forever).
   // When a send was attempted and failed (transient outage), keep the date so
   // tomorrow's run retries the missed interval.
-  if (success || !attempted) {
+  if (success || !attempted || creditBlocked === 'skipped_no_credits') {
     await supabase
       .from('reminders')
       .update({
@@ -405,7 +477,7 @@ export async function processReminder(
   return {
     reminderId: reminder.id,
     plate: reminder.plate_number,
-    type: reminder.type,
+    type: reminder.reminder_type ?? reminder.type ?? 'itp',
     success,
     channel,
     error: !success ? 'Failed to send notification' : undefined,
@@ -433,6 +505,8 @@ export async function processRemindersForToday() {
   // FIXED: Use Romanian timezone (Europe/Bucharest) instead of UTC
   // This ensures reminders are processed at correct local time
   // Example: 09:00 EET = 07:00 UTC (cron runs at 07:00 UTC)
+  resetStationKeyCache();
+
   const today = formatInTimeZone(new Date(), 'Europe/Bucharest', 'yyyy-MM-dd');
 
   console.log('[Processor] Starting reminder processing for Romanian date:', today);

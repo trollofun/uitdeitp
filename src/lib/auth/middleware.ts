@@ -76,7 +76,7 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Station manager routes - require station_manager or admin role
-  const stationManagerPaths = ['/stations/manage'];
+  const stationManagerPaths = ['/stations/manage', '/stations/dashboard'];
   const isStationManagerRoute = stationManagerPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
