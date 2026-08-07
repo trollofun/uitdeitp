@@ -8,7 +8,7 @@ import {
   ApiErrorCode,
 } from '@/lib/api/errors';
 import {
-  requireAuth,
+  requireRoleApi,
   validateRequestBody,
   checkRateLimit,
   getRateLimitIdentifier,
@@ -84,8 +84,9 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Authentication required
-    const user = await requireAuth(req);
+    // Station creation is an admin operation: a station is a tenant, and any
+    // authenticated user could previously create one and own it.
+    const { user } = await requireRoleApi(req, ['admin']);
 
     // Rate limiting
     const rateLimitId = getRateLimitIdentifier(req, user.id);

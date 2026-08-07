@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     // Get reminders with phone numbers
     const { data: reminders, error: remindersError } = await supabase
       .from('reminders')
-      .select('id, guest_phone, plate_number, reminder_type, expiry_date')
+      .select('id, guest_phone, plate_number, reminder_type, expiry_date, station_id')
       .in('id', reminder_ids);
 
     if (remindersError) throw remindersError;
@@ -79,6 +79,31 @@ export async function POST(req: NextRequest) {
         { error: 'Niciun reminder găsit' },
         { status: 404 }
       );
+    }
+
+    // A station manager may only send to reminders belonging to stations they
+    // own; admins are unrestricted. Costs are per station, so cross-station
+    // bulk sends would spend someone else's credits.
+    if (profile.role === 'station_manager') {
+      const { data: ownedStations } = await supabase
+        .from('kiosk_stations')
+        .select('id')
+        .eq('owner_id', user.id);
+
+      const ownedIds = new Set((ownedStations || []).map((s) => s.id));
+      const foreign = reminders.filter(
+        (r) => !r.station_id || !ownedIds.has(r.station_id)
+      );
+
+      if (foreign.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              'Unele remindere aparțin altei stații. Poți trimite doar pentru stațiile tale.',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // NotifyHub credentials

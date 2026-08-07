@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     // Validate station exists
     const { data: station, error: stationError } = await supabase
       .from('kiosk_stations')
-      .select('id')
+      .select('id, owner_id')
       .eq('slug', station_slug)
       .eq('is_active', true)
       .single();
@@ -109,6 +109,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A station manager may only write to stations they own; admins may write
+    // to any station. Without this, manager A could add clients under station B.
+    if (profile.role === 'station_manager' && station.owner_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Nu ai permisiunea să adaugi remindere pentru această stație' },
+        { status: 403 }
+      );
+    }
+
     // Create reminder with correct schema fields
     const { data: reminder, error } = await supabase
       .from('reminders')
@@ -117,14 +126,17 @@ export async function POST(request: NextRequest) {
         guest_name: guest_name || null,
         plate_number: plate_number.toUpperCase(),
         expiry_date: expiry_date,
-        reminder_type: 'ITP', // Capitalized to match database enum
+        reminder_type: 'itp',
         station_id: station.id, // UUID from station lookup
         notification_channels: {
           sms: sms_notifications_enabled ?? true,
           email: false, // Guest users don't have email
         },
         notification_intervals: [7, 3, 1], // Default intervals
-        source: 'station_manual',
+        // Both values below previously violated their CHECK constraints
+        // ('ITP' uppercase, 'station_manual' not in the allowed source list),
+        // so every insert from this route failed.
+        source: 'web',
         consent_given: true,
         consent_timestamp: new Date().toISOString(),
       })

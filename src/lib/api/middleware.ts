@@ -158,6 +158,38 @@ export async function requireAuth(req: NextRequest) {
   return user;
 }
 
+export type ApiUserRole = 'user' | 'station_manager' | 'admin';
+
+/**
+ * Requires authentication AND one of the given roles.
+ *
+ * requireRole() in @/lib/auth/requireRole uses redirect(), which throws
+ * NEXT_REDIRECT and is unusable inside route handlers — this is its API-route
+ * counterpart, throwing an ApiError the shared error handler understands.
+ */
+export async function requireRoleApi(req: NextRequest, roles: ApiUserRole[]) {
+  const user = await requireAuth(req);
+  const supabase = createServerClient();
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const role = (profile?.role ?? 'user') as ApiUserRole;
+
+  if (!roles.includes(role)) {
+    throw new ApiError(
+      ApiErrorCode.AUTHORIZATION_ERROR,
+      'Nu ai permisiunea necesară pentru această acțiune',
+      403
+    );
+  }
+
+  return { user, role };
+}
+
 /**
  * Validates request body against schema
  */
