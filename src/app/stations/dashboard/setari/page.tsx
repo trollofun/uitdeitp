@@ -31,6 +31,20 @@ export default async function StationSettingsPage() {
   const station = stations?.[0];
 
   if (!station) {
+    // Un inspector nu are acces la datele de contact ale clienților, deci nici
+    // la ecranele astea. Îl trimitem la lista lui de lucru în loc să-i arătăm
+    // un mesaj de eroare pentru ceva ce nu i se cuvine oricum.
+    const { data: memberships } = await supabase
+      .from('station_members')
+      .select('station_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .limit(1);
+
+    if (memberships?.[0]) {
+      redirect('/stations/dashboard');
+    }
+
     return (
       <main className="mx-auto max-w-xl p-8 text-center">
         <h1 className="text-2xl font-semibold">Nicio stație asociată</h1>

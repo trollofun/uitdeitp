@@ -18,7 +18,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { handleApiError, createSuccessResponse, ApiError, ApiErrorCode } from '@/lib/api/errors';
 import { flags } from '@/lib/config/flags';
-import { resolveMyStation } from '@/lib/stations/me';
+import { requirePatron } from '@/lib/stations/me';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 25)));
     const search = url.searchParams.get('q')?.trim();
 
-    const station = await resolveMyStation(url.searchParams.get('station_id'));
+    const station = await requirePatron(url.searchParams.get('station_id'));
     const supabase = createServerClient();
 
     let query = supabase
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     const { reminder_id, action, reason } = parsed.data;
 
     const url = new URL(req.url);
-    const station = await resolveMyStation(url.searchParams.get('station_id'));
+    const station = await requirePatron(url.searchParams.get('station_id'));
 
     // Station owners hold SELECT on their reminders, not UPDATE — and giving
     // them UPDATE would let them rewrite expiry dates and consent timestamps

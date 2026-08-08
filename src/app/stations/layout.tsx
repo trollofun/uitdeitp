@@ -28,10 +28,31 @@ export default async function StationsLayout({
 
   const contexts = await getUserContexts(supabase, user.id, '/stations');
 
+  // Owner of a station, or a member with the patron role, gets the full nav.
+  // An inspector gets a single screen and no links to places they cannot enter.
+  const { data: owned } = await supabase
+    .from('kiosk_stations')
+    .select('id')
+    .eq('owner_id', user.id)
+    .limit(1);
+
+  let role: 'patron' | 'inspector' = 'patron';
+
+  if (!owned?.[0]) {
+    const { data: memberships } = await supabase
+      .from('station_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .limit(1);
+
+    if (memberships?.[0]?.role === 'inspector') role = 'inspector';
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader initial={contexts} />
-      <StationNav />
+      <StationNav role={role} />
       <main>{children}</main>
     </div>
   );

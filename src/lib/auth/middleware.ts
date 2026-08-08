@@ -116,7 +116,7 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    const userRole = profile.role as 'user' | 'station_manager' | 'admin';
+    const userRole = profile.role as 'user' | 'station_manager' | 'admin' | 'inspector';
 
     // Check admin routes
     if (isAdminRoute && userRole !== 'admin') {
@@ -125,8 +125,14 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Check station manager routes
-    if (isStationManagerRoute && !['station_manager', 'admin'].includes(userRole)) {
+    // Check station manager routes.
+    // 'inspector' is a station role too — a narrower one. The pages themselves
+    // decide what an inspector sees; this only decides who gets through the
+    // door.
+    if (
+      isStationManagerRoute &&
+      !['station_manager', 'admin', 'inspector'].includes(userRole)
+    ) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/unauthorized';
       return NextResponse.redirect(redirectUrl);

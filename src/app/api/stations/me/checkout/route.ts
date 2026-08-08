@@ -7,7 +7,7 @@
 import { NextRequest } from 'next/server';
 import { handleApiError, createSuccessResponse, ApiError, ApiErrorCode } from '@/lib/api/errors';
 import { flags } from '@/lib/config/flags';
-import { resolveMyStation } from '@/lib/stations/me';
+import { requirePatron } from '@/lib/stations/me';
 import { GUMROAD_PRODUCTS, buildCheckoutUrl } from '@/lib/integrations/gumroad';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url);
-    const station = await resolveMyStation(url.searchParams.get('station_id'));
+    const station = await requirePatron(url.searchParams.get('station_id'));
 
     if (!flags.gumroadTopupEnabled) {
       return createSuccessResponse({ available: false, reason: 'feature_disabled', packages: [] });

@@ -190,6 +190,33 @@ export interface Database {
           updated_at?: string
         }
       }
+      station_members: {
+        Row: {
+          id: string
+          station_id: string
+          user_id: string
+          role: 'inspector' | 'patron'
+          status: 'active' | 'left'
+          added_by: string | null
+          created_at: string
+          left_at: string | null
+        }
+        Insert: {
+          id?: string
+          station_id: string
+          user_id: string
+          role: 'inspector' | 'patron'
+          status?: 'active' | 'left'
+          added_by?: string | null
+          created_at?: string
+          left_at?: string | null
+        }
+        Update: {
+          role?: 'inspector' | 'patron'
+          status?: 'active' | 'left'
+          left_at?: string | null
+        }
+      }
       notification_log: {
         Row: {
           id: string

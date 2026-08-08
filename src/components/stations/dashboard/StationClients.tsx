@@ -92,6 +92,75 @@ export function StationClients({ station }: { station: { id: string; name: strin
     setPage(1);
   }
 
+  /** One place for the three write actions, so errors surface identically. */
+  async function run(
+    row: ClientRow,
+    request: () => Promise<Response>,
+    onDone?: (json: any) => void
+  ) {
+    setBusyId(row.id);
+    try {
+      const res = await request();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json?.error?.message || json?.error || 'Nu am putut salva');
+      }
+      onDone?.(json);
+      toast({ title: json?.data?.message ?? 'Gata' });
+    } catch (error) {
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Încearcă din nou',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function changeExpiry(row: ClientRow) {
+    const current = row.expiry_date?.slice(0, 10) ?? '';
+    const next = window.prompt(
+      `Noua dată de expirare pentru ${row.plate_number} (AAAA-LL-ZZ):`,
+      current
+    );
+    if (!next || next === current) return;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(next.trim())) {
+      toast({ title: 'Dată invalidă', description: 'Folosește formatul 2027-03-15', variant: 'destructive' });
+      return;
+    }
+
+    run(
+      row,
+      () =>
+        fetch(`/api/stations/me/reminders/${row.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expiry_date: next.trim() }),
+        }),
+      () => load()
+    );
+  }
+
+  function notifyClient(row: ClientRow) {
+    const who = row.guest_name || row.plate_number;
+    if (!window.confirm(`Trimiți acum mesajul de reminder către ${who}?`)) return;
+
+    run(row, () =>
+      fetch(`/api/stations/me/reminders/${row.id}/notify`, { method: 'POST' })
+    );
+  }
+
+  function archiveClient(row: ClientRow) {
+    const who = row.guest_name || row.plate_number;
+    if (!window.confirm(`Arhivezi ${who}? Nu va mai primi notificări, dar evidența rămâne.`)) return;
+
+    run(row, () => fetch(`/api/stations/me/reminders/${row.id}`, { method: 'DELETE' }), () =>
+      load()
+    );
+  }
+
   async function toggleConsent(row: ClientRow) {
     const revoking = !row.opt_out;
     const who = row.guest_name || row.plate_number;
@@ -207,6 +276,40 @@ export function StationClients({ station }: { station: { id: string; name: strin
                   <Phone className="h-4 w-4" />
                   {row.guest_phone}
                 </a>
+              )}
+
+              {view === 'lista' && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busyId === row.id}
+                    onClick={() => changeExpiry(row)}
+                  >
+                    Schimbă data
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busyId === row.id || Boolean(row.opt_out)}
+                    onClick={() => notifyClient(row)}
+                  >
+                    {busyId === row.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      'Trimite mesajul'
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busyId === row.id}
+                    onClick={() => archiveClient(row)}
+                    className="text-red-700"
+                  >
+                    Arhivează
+                  </Button>
+                </div>
               )}
 
               {view === 'consimtamant' && !row.globally_opted_out && (

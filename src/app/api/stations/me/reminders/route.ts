@@ -6,7 +6,7 @@ import { NextRequest } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { handleApiError, createSuccessResponse, ApiError, ApiErrorCode } from '@/lib/api/errors';
 import { flags } from '@/lib/config/flags';
-import { resolveMyStation } from '@/lib/stations/me';
+import { requirePatron } from '@/lib/stations/me';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     const search = url.searchParams.get('q')?.trim();
     const status = url.searchParams.get('status');
 
-    const station = await resolveMyStation(url.searchParams.get('station_id'));
+    const station = await requirePatron(url.searchParams.get('station_id'));
     const supabase = createServerClient();
 
     let query = supabase

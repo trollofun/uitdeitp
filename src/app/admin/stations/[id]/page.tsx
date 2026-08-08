@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { StationForm } from '@/components/admin/StationForm';
 import { StationApiKeys } from '@/components/admin/StationApiKeys';
+import { StationMembers } from '@/components/admin/StationMembers';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,9 @@ export default async function EditStationPage({
 
       {/* Form */}
       <StationForm station={station} />
+
+      {/* Cine lucrează la stație */}
+      <StationMembers stationId={params.id} />
 
       {/* Contract A ingest keys */}
       <StationApiKeys stationId={params.id} />

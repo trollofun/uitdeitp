@@ -74,12 +74,19 @@ export async function resolveLandingPath(
     } = await supabase.auth.getUser();
     if (!user) return '/dashboard';
 
-    const [{ data: profile }, { data: stations }] = await Promise.all([
+    const [{ data: profile }, { data: stations }, { data: memberships }] = await Promise.all([
       supabase.from('user_profiles').select('role').eq('id', user.id).maybeSingle(),
       supabase.from('kiosk_stations').select('id').eq('owner_id', user.id).limit(1),
+      supabase
+        .from('station_members')
+        .select('station_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1),
     ]);
 
-    return landingPathFor((profile?.role as string) ?? 'user', (stations?.length ?? 0) > 0);
+    const hasStation = (stations?.length ?? 0) > 0 || (memberships?.length ?? 0) > 0;
+    return landingPathFor((profile?.role as string) ?? 'user', hasStation);
   } catch (error) {
     console.warn('[Auth] landing path lookup failed, using /dashboard', error);
     return '/dashboard';
@@ -91,11 +98,17 @@ export async function getUserContexts(
   userId: string,
   pathname = '/dashboard'
 ): Promise<UserContexts> {
-  const [{ data: profile }, { data: stations }] = await Promise.all([
+  const [{ data: profile }, { data: stations }, { data: memberships }] = await Promise.all([
     supabase.from('user_profiles').select('role').eq('id', userId).maybeSingle(),
     // RLS already scopes this; the explicit filter is defence in depth.
-    // Station membership (Etapa 2) plugs in here — the shape does not change.
     supabase.from('kiosk_stations').select('id, name').eq('owner_id', userId).order('name'),
+    // An inspector owns no station but works at one, and still needs the
+    // context to appear in the switcher.
+    supabase
+      .from('station_members')
+      .select('station_id')
+      .eq('user_id', userId)
+      .eq('status', 'active'),
   ]);
 
   const role = (profile?.role as string) ?? 'user';
@@ -107,6 +120,13 @@ export async function getUserContexts(
       label: station.name,
       href: '/stations/dashboard',
     });
+  }
+
+  // The station's name lives behind RLS an inspector does not have, and one
+  // extra service-role query per page render is not worth a label. "Stația"
+  // is honest and enough — they only ever work at one.
+  if (contexts.length === 0 && (memberships?.length ?? 0) > 0) {
+    contexts.push({ kind: 'station', label: 'Stația', href: '/stations/dashboard' });
   }
 
   contexts.push(PERSONAL);

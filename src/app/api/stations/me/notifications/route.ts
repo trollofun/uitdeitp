@@ -7,7 +7,7 @@ import { NextRequest } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { handleApiError, createSuccessResponse, ApiError, ApiErrorCode } from '@/lib/api/errors';
 import { flags } from '@/lib/config/flags';
-import { resolveMyStation } from '@/lib/stations/me';
+import { requirePatron } from '@/lib/stations/me';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') ?? 50)));
 
-    const station = await resolveMyStation(url.searchParams.get('station_id'));
+    const station = await requirePatron(url.searchParams.get('station_id'));
     const supabase = createServerClient();
 
     const { data: reminderIds, error: remindersError } = await supabase

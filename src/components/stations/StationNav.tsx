@@ -15,18 +15,24 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const LINKS = [
-  { href: '/stations/dashboard', label: 'Acasă' },
-  { href: '/stations/dashboard/clienti', label: 'Clienți' },
-  { href: '/stations/dashboard/setari', label: 'Setări' },
+  { href: '/stations/dashboard', label: 'Acasă', patronOnly: false },
+  { href: '/stations/dashboard/clienti', label: 'Clienți', patronOnly: true },
+  { href: '/stations/dashboard/setari', label: 'Setări', patronOnly: true },
 ];
 
-export function StationNav() {
+export function StationNav({ role = 'patron' }: { role?: 'patron' | 'inspector' }) {
   const pathname = usePathname();
+
+  // An inspector never sees client contact details or station settings, so
+  // showing them the links would just be two dead ends.
+  const links = LINKS.filter((link) => !link.patronOnly || role === 'patron');
+
+  if (links.length <= 1) return null;
 
   return (
     <nav className="border-b bg-card">
       <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4">
-        {LINKS.map((link) => {
+        {links.map((link) => {
           // Exact match for the root, prefix for the rest — otherwise "Acasă"
           // stays highlighted on every subpage.
           const isActive =

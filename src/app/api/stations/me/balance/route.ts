@@ -9,7 +9,7 @@
 import { NextRequest } from 'next/server';
 import { handleApiError, createSuccessResponse, ApiError, ApiErrorCode } from '@/lib/api/errors';
 import { flags } from '@/lib/config/flags';
-import { resolveMyStation } from '@/lib/stations/me';
+import { requirePatron } from '@/lib/stations/me';
 import { getStationBalance } from '@/lib/services/station-credits';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url);
-    const station = await resolveMyStation(url.searchParams.get('station_id'));
+    const station = await requirePatron(url.searchParams.get('station_id'));
 
     const balance = await getStationBalance(station.id);
 
