@@ -9,7 +9,7 @@
 // Instead, processRemindersForToday() creates a direct Supabase client with service role key
 import { notifyHub } from '@/lib/services/notifyhub';
 import { sendReminderEmail } from '@/lib/services/email';
-import { getDaysUntilExpiry } from '@/lib/services/date';
+import { getDaysUntilExpiry, nextNotificationDateFor } from '@/lib/services/date';
 import { getUserQuietHours, isInQuietHours, calculateNextAvailableTime } from '@/lib/services/quiet-hours';
 import { renderSmsTemplate, getTemplateForDays, DEFAULT_SMS_TEMPLATES, sendSms } from '@/lib/services/notification';
 import { getStationSendKey, resetStationKeyCache } from '@/lib/services/station-credits';
@@ -459,27 +459,22 @@ export async function processReminder(
     }
   }
 
-  // Calculate next notification date based on user's custom intervals
-  let nextNotificationDate: string | null = null;
+  // Calculate next notification date based on user's custom intervals.
+  //
+  // Logica era inline aici, într-una din trei copii identice (una moartă în
+  // date.ts, una „simulată" în teste). Acum e o singură funcție, testată direct
+  // — și cu aritmetică pe șiruri, ca să nu mai amestece miezul nopții UTC cu
+  // ziua locală.
+  const nextNotificationDate = nextNotificationDateFor(
+    reminder.expiry_date,
+    daysUntilExpiry,
+    reminder.notification_intervals
+  );
 
-  if (reminder.notification_intervals && reminder.notification_intervals.length > 0) {
-    // Sort intervals in descending order
-    const sortedIntervals = [...reminder.notification_intervals].sort((a, b) => b - a);
-
-    // Find the next interval that is smaller than current daysUntilExpiry
-    const nextInterval = sortedIntervals.find(interval => interval < daysUntilExpiry);
-
-    if (nextInterval !== undefined) {
-      // Calculate the date for the next notification
-      const expiryDate = new Date(reminder.expiry_date);
-      const nextDate = new Date(expiryDate);
-      nextDate.setDate(expiryDate.getDate() - nextInterval);
-      nextNotificationDate = nextDate.toISOString().split('T')[0];
-
-      console.log(`[Processor] Next notification scheduled for ${nextNotificationDate} (${nextInterval} days before expiry)`);
-    } else {
-      console.log(`[Processor] No more notifications scheduled - this was the last interval`);
-    }
+  if (nextNotificationDate) {
+    console.log(`[Processor] Next notification scheduled for ${nextNotificationDate}`);
+  } else {
+    console.log(`[Processor] No more notifications scheduled - this was the last interval`);
   }
 
   const success = !!(emailResult?.success || smsResult?.success);

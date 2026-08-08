@@ -4,7 +4,7 @@
  * Test handling of reminders with missing or invalid fields
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   createTestSupabaseClient,
   createTestReminder,
@@ -12,10 +12,11 @@ import {
   cleanupTestNotificationLogs,
 } from '../setup';
 import { processReminder } from '@/lib/services/reminder-processor';
+import { describeWithBackend } from '../../helpers/live-backend';
 
 const supabase = createTestSupabaseClient();
 
-describe('Edge Case: Missing or Invalid Data', () => {
+describeWithBackend('Edge Case: Missing or Invalid Data', () => {
   beforeAll(async () => {
     await cleanupTestNotificationLogs(supabase);
     await cleanupTestReminders(supabase);

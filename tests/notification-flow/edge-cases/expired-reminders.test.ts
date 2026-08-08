@@ -4,7 +4,7 @@
  * Test handling of expired reminders (expiry_date < today)
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getDaysUntilExpiry } from '@/lib/services/date';
 import {
   createTestSupabaseClient,
@@ -13,10 +13,11 @@ import {
   cleanupTestNotificationLogs,
 } from '../setup';
 import { processReminder } from '@/lib/services/reminder-processor';
+import { describeWithBackend } from '../../helpers/live-backend';
 
 const supabase = createTestSupabaseClient();
 
-describe('Edge Case: Expired Reminders', () => {
+describeWithBackend('Edge Case: Expired Reminders', () => {
   beforeAll(async () => {
     await cleanupTestNotificationLogs(supabase);
     await cleanupTestReminders(supabase);

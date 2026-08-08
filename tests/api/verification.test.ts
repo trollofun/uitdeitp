@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+// `Request` din jsdom nu expune `headers` la fel ca runtime-ul Next, iar ruta
+// citește `req.headers.get('x-forwarded-for')` — de aici „Cannot read
+// properties of undefined". `NextRequest` e chiar tipul pe care ruta îl cere.
+import { NextRequest } from 'next/server';
 import { POST as sendPOST } from '@/app/api/verification/send/route';
 import { POST as verifyPOST } from '@/app/api/verification/verify/route';
 import { POST as resendPOST } from '@/app/api/verification/resend/route';
@@ -47,7 +51,7 @@ describe('Verification API - Send', () => {
   });
 
   it('should send verification code successfully', async () => {
-    const req = new Request('http://localhost:3000/api/verification/send', {
+    const req = new NextRequest('http://localhost:3000/api/verification/send', {
       method: 'POST',
       body: JSON.stringify({
         phone: '0712345678',
@@ -64,7 +68,7 @@ describe('Verification API - Send', () => {
   });
 
   it('should reject invalid phone number', async () => {
-    const req = new Request('http://localhost:3000/api/verification/send', {
+    const req = new NextRequest('http://localhost:3000/api/verification/send', {
       method: 'POST',
       body: JSON.stringify({
         phone: '123',
@@ -80,7 +84,7 @@ describe('Verification API - Send', () => {
   });
 
   it('should handle missing stationSlug', async () => {
-    const req = new Request('http://localhost:3000/api/verification/send', {
+    const req = new NextRequest('http://localhost:3000/api/verification/send', {
       method: 'POST',
       body: JSON.stringify({
         phone: '0712345678',
@@ -100,7 +104,7 @@ describe('Verification API - Verify', () => {
   });
 
   it('should verify code successfully', async () => {
-    const req = new Request('http://localhost:3000/api/verification/verify', {
+    const req = new NextRequest('http://localhost:3000/api/verification/verify', {
       method: 'POST',
       body: JSON.stringify({
         phone: '0712345678',
@@ -117,7 +121,7 @@ describe('Verification API - Verify', () => {
   });
 
   it('should reject invalid code format', async () => {
-    const req = new Request('http://localhost:3000/api/verification/verify', {
+    const req = new NextRequest('http://localhost:3000/api/verification/verify', {
       method: 'POST',
       body: JSON.stringify({
         phone: '0712345678',
@@ -132,7 +136,7 @@ describe('Verification API - Verify', () => {
   });
 
   it('should reject non-numeric code', async () => {
-    const req = new Request('http://localhost:3000/api/verification/verify', {
+    const req = new NextRequest('http://localhost:3000/api/verification/verify', {
       method: 'POST',
       body: JSON.stringify({
         phone: '0712345678',
@@ -153,7 +157,7 @@ describe('Verification API - Resend', () => {
   });
 
   it('should resend verification code successfully', async () => {
-    const req = new Request('http://localhost:3000/api/verification/resend', {
+    const req = new NextRequest('http://localhost:3000/api/verification/resend', {
       method: 'POST',
       body: JSON.stringify({
         phone: '0712345678',
@@ -170,7 +174,7 @@ describe('Verification API - Resend', () => {
   });
 
   it('should reject invalid phone number on resend', async () => {
-    const req = new Request('http://localhost:3000/api/verification/resend', {
+    const req = new NextRequest('http://localhost:3000/api/verification/resend', {
       method: 'POST',
       body: JSON.stringify({
         phone: 'invalid',
@@ -197,7 +201,7 @@ describe('Verification API - Rate Limiting', () => {
       } as Response)
     );
 
-    const req = new Request('http://localhost:3000/api/verification/send', {
+    const req = new NextRequest('http://localhost:3000/api/verification/send', {
       method: 'POST',
       body: JSON.stringify({
         phone: '0712345678',
@@ -222,7 +226,7 @@ describe('Verification API - Phone Formatting', () => {
     ];
 
     for (const phone of formats) {
-      const req = new Request('http://localhost:3000/api/verification/send', {
+      const req = new NextRequest('http://localhost:3000/api/verification/send', {
         method: 'POST',
         body: JSON.stringify({
           phone,

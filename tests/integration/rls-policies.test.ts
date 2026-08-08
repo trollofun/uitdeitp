@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
+import { describeWithBackend } from '../helpers/live-backend';
 
 // Integration tests require actual Supabase connection
 // Set up test environment variables
@@ -13,7 +14,7 @@ const TEST_USERS = {
   user: { email: 'user@test.com', password: 'test-user-password', role: 'user' },
 };
 
-describe('RLS Policies for Roles', () => {
+describeWithBackend('RLS Policies for Roles', () => {
   let adminClient: any;
   let managerClient: any;
   let userClient: any;

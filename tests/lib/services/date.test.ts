@@ -6,7 +6,7 @@ import {
   isFutureDate,
   isExpired,
   getUrgencyStatus,
-  calculateNextNotificationDate,
+  nextNotificationDateFor,
 } from '@/lib/services/date';
 
 describe('Date Service', () => {
@@ -189,51 +189,40 @@ describe('Date Service', () => {
     });
   });
 
-  describe('calculateNextNotificationDate', () => {
-    it('should calculate next notification for 7-day interval', () => {
-      const expiryDate = new Date('2025-01-22T12:00:00Z'); // 7 days from now
-      const result = calculateNextNotificationDate(expiryDate, [7, 3, 1]);
+  describe('nextNotificationDateFor', () => {
+    /**
+     * Blocul de dinainte testa `calculateNextNotificationDate` — o funcție pe
+     * care n-o importa nimeni. Trecea verificând cod mort, în timp ce logica
+     * reală, inline în `reminder-processor.ts`, n-avea niciun test. Acum e o
+     * singură funcție, iar testul o urmărește pe aceea.
+     *
+     * Semantica: primești câte zile mai sunt până la scadență și pragurile
+     * stației; primești înapoi data următoarei notificări, ca `YYYY-MM-DD`.
+     */
+    const EXPIRY = '2025-01-22';
 
-      expect(result).toBeTruthy();
-      if (result) {
-        expect(result.getTime()).toBe(new Date('2025-01-15T12:00:00Z').getTime());
-      }
-    });
-
-    it('should calculate next notification for 3-day interval', () => {
-      const expiryDate = new Date('2025-01-18T12:00:00Z'); // 3 days from now
-      const result = calculateNextNotificationDate(expiryDate, [7, 3, 1]);
-
-      expect(result).toBeTruthy();
-      if (result) {
-        expect(result.getTime()).toBe(new Date('2025-01-15T12:00:00Z').getTime());
-      }
+    it('should pick the next smaller interval', () => {
+      // Suntem la 7 zile → următorul prag e 3 → 19 ianuarie.
+      expect(nextNotificationDateFor(EXPIRY, 7, [7, 3, 1])).toBe('2025-01-19');
     });
 
     it('should return null when no applicable interval', () => {
-      const expiryDate = new Date('2025-01-16T12:00:00Z'); // 1 day from now
-      const result = calculateNextNotificationDate(expiryDate, [7, 3]);
-
-      expect(result).toBeNull();
-    });
-
-    it('should handle string dates', () => {
-      const result = calculateNextNotificationDate('2025-01-22T12:00:00Z', [7, 3, 1]);
-      expect(result).toBeTruthy();
+      // La 1 zi, cu praguri de 7 și 3, nu mai urmează nimic.
+      expect(nextNotificationDateFor(EXPIRY, 1, [7, 3])).toBeNull();
     });
 
     it('should handle custom intervals', () => {
-      const expiryDate = new Date('2025-01-30T12:00:00Z'); // 15 days from now
-      const result = calculateNextNotificationDate(expiryDate, [30, 15, 7]);
-
-      expect(result).toBeTruthy();
+      expect(nextNotificationDateFor('2025-01-30', 30, [30, 15, 7])).toBe('2025-01-15');
     });
 
     it('should handle single interval', () => {
-      const expiryDate = new Date('2025-01-18T12:00:00Z');
-      const result = calculateNextNotificationDate(expiryDate, [3]);
+      expect(nextNotificationDateFor('2025-01-18', 3, [3])).toBeNull();
+      expect(nextNotificationDateFor('2025-01-18', 10, [3])).toBe('2025-01-15');
+    });
 
-      expect(result).toBeTruthy();
+    it('should treat missing or empty intervals as "nothing more to send"', () => {
+      expect(nextNotificationDateFor(EXPIRY, 7, [])).toBeNull();
+      expect(nextNotificationDateFor(EXPIRY, 7, null)).toBeNull();
     });
   });
 });

@@ -11,6 +11,23 @@ import {
   reminderTypeSchema,
 } from '@/lib/validation';
 
+/**
+ * Scadențele se calculează relativ la azi, nu se scriu de mână.
+ *
+ * Fișierul folosea `new Date('2025-12-31')` peste tot. Schemele cer o dată în
+ * viitor, deci pe 1 ianuarie 2026 opt teste au devenit roșii singure, fără ca
+ * nimeni să fi atins codul. Un test cu termen de expirare nu apără nimic — doar
+ * face zgomot până când cineva îl ignoră cu totul.
+ */
+const futureDate = (days: number): Date => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d;
+};
+
+const futureDateString = (days: number): string =>
+  futureDate(days).toISOString().split('T')[0];
+
 describe('Validation Schemas', () => {
   describe('phoneSchema', () => {
     it('should validate correct Romanian phone numbers', () => {
@@ -49,35 +66,38 @@ describe('Validation Schemas', () => {
 
   describe('plateNumberSchema', () => {
     it('should validate and format correct plates', () => {
-      expect(plateNumberSchema.parse('B-123-ABC')).toBe('B-123-ABC');
-      expect(plateNumberSchema.parse('CJ-12-XYZ')).toBe('CJ-12-XYZ');
+      expect(plateNumberSchema.parse('B-123-ABC')).toBe('B123ABC');
+      expect(plateNumberSchema.parse('CJ-12-XYZ')).toBe('CJ12XYZ');
     });
 
     it('should convert to uppercase', () => {
-      expect(plateNumberSchema.parse('b-123-abc')).toBe('B-123-ABC');
-      expect(plateNumberSchema.parse('cj-12-xyz')).toBe('CJ-12-XYZ');
+      expect(plateNumberSchema.parse('b-123-abc')).toBe('B123ABC');
+      expect(plateNumberSchema.parse('cj-12-xyz')).toBe('CJ12XYZ');
     });
 
     it('should reject invalid formats', () => {
       expect(() => plateNumberSchema.parse('123-ABC-XY')).toThrow();
       expect(() => plateNumberSchema.parse('B-1234-ABC')).toThrow();
-      expect(() => plateNumberSchema.parse('B-12-AB')).toThrow();
+      // Placutele vechi se termina in doua litere — acceptate deliberat
+      // (vezi comentariul din plateNumberSchema).
+      expect(plateNumberSchema.parse('B-12-AB')).toBe('B12AB');
     });
 
-    it('should reject plates without dashes', () => {
-      expect(() => plateNumberSchema.parse('B123ABC')).toThrow();
+    it('should accept plates without dashes', () => {
+      // Intrarea se accepta in orice forma; iesirea e mereu compacta.
+      expect(plateNumberSchema.parse('B123ABC')).toBe('B123ABC');
     });
 
     it('should validate single and double letter counties', () => {
-      expect(plateNumberSchema.parse('B-123-ABC')).toBe('B-123-ABC');
-      expect(plateNumberSchema.parse('AB-123-ABC')).toBe('AB-123-ABC');
+      expect(plateNumberSchema.parse('B-123-ABC')).toBe('B123ABC');
+      expect(plateNumberSchema.parse('AB-123-ABC')).toBe('AB123ABC');
     });
 
     it('should provide Romanian error message', () => {
       try {
         plateNumberSchema.parse('invalid');
       } catch (error: any) {
-        expect(error.errors[0].message).toContain('format XX-123-ABC');
+        expect(error.errors[0].message).toContain('Număr de înmatriculare invalid');
       }
     });
   });
@@ -152,14 +172,14 @@ describe('Validation Schemas', () => {
     const validReminder = {
       plate_number: 'B-123-ABC',
       reminder_type: 'itp' as const,
-      expiry_date: new Date('2025-12-31'),
+      expiry_date: futureDate(120),
       notification_intervals: [7, 3, 1],
       notification_channels: { sms: true, email: false },
     };
 
     it('should validate complete reminder', () => {
       const result = createReminderSchema.parse(validReminder);
-      expect(result.plate_number).toBe('B-123-ABC');
+      expect(result.plate_number).toBe('B123ABC');
       expect(result.reminder_type).toBe('itp');
     });
 
@@ -175,13 +195,13 @@ describe('Validation Schemas', () => {
     it('should apply defaults', () => {
       const minimal = {
         plate_number: 'B-123-ABC',
-        expiry_date: new Date('2025-12-31'),
+        expiry_date: futureDate(120),
       };
 
       const result = createReminderSchema.parse(minimal);
 
       expect(result.reminder_type).toBe('itp');
-      expect(result.notification_intervals).toEqual([7, 3, 1]);
+      expect(result.notification_intervals).toEqual([5]);
       expect(result.notification_channels).toEqual({ sms: true, email: false });
     });
 
@@ -208,7 +228,7 @@ describe('Validation Schemas', () => {
     it('should coerce string dates', () => {
       const withStringDate = {
         ...validReminder,
-        expiry_date: '2025-12-31',
+        expiry_date: futureDateString(120),
       };
 
       const result = createReminderSchema.parse(withStringDate);
@@ -259,7 +279,7 @@ describe('Validation Schemas', () => {
       guest_name: 'Ion Popescu',
       guest_phone: '+40712345678',
       plate_number: 'B-123-ABC',
-      expiry_date: new Date('2025-12-31'),
+      expiry_date: futureDate(120),
       consent_given: true as const,
     };
 
@@ -545,7 +565,7 @@ describe('Validation Schemas', () => {
     it('should validate complex nested objects', () => {
       const reminder = {
         plate_number: 'B-123-ABC',
-        expiry_date: new Date('2025-12-31'),
+        expiry_date: futureDate(120),
         notification_channels: {
           sms: true,
           email: true,
@@ -578,7 +598,7 @@ describe('Validation Schemas', () => {
     it('should handle type coercion correctly', () => {
       const reminder = {
         plate_number: 'B-123-ABC',
-        expiry_date: '2025-12-31', // String date
+        expiry_date: futureDateString(120), // String date
       };
 
       const result = createReminderSchema.parse(reminder);
@@ -598,7 +618,8 @@ describe('Validation Schemas', () => {
         phone: romanianData.phone,
       })).toBeTruthy();
 
-      expect(plateNumberSchema.parse(romanianData.plate)).toBe(romanianData.plate);
+      // Plăcuța se normalizează la forma compactă; celelalte trec neschimbate.
+      expect(plateNumberSchema.parse(romanianData.plate)).toBe('B123ABC');
       expect(phoneSchema.parse(romanianData.phone)).toBe(romanianData.phone);
       expect(emailSchema.parse(romanianData.email)).toBe(romanianData.email);
     });

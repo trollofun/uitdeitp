@@ -5,12 +5,13 @@
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
+import { describeWithBackend } from '../helpers/live-backend';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://test.supabase.co';
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'test-anon-key';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-service-key';
 
-describe('RLS Policies', () => {
+describeWithBackend('RLS Policies', () => {
   let anonClient: any;
   let serviceClient: any;
 

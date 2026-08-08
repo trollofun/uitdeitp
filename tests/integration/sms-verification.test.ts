@@ -4,8 +4,9 @@
  */
 
 import { notifyHub } from '@/lib/services/notifyhub';
+import { describeWithBackend } from '../helpers/live-backend';
 
-describe('SMS Verification Integration', () => {
+describeWithBackend('SMS Verification Integration', () => {
   // Use real phone number for testing (set via env var)
   const TEST_PHONE = process.env.TEST_PHONE_NUMBER || '+40712345678';
   const TEST_CODE = '123456';
@@ -133,7 +134,7 @@ describe('SMS Verification Integration', () => {
   });
 });
 
-describe('ITP Reminder SMS', () => {
+describeWithBackend('ITP Reminder SMS', () => {
   const TEST_PHONE = process.env.TEST_PHONE_NUMBER || '+40712345678';
 
   it('should send 7-day reminder', async () => {

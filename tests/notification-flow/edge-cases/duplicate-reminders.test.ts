@@ -4,17 +4,18 @@
  * Test handling of duplicate reminders
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   createTestSupabaseClient,
   createTestReminder,
   cleanupTestReminders,
   cleanupTestNotificationLogs,
 } from '../setup';
+import { describeWithBackend } from '../../helpers/live-backend';
 
 const supabase = createTestSupabaseClient();
 
-describe('Edge Case: Duplicate Reminders', () => {
+describeWithBackend('Edge Case: Duplicate Reminders', () => {
   beforeAll(async () => {
     await cleanupTestNotificationLogs(supabase);
     await cleanupTestReminders(supabase);

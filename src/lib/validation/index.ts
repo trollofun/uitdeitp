@@ -1,9 +1,23 @@
 import { z } from 'zod';
 
 // Romanian phone number validation (E.164 format)
+/**
+ * Număr de **mobil** românesc, în E.164.
+ *
+ * Cerea doar „+40 urmat de 9 cifre", ceea ce accepta și numerele fixe:
+ * `0212345678` (București) devenea `+40212345678` și trecea. Un fix nu poate
+ * primi SMS — deci reminderul se factura, pleca și nu ajungea nicăieri, iar
+ * clientul rămânea neanunțat fără ca cineva să afle.
+ *
+ * În producție nu era încă niciunul (94 din 94 sunt 07x, verificat 2026-08-09),
+ * dar importul din Excel aduce liste întregi de contacte în care numerele fixe
+ * sunt normale.
+ *
+ * `07` acoperă toate rețelele mobile din România; fixele sunt `02x`/`03x`.
+ */
 export const phoneSchema = z
   .string()
-  .regex(/^\+40\d{9}$/, 'Numărul de telefon trebuie să fie în format +40XXXXXXXXX');
+  .regex(/^\+407\d{8}$/, 'Numărul trebuie să fie un mobil românesc, în format +407XXXXXXXX');
 
 /**
  * Normalizes a Romanian phone number to E.164, then validates it.
@@ -68,12 +82,30 @@ export const createReminderSchema = z.object({
     (date) => date > new Date(),
     'Data expirării trebuie să fie în viitor'
   ),
+  /**
+   * Intervalele erau limitate la lista fixă [1, 5, 14] — o listă care nu se
+   * potrivea cu nimic altceva din sistem.
+   *
+   * În producție, **39 de remindere au `[7, 3, 1]`** (verificat 2026-08-09):
+   * date pe care baza le conține, dar pe care API-ul le refuza. Editarea
+   * oricăruia din dashboard eșua cu „Intervalul trebuie să fie 1, 5 sau 14
+   * zile", fără ca utilizatorul să înțeleagă de ce.
+   *
+   * Contrazicea și restul: șabloanele implicite sunt 7d/3d/1d, strategia din
+   * PRD e „7 / 3 / 1", iar `default_intervals` al stației acceptă orice între
+   * 1 și 60. Aliniem la aceeași regulă — se lărgește, nu se strânge, deci
+   * nimic din ce era acceptat nu devine invalid.
+   */
   notification_intervals: z
-    .array(z.number().refine((val) => [1, 5, 14].includes(val), {
-      message: 'Intervalul trebuie să fie 1, 5 sau 14 zile',
-    }))
+    .array(
+      z
+        .number()
+        .int('Intervalul trebuie să fie un număr întreg de zile')
+        .min(1, 'Intervalul trebuie să fie de cel puțin o zi')
+        .max(60, 'Intervalul nu poate depăși 60 de zile')
+    )
     .min(1, 'Trebuie să selectezi cel puțin 1 interval de notificare')
-    .max(3, 'Poți selecta maxim 3 intervale de notificare')
+    .max(4, 'Poți selecta maxim 4 intervale de notificare')
     .default([5]),
   notification_channels: z
     .object({

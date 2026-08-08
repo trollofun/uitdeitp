@@ -5,6 +5,7 @@
 
 import { describe, test, expect, beforeAll, afterEach, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
+import { describeWithBackend } from '../../helpers/live-backend';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://test.supabase.co';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-service-key';
@@ -12,7 +13,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-service-key';
 // Mock fetch for API calls
 global.fetch = vi.fn();
 
-describe('Verification API Endpoints', () => {
+describeWithBackend('Verification API Endpoints', () => {
   let supabase: any;
   const baseUrl = 'http://localhost:3000';
 

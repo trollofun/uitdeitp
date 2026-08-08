@@ -77,8 +77,19 @@ const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const API_TIMEOUT_MS = 2000; // 2 seconds per API
 
 // API credentials (from environment variables)
-const IPGEO_API_KEY = process.env.NEXT_PUBLIC_IPGEO_KEY || '';
-const IPINFO_TOKEN = process.env.NEXT_PUBLIC_IPINFO_TOKEN || '';
+/**
+ * Cheile se citesc **la fiecare apel**, nu o dată la încărcarea modulului.
+ *
+ * Erau constante de nivel de modul, evaluate la primul `import`. Orice mediu
+ * pregătit după momentul acela era invizibil: în teste, cheile setate în
+ * `beforeEach` nu ajungeau niciodată la cod, deci tot lanțul de fallback cădea
+ * direct pe „manual" și șapte teste raportau o problemă care nu exista.
+ *
+ * Aceeași capcană se aplică oriunde mediul se încarcă după modul. Citirea
+ * leneșă costă nimic și scoate cu totul ordinea de încărcare din ecuație.
+ */
+const ipgeoApiKey = (): string => process.env.NEXT_PUBLIC_IPGEO_KEY || '';
+const ipinfoToken = (): string => process.env.NEXT_PUBLIC_IPINFO_TOKEN || '';
 
 // ============================================================================
 // Romanian County Mapping
@@ -241,14 +252,14 @@ async function fetchWithTimeout(
  * @see https://ipgeolocation.io/documentation/ip-geolocation-api.html
  */
 async function fetchIPGeoLocation(): Promise<LocationResult | null> {
-  if (!IPGEO_API_KEY) {
+  if (!ipgeoApiKey()) {
     console.warn('IPGeoLocation API key not configured');
     return null;
   }
 
   try {
     const response = await fetchWithTimeout(
-      `https://api.ipgeolocation.io/ipgeo?apiKey=${IPGEO_API_KEY}`
+      `https://api.ipgeolocation.io/ipgeo?apiKey=${ipgeoApiKey()}`
     );
 
     if (!response.ok) {
@@ -286,14 +297,14 @@ async function fetchIPGeoLocation(): Promise<LocationResult | null> {
  * @see https://ipinfo.io/developers
  */
 async function fetchIPInfo(): Promise<LocationResult | null> {
-  if (!IPINFO_TOKEN) {
+  if (!ipinfoToken()) {
     console.warn('IPInfo API token not configured');
     return null;
   }
 
   try {
     const response = await fetchWithTimeout(
-      `https://ipinfo.io/json?token=${IPINFO_TOKEN}`
+      `https://ipinfo.io/json?token=${ipinfoToken()}`
     );
 
     if (!response.ok) {
@@ -453,13 +464,13 @@ export async function detectUserLocation(): Promise<LocationResult> {
  * @returns LocationResult for the given IP
  */
 export async function detectLocationForIP(ip: string): Promise<LocationResult> {
-  if (!IPGEO_API_KEY) {
+  if (!ipgeoApiKey()) {
     throw new Error('IPGeoLocation API key required for IP lookup');
   }
 
   try {
     const response = await fetchWithTimeout(
-      `https://api.ipgeolocation.io/ipgeo?apiKey=${IPGEO_API_KEY}&ip=${ip}`
+      `https://api.ipgeolocation.io/ipgeo?apiKey=${ipgeoApiKey()}&ip=${ip}`
     );
 
     if (!response.ok) {
@@ -489,7 +500,7 @@ export async function detectLocationForIP(ip: string): Promise<LocationResult> {
  * Check if location detection is available (API keys configured)
  */
 export function isGeolocationAvailable(): boolean {
-  return Boolean(IPGEO_API_KEY || IPINFO_TOKEN);
+  return Boolean(ipgeoApiKey() || ipinfoToken());
 }
 
 /**
@@ -497,8 +508,8 @@ export function isGeolocationAvailable(): boolean {
  */
 export function getGeolocationStatus() {
   return {
-    ipgeoConfigured: Boolean(IPGEO_API_KEY),
-    ipinfoConfigured: Boolean(IPINFO_TOKEN),
+    ipgeoConfigured: Boolean(ipgeoApiKey()),
+    ipinfoConfigured: Boolean(ipinfoToken()),
     cacheAvailable: typeof window !== 'undefined',
     cached: getCachedLocation() !== null,
   };

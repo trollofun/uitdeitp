@@ -4,7 +4,7 @@
  * Test SMS sending via NotifyHub
  */
 
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 import { sendSms } from '@/lib/services/notification';
 
 describe('NotifyHub Integration Tests', () => {

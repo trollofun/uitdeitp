@@ -4,7 +4,7 @@
  * Test the notification processing logic with database
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { processReminder, processRemindersForToday } from '@/lib/services/reminder-processor';
 import {
   createTestSupabaseClient,
@@ -13,10 +13,11 @@ import {
   cleanupTestNotificationLogs,
   cleanupTestOptOuts,
 } from '../setup';
+import { describeWithBackend } from '../../helpers/live-backend';
 
 const supabase = createTestSupabaseClient();
 
-describe('Reminder Processor Integration Tests', () => {
+describeWithBackend('Reminder Processor Integration Tests', () => {
   beforeAll(async () => {
     // Clean up any existing test data
     await cleanupTestNotificationLogs(supabase);

@@ -4,12 +4,13 @@
  * Test the /api/cron/process-reminders endpoint
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describeWithBackend } from '../../helpers/live-backend';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 const CRON_SECRET = process.env.CRON_SECRET || 'test-secret-key';
 
-describe('Cron Endpoint Integration Tests', () => {
+describeWithBackend('Cron Endpoint Integration Tests', () => {
   describe('GET /api/cron/process-reminders (Health Check)', () => {
     it('should return health check status', async () => {
       const response = await fetch(`${APP_URL}/api/cron/process-reminders`, {

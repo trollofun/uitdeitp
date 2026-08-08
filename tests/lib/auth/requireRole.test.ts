@@ -1,343 +1,185 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getUserRole, requireRole, requireAdmin } from '@/lib/auth/requireRole';
-import { createClient } from '@/lib/supabase/server';
+/**
+ * Testele erau scrise pentru o versiune veche a modulului:
+ *
+ *   - mocheau `createClient`, dar codul cheamă `createServerClient`. Sunt două
+ *     exporturi ale aceleiași funcții (`export { createServerClient as
+ *     createClient }`), dar automock-ul le dă mock-uri separate — deci cel
+ *     configurat nu era cel apelat, iar codul primea `undefined`.
+ *   - foloseau `mockResolvedValue` pentru o funcție **sincronă**.
+ *   - chemau `getUserRole()` fără argument, deși semnătura cere `userId` și nu
+ *     mai rezolvă utilizatorul singură.
+ *
+ * Rescrise pe implementarea reală.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  getUserRole,
+  requireRole,
+  requireAdmin,
+  requireStationManagerOrAdmin,
+  hasRole,
+  isAdmin,
+} from '@/lib/auth/requireRole';
+import { createServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
-// Mock dependencies
 vi.mock('@/lib/supabase/server');
 vi.mock('next/navigation', () => ({
-  redirect: vi.fn(),
+  // `redirect` aruncă în Next.js, ca să oprească execuția. Fără asta, codul de
+  // după redirect ar continua în teste și am valida un flux imposibil.
+  redirect: vi.fn((path: string) => {
+    throw new Error(`NEXT_REDIRECT:${path}`);
+  }),
 }));
 
-describe('getUserRole', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should return user role from database', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123' } },
-          error: null,
-        }),
-      },
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'admin' },
-              error: null,
-            }),
+/** Client Supabase fals: `user_profiles` întoarce rolul dat, auth întoarce userul dat. */
+function mockClient(options: {
+  role?: string | null;
+  roleError?: unknown;
+  user?: { id: string } | null;
+  authError?: unknown;
+}) {
+  const client = {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: options.user ?? null },
+        error: options.authError ?? null,
+      }),
+    },
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: options.role === undefined ? null : { role: options.role },
+            error: options.roleError ?? null,
           }),
         }),
       }),
-    };
+    }),
+  };
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
+  // Sincron, ca funcția reală.
+  vi.mocked(createServerClient).mockReturnValue(client as never);
+  return client;
+}
 
-    const role = await getUserRole();
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
-    expect(role).toBe('admin');
-    expect(mockSupabase.from).toHaveBeenCalledWith('user_roles');
-    expect(mockSupabase.auth.getUser).toHaveBeenCalled();
+describe('getUserRole', () => {
+  it('should return user role from database', async () => {
+    mockClient({ role: 'admin' });
+    expect(await getUserRole('user-123')).toBe('admin');
+  });
+
+  it('should query user_profiles by id', async () => {
+    const client = mockClient({ role: 'user' });
+    await getUserRole('user-123');
+    expect(client.from).toHaveBeenCalledWith('user_profiles');
   });
 
   it('should return null for non-existent user', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: null },
-          error: { message: 'User not found' },
-        }),
-      },
-      from: vi.fn(),
-    };
-
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
-
-    const role = await getUserRole();
-
-    expect(role).toBeNull();
-    expect(mockSupabase.from).not.toHaveBeenCalled();
+    mockClient({ role: undefined });
+    expect(await getUserRole('nobody')).toBeNull();
   });
 
   it('should return null when role query fails', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123' } },
-          error: null,
-        }),
-      },
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: { message: 'Role not found' },
-            }),
-          }),
-        }),
-      }),
-    };
-
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
-
-    const role = await getUserRole();
-
-    expect(role).toBeNull();
-  });
-
-  it('should handle database connection errors gracefully', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockRejectedValue(new Error('Database connection failed')),
-      },
-      from: vi.fn(),
-    };
-
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
-
-    const role = await getUserRole();
-
-    expect(role).toBeNull();
+    mockClient({ role: undefined, roleError: { message: 'boom' } });
+    expect(await getUserRole('user-123')).toBeNull();
   });
 });
 
 describe('requireRole', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('should allow access for correct role', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123' } },
-          error: null,
-        }),
-      },
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'admin' },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-    };
+    mockClient({ user: { id: 'user-123' }, role: 'admin' });
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
+    const result = await requireRole(['admin']);
 
-    await requireRole(['admin', 'station_manager']);
-
+    expect(result.role).toBe('admin');
+    expect(result.user).toEqual({ id: 'user-123' });
     expect(redirect).not.toHaveBeenCalled();
   });
 
-  it('should redirect for incorrect role', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123' } },
-          error: null,
-        }),
-      },
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'user' },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-    };
+  it('should allow any of several roles', async () => {
+    mockClient({ user: { id: 'user-123' }, role: 'station_manager' });
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
+    const result = await requireRole(['station_manager', 'admin']);
+    expect(result.role).toBe('station_manager');
+  });
 
-    await requireRole(['admin']);
+  it('should redirect to /unauthorized for insufficient role', async () => {
+    mockClient({ user: { id: 'user-123' }, role: 'user' });
 
+    await expect(requireRole(['admin'])).rejects.toThrow('NEXT_REDIRECT:/unauthorized');
     expect(redirect).toHaveBeenCalledWith('/unauthorized');
   });
 
   it('should redirect unauthenticated users to login', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: null },
-          error: { message: 'Not authenticated' },
-        }),
-      },
-      from: vi.fn(),
-    };
+    mockClient({ user: null });
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
-
-    await requireRole(['admin']);
-
+    await expect(requireRole(['admin'])).rejects.toThrow('NEXT_REDIRECT:/auth/login');
     expect(redirect).toHaveBeenCalledWith('/auth/login');
   });
 
-  it('should allow multiple roles', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123' } },
-          error: null,
-        }),
-      },
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'station_manager' },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-    };
+  it('should redirect to login when auth itself errors', async () => {
+    mockClient({ user: null, authError: { message: 'session expired' } });
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
-
-    await requireRole(['admin', 'station_manager']);
-
-    expect(redirect).not.toHaveBeenCalled();
+    await expect(requireRole(['admin'])).rejects.toThrow('NEXT_REDIRECT:/auth/login');
   });
 
-  it('should handle case-insensitive role matching', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123' } },
-          error: null,
-        }),
-      },
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'ADMIN' },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-    };
+  it('should redirect when the profile has no role at all', async () => {
+    mockClient({ user: { id: 'user-123' }, role: undefined });
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
+    await expect(requireRole(['user'])).rejects.toThrow('NEXT_REDIRECT:/unauthorized');
+  });
 
-    await requireRole(['admin']);
+  it('should be case-sensitive about roles', async () => {
+    // Rolurile sunt o mulțime închisă în baza de date; 'Admin' nu e 'admin'.
+    mockClient({ user: { id: 'user-123' }, role: 'Admin' });
 
-    expect(redirect).not.toHaveBeenCalled();
+    await expect(requireRole(['admin'])).rejects.toThrow('NEXT_REDIRECT:/unauthorized');
   });
 });
 
 describe('requireAdmin', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it('should allow admin access', async () => {
+    mockClient({ user: { id: 'user-123' }, role: 'admin' });
+    expect((await requireAdmin()).role).toBe('admin');
   });
 
-  it('should allow admin access', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123' } },
-          error: null,
-        }),
-      },
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'admin' },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-    };
+  it('should reject a station manager', async () => {
+    mockClient({ user: { id: 'user-123' }, role: 'station_manager' });
+    await expect(requireAdmin()).rejects.toThrow('NEXT_REDIRECT:/unauthorized');
+  });
+});
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
+describe('requireStationManagerOrAdmin', () => {
+  it.each(['station_manager', 'admin'])('should allow %s', async (role) => {
+    mockClient({ user: { id: 'user-123' }, role });
+    expect((await requireStationManagerOrAdmin()).role).toBe(role);
+  });
 
-    await requireAdmin();
+  it('should reject a plain user', async () => {
+    mockClient({ user: { id: 'user-123' }, role: 'user' });
+    await expect(requireStationManagerOrAdmin()).rejects.toThrow('NEXT_REDIRECT:/unauthorized');
+  });
+});
 
+describe('hasRole / isAdmin', () => {
+  it('should answer without redirecting', async () => {
+    mockClient({ role: 'admin' });
+
+    expect(await hasRole('user-123', ['admin'])).toBe(true);
+    expect(await isAdmin('user-123')).toBe(true);
     expect(redirect).not.toHaveBeenCalled();
   });
 
-  it('should block non-admin users', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123' } },
-          error: null,
-        }),
-      },
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'station_manager' },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-    };
+  it('should return false for a missing role', async () => {
+    mockClient({ role: undefined });
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
-
-    await requireAdmin();
-
-    expect(redirect).toHaveBeenCalledWith('/unauthorized');
-  });
-
-  it('should block regular users', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123' } },
-          error: null,
-        }),
-      },
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'user' },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-    };
-
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
-
-    await requireAdmin();
-
-    expect(redirect).toHaveBeenCalledWith('/unauthorized');
-  });
-
-  it('should redirect unauthenticated users to login', async () => {
-    const mockSupabase = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: null },
-          error: { message: 'Not authenticated' },
-        }),
-      },
-      from: vi.fn(),
-    };
-
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
-
-    await requireAdmin();
-
-    expect(redirect).toHaveBeenCalledWith('/auth/login');
+    expect(await hasRole('nobody', ['admin'])).toBe(false);
+    expect(await isAdmin('nobody')).toBe(false);
   });
 });

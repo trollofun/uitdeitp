@@ -22,6 +22,14 @@ export function formatPlateNumber(plate: string): string | null {
   if (!match) return null;
 
   const [, county, number, letters] = match;
+
+  // Forma singură nu ajunge: `BB-123-ABC` arată corect, dar `BB` nu e județ.
+  // Lista există de mult în acest fișier (`ROMANIAN_COUNTIES`, folosită de
+  // `getCountyName`), doar că validarea n-o consulta — deci o plăcuță tastată
+  // greșit intra în bază și reminderul pleca pentru o mașină inexistentă.
+  // Contează mai ales la importul din Excel, unde greșelile vin în serie.
+  if (!(county in ROMANIAN_COUNTIES)) return null;
+
   return `${county}-${number}-${letters}`;
 }
 

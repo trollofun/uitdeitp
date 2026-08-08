@@ -1,113 +1,91 @@
 /**
  * Unit Tests: Notification Interval Logic
  *
- * Test the logic for calculating next notification dates
+ * Testa o **copie** a logicii, definită în fișierul de test cu comentariul
+ * „Simulate the … logic from reminder-processor.ts". Copia putea diverge de
+ * cod oricând, fără ca nimeni să afle — și chiar avea o așteptare greșită
+ * aritmetic (2025-12-27 e la patru zile de 31 decembrie, nu la trei).
+ *
+ * Acum testează funcția reală, singura rămasă din trei.
  */
 
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
+import { nextNotificationDateFor } from '@/lib/services/date';
 
 describe('Notification Interval Calculations', () => {
-  /**
-   * Simulate the next notification date calculation logic
-   * from reminder-processor.ts
-   */
-  function calculateNextNotificationDate(
-    expiryDate: string,
-    currentDaysUntilExpiry: number,
-    intervals: number[]
-  ): string | null {
-    if (!intervals || intervals.length === 0) {
-      return null;
-    }
-
-    // Sort intervals in descending order
-    const sortedIntervals = [...intervals].sort((a, b) => b - a);
-
-    // Find the next interval that is smaller than current daysUntilExpiry
-    const nextInterval = sortedIntervals.find(interval => interval < currentDaysUntilExpiry);
-
-    if (nextInterval === undefined) {
-      return null; // No more notifications
-    }
-
-    // Calculate the date for the next notification
-    const expiry = new Date(expiryDate);
-    const nextDate = new Date(expiry);
-    nextDate.setDate(expiry.getDate() - nextInterval);
-
-    return nextDate.toISOString().split('T')[0];
-  }
+  const EXPIRY = '2025-12-31';
 
   it('should calculate next notification date for standard intervals [7, 3, 1]', () => {
-    const expiryDate = '2025-12-31';
     const intervals = [7, 3, 1];
 
-    // First notification at 7 days before
-    const next1 = calculateNextNotificationDate(expiryDate, 7, intervals);
-    expect(next1).toBe('2025-12-27'); // 3 days before expiry
+    // Suntem la 7 zile → următoarea e la 3 zile = 28 decembrie.
+    expect(nextNotificationDateFor(EXPIRY, 7, intervals)).toBe('2025-12-28');
 
-    // Second notification at 3 days before
-    const next2 = calculateNextNotificationDate(expiryDate, 3, intervals);
-    expect(next2).toBe('2025-12-30'); // 1 day before expiry
+    // La 3 zile → următoarea e la 1 zi = 30 decembrie.
+    expect(nextNotificationDateFor(EXPIRY, 3, intervals)).toBe('2025-12-30');
 
-    // Third notification at 1 day before
-    const next3 = calculateNextNotificationDate(expiryDate, 1, intervals);
-    expect(next3).toBeNull(); // No more notifications
+    // La 1 zi → nu mai urmează nimic.
+    expect(nextNotificationDateFor(EXPIRY, 1, intervals)).toBeNull();
   });
 
   it('should handle custom intervals [5, 2]', () => {
-    const expiryDate = '2025-12-31';
-    const intervals = [5, 2];
-
-    // First notification at 5 days before
-    const next1 = calculateNextNotificationDate(expiryDate, 5, intervals);
-    expect(next1).toBe('2025-12-29'); // 2 days before expiry
-
-    // Second notification at 2 days before
-    const next2 = calculateNextNotificationDate(expiryDate, 2, intervals);
-    expect(next2).toBeNull(); // No more notifications
+    expect(nextNotificationDateFor(EXPIRY, 5, [5, 2])).toBe('2025-12-29');
+    expect(nextNotificationDateFor(EXPIRY, 2, [5, 2])).toBeNull();
   });
 
   it('should handle single interval [7]', () => {
-    const expiryDate = '2025-12-31';
-    const intervals = [7];
-
-    // First and only notification at 7 days before
-    const next1 = calculateNextNotificationDate(expiryDate, 7, intervals);
-    expect(next1).toBeNull(); // No more notifications after first one
+    expect(nextNotificationDateFor(EXPIRY, 7, [7])).toBeNull();
   });
 
   it('should handle empty intervals', () => {
-    const expiryDate = '2025-12-31';
-    const intervals: number[] = [];
+    expect(nextNotificationDateFor(EXPIRY, 7, [])).toBeNull();
+  });
 
-    const next = calculateNextNotificationDate(expiryDate, 7, intervals);
-    expect(next).toBeNull();
+  it('should handle missing intervals', () => {
+    expect(nextNotificationDateFor(EXPIRY, 7, null)).toBeNull();
+    expect(nextNotificationDateFor(EXPIRY, 7, undefined)).toBeNull();
   });
 
   it('should handle intervals not in sorted order', () => {
-    const expiryDate = '2025-12-31';
-    const intervals = [1, 7, 3]; // Unsorted
+    expect(nextNotificationDateFor(EXPIRY, 7, [1, 7, 3])).toBe('2025-12-28');
+  });
 
-    // Should still work correctly
-    const next1 = calculateNextNotificationDate(expiryDate, 7, intervals);
-    expect(next1).toBe('2025-12-27'); // 3 days before expiry
+  it('should not mutate the caller array while sorting', () => {
+    // Varianta veche din date.ts sorta pe loc, deci rearanja tăcut
+    // `notification_intervals` al reminderului primit.
+    const intervals = [1, 7, 3];
+    nextNotificationDateFor(EXPIRY, 7, intervals);
+    expect(intervals).toEqual([1, 7, 3]);
   });
 
   it('should handle intervals with duplicates', () => {
-    const expiryDate = '2025-12-31';
-    const intervals = [7, 7, 3, 3, 1];
-
-    // Should still calculate correctly
-    const next1 = calculateNextNotificationDate(expiryDate, 7, intervals);
-    expect(next1).toBe('2025-12-27'); // 3 days before expiry
+    expect(nextNotificationDateFor(EXPIRY, 7, [7, 7, 3, 3, 1])).toBe('2025-12-28');
   });
 
   it('should handle very large intervals', () => {
-    const expiryDate = '2025-12-31';
-    const intervals = [30, 14, 7]; // Month, 2 weeks, 1 week
+    expect(nextNotificationDateFor(EXPIRY, 30, [30, 14, 7])).toBe('2025-12-17');
+  });
 
-    const next1 = calculateNextNotificationDate(expiryDate, 30, intervals);
-    expect(next1).toBe('2025-12-17'); // 14 days before expiry
+  it('should cross month and year boundaries', () => {
+    // 3 zile înainte de 2 ianuarie e 30 decembrie, anul trecut.
+    expect(nextNotificationDateFor('2026-01-02', 7, [7, 3])).toBe('2025-12-30');
+    // Și peste 1 martie într-un an bisect.
+    expect(nextNotificationDateFor('2024-03-02', 7, [7, 3])).toBe('2024-02-28');
+  });
+
+  it('should be immune to the machine timezone', () => {
+    // Varianta veche amesteca miezul nopții UTC cu ziua locală, deci dădea
+    // rezultate diferite după `TZ`. Asta e garda: aceeași dată peste tot.
+    const original = process.env.TZ;
+    const results: Array<string | null> = [];
+
+    for (const tz of ['UTC', 'Europe/Bucharest', 'America/Los_Angeles', 'Pacific/Kiritimati']) {
+      process.env.TZ = tz;
+      results.push(nextNotificationDateFor(EXPIRY, 7, [7, 3, 1]));
+    }
+
+    process.env.TZ = original;
+    expect(new Set(results).size).toBe(1);
+    expect(results[0]).toBe('2025-12-28');
   });
 });
