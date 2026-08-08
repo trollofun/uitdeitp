@@ -50,6 +50,14 @@ export const flags = {
   get reviewSmsEnabled() {
     return envFlag('REVIEW_SMS_ENABLED');
   },
+  /**
+   * M2M station provisioning (Academy claim flow). Off by default: manual
+   * provisioning stays the default path until the claim flow is validated on
+   * our own station — §8.2 of the ecosystem architecture.
+   */
+  get partnerProvisionEnabled() {
+    return envFlag('PARTNER_PROVISION_ENABLED');
+  },
 };
 
 /** The strictest of the global and per-station HMAC modes. */
