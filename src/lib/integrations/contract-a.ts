@@ -35,17 +35,26 @@ const futureDate = z.coerce
 export const contractAFullSchema = z
   .object({
     payload_variant: z.literal('full'),
-    inspectie: z.object({
-      expirare: futureDate,
-      data: z.coerce.date().optional(),
-      rezultat: z.string().optional(),
-      serie_certificat: z.string().optional(),
-      cod_tranzactie: z.string().optional(),
-    }),
-    vehicul: z.object({
-      numar_inmatriculare: z.string().optional(),
-      placa: z.string().optional(),
-    }),
+    // .passthrough() on the nested blocks too, not just the root: Zod strips
+    // unknown keys from nested objects by default, so SIRAR's rev-3 additions
+    // inside `inspectie` (deficiente, warnings, valabilitate) and `vehicul`
+    // (an_fabricatie, cilindree, …) arrived and were silently dropped. No 422,
+    // no error — the data simply evaporated between the wire and the handler.
+    inspectie: z
+      .object({
+        expirare: futureDate,
+        data: z.coerce.date().optional(),
+        rezultat: z.string().optional(),
+        serie_certificat: z.string().optional(),
+        cod_tranzactie: z.string().optional(),
+      })
+      .passthrough(),
+    vehicul: z
+      .object({
+        numar_inmatriculare: z.string().optional(),
+        placa: z.string().optional(),
+      })
+      .passthrough(),
     odometru: z.unknown().optional(),
     destinatar: destinatarSchema.optional(),
     statie_ref: statieRefSchema.optional(),
