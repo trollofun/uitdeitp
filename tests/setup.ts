@@ -61,11 +61,13 @@ vi.mock('@/lib/supabase/client', () => ({
  * URL-ul de Supabase era deja înlocuit aici, ceea ce ne-a salvat de scrierile în
  * bază. Restul nu era. Acum sunt toate.
  */
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-key';
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
-process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
-process.env.CRON_SECRET = 'test-cron-secret';
-process.env.NOTIFYHUB_URL = 'http://localhost:9999';
-process.env.NOTIFYHUB_API_KEY = 'test-notifyhub-key';
-process.env.UITDEITP_PARTNER_API_KEY = 'test-partner-key';
+if (process.env.TEST_LIVE_BACKEND !== '1') {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-key';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+  process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
+  process.env.CRON_SECRET = 'test-cron-secret';
+  process.env.NOTIFYHUB_URL = 'http://localhost:9999';
+  process.env.NOTIFYHUB_API_KEY = 'test-notifyhub-key';
+  process.env.UITDEITP_PARTNER_API_KEY = 'test-partner-key';
+}
