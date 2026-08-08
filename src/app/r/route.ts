@@ -35,34 +35,25 @@ export async function GET(req: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  const { data: request } = await supabase
-    .from('review_requests')
-    .select('id, clicked_at, click_count, kiosk_stations!inner(review_link)')
-    .eq('token', token)
-    .maybeSingle();
+  // Un singur apel: incrementează atomic și întoarce linkul stației.
+  //
+  // Varianta „citește rândul, apoi scrie count+1" din aplicație a picat pe
+  // producție — citirea nu întorcea coloanele, deci fiecare clic rescria
+  // „primul clic" și contorul rămânea 1. Chiar corectată, ar fi rămas o cursă:
+  // doi oameni care dau clic simultan citesc aceeași valoare și scriu aceeași
+  // valoare +1, deci un clic dispare. Incrementul stă acum în baza de date,
+  // unde rândul e blocat. `clicked_at` reține primul clic (`COALESCE`), nu
+  // ultimul — ăla e numărul de oameni distincți care au ajuns pe formular.
+  let reviewLink: string | undefined;
 
-  const reviewLink = (request as unknown as { kiosk_stations?: { review_link?: string } } | null)
-    ?.kiosk_stations?.review_link;
-
-  if (!request || !reviewLink) return fallback;
-
-  // Contorizarea nu are voie să întârzie sau să blocheze redirectul: dacă baza
-  // e lentă, omul tot trebuie să ajungă la formular. Măsurăm ce putem, mergem
-  // mai departe orice s-ar întâmpla.
   try {
-    await supabase
-      .from('review_requests')
-      .update({
-        // `clicked_at` reține primul clic — ăsta e clicul unic, cel care spune
-        // câți oameni distincți au ajuns pe formular. `click_count` e brut și
-        // include re-deschiderile și scanerele de linkuri ale operatorilor.
-        clicked_at: request.clicked_at ?? new Date().toISOString(),
-        click_count: (request.click_count ?? 0) + 1,
-      } as never)
-      .eq('id', request.id);
+    const { data } = await supabase.rpc('record_review_click', { p_token: token });
+    reviewLink = (data as Array<{ review_link: string }> | null)?.[0]?.review_link;
   } catch (error) {
-    console.warn('[Review] click not recorded', { id: request.id, error });
+    console.warn('[Review] click not recorded', { error });
   }
+
+  if (!reviewLink) return fallback;
 
   return NextResponse.redirect(reviewLink, { status: 302 });
 }
