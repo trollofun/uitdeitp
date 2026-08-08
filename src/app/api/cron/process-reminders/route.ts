@@ -20,6 +20,18 @@ export const maxDuration = 60;
 // Force dynamic rendering (no caching)
 export const dynamic = 'force-dynamic';
 
+/**
+ * `force-dynamic` oprește prerandarea, dar **nu** oprește Data Cache-ul din
+ * Next.js, care memorează apelurile `fetch` — iar supabase-js folosește `fetch`.
+ *
+ * Descoperit pe ruta `/r`, unde contorul de clicuri se oprea la 1 pentru fiecare
+ * token: apelul se servea din cache și nu mai ajungea la bază. Aici miza e mai
+ * mare — o listă de remindere servită din cache ar însemna mesaje trimise pe
+ * baza unei stări vechi, sau retrimise. N-am dovada că s-a întâmplat; o linie
+ * care exclude posibilitatea e mai ieftină decât ancheta de mâine.
+ */
+export const fetchCache = 'force-no-store';
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
 

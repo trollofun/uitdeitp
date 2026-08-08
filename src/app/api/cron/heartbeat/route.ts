@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
+// Un heartbeat servit din cache raportează „viu" fără să fi verificat nimic.
+export const fetchCache = 'force-no-store';
 
 /**
  * Heartbeat endpoint for UptimeRobot cron monitoring
