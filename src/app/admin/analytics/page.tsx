@@ -43,8 +43,10 @@ async function getAnalyticsData() {
     const deliveryRate = smsSent ? ((delivered / smsSent) * 100).toFixed(2) : '0';
 
     // Get active stations count
+    // Tabela se numește kiosk_stations. `police_stations` n-a existat
+    // niciodată în această bază, deci numărul a arătat 0 de la început.
     const { count: activeStations } = await supabase
-      .from('police_stations')
+      .from('kiosk_stations')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true);
 
@@ -74,18 +76,18 @@ async function getAnalyticsData() {
     const { data: stationStats } = await supabase
       .from('reminders')
       .select(`
-        police_station_id,
-        police_stations (
-          station_name
+        station_id,
+        kiosk_stations (
+          name
         )
       `)
       .is('deleted_at', null);
 
     const stationCounts = stationStats?.reduce((acc: Record<string, any>, reminder: any) => {
-      const stationId = reminder.police_station_id;
-      const stationName = Array.isArray(reminder.police_stations)
-        ? reminder.police_stations[0]?.station_name
-        : reminder.police_stations?.station_name || 'Unknown';
+      const stationId = reminder.station_id;
+      const stationName = Array.isArray(reminder.kiosk_stations)
+        ? reminder.kiosk_stations[0]?.name
+        : reminder.kiosk_stations?.name || 'Fără stație';
 
       if (!acc[stationId]) {
         acc[stationId] = {
