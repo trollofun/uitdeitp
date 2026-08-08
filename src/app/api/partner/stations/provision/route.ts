@@ -173,6 +173,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // --- Proprietarul, ÎNAINTE de a crea ceva ------------------------------
+    // Ordinea contează: dacă emailul nu se rezolvă la un cont confirmat,
+    // refuzăm fără să lăsăm în urmă o stație orfană pe care nimeni n-o poate
+    // accesa și despre care apelantul crede că e gata. Contractul promite 403.
+    const { data: ownerId } = await supabase.rpc('find_user_id_by_email', {
+      p_email: inspector_email,
+    });
+
+    if (!ownerId) {
+      return fail(
+        'email_not_verified',
+        403,
+        `Nu există un cont confirmat pentru ${inspector_email}. Inspectorul trebuie să se autentifice o dată pe uitdeITP (Google sau link magic) înainte de provisionare.`
+      );
+    }
+
     // --- Stația: creare sau join pe rar_code -------------------------------
     const { data: known } = await supabase
       .from('kiosk_stations')
@@ -214,34 +230,26 @@ export async function POST(req: NextRequest) {
       stationCreated = true;
     }
 
-    // --- Proprietarul: DOAR pe email confirmat -----------------------------
-    // Invariantul pe care se sprijină toată puntea de identitate. Un email
-    // neconfirmat nu primește o stație — altfel oricine tastează adresa
-    // inspectorului i-o preia.
-    const { data: ownerId } = await supabase.rpc('find_user_id_by_email', {
-      p_email: inspector_email,
-    });
+    // --- Apartenența -------------------------------------------------------
+    // Emailul e deja verificat ca fiind al unui cont confirmat (mai sus).
+    await supabase.from('station_members').upsert(
+      {
+        station_id: stationId,
+        user_id: ownerId as string,
+        role: 'patron',
+        status: 'active',
+        left_at: null,
+      } as never,
+      { onConflict: 'station_id,user_id' }
+    );
 
-    if (ownerId) {
-      await supabase.from('station_members').upsert(
-        {
-          station_id: stationId,
-          user_id: ownerId as string,
-          role: 'patron',
-          status: 'active',
-          left_at: null,
-        } as never,
-        { onConflict: 'station_id,user_id' }
-      );
-
-      // owner_id rămâne gol dacă stația are deja unul: proprietarul legal nu se
-      // schimbă dintr-un claim.
-      await supabase
-        .from('kiosk_stations')
-        .update({ owner_id: ownerId as string, owner_email: inspector_email.toLowerCase() })
-        .eq('id', stationId)
-        .is('owner_id', null);
-    }
+    // owner_id se scrie doar dacă stația nu are deja unul: proprietarul legal
+    // nu se schimbă dintr-un claim.
+    await supabase
+      .from('kiosk_stations')
+      .update({ owner_id: ownerId as string, owner_email: inspector_email.toLowerCase() })
+      .eq('id', stationId)
+      .is('owner_id', null);
 
     // --- Cheia de ingest ---------------------------------------------------
     const generated = generateIngestKey();
