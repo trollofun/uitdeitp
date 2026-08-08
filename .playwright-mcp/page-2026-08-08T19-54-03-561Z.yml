@@ -1,0 +1,66 @@
+- generic [active] [ref=f14e1]:
+  - generic [ref=f14e2]:
+    - banner [ref=f14e3]:
+      - generic [ref=f14e4]:
+        - generic [ref=f14e5]:
+          - paragraph [ref=f14e6]: Jurisdicție comercială
+          - heading "Termeni și condiții SoftITP Flow" [level=1] [ref=f14e7]
+          - paragraph [ref=f14e8]: Versiune actualizată la 05 iulie 2026.
+          - paragraph [ref=f14e9]:
+            - text: Documentul se aplică relației contractuale dintre
+            - strong [ref=f14e10]: ALVERNA IMOBILIARE SRL
+            - text: (CUI 38371154, înregistrată la Registrul Comerțului Cluj sub nr. J12/6089/2017, cu sediul social în Mun. Cluj-Napoca, str. Alexandru Donici, nr. 26-28, jud. Cluj, România) și clienții stații ITP sau partenerii care utilizează platforma SoftITP Flow.
+        - link "Înapoi" [ref=f14e11] [cursor=pointer]:
+          - /url: /
+    - main [ref=f14e14]:
+      - generic [ref=f14e15]:
+        - heading "1. Domeniul de aplicare" [level=2] [ref=f14e16]
+        - paragraph [ref=f14e17]: Prezentul document stabilește condițiile contractuale între SoftITP Flow, operată de ALVERNA IMOBILIARE SRL, cu datele de identificare CUI 38371154, înregistrată la Registrul Comerțului Cluj sub nr. J12/6089/2017 și sediul social în Mun. Cluj-Napoca, str. Alexandru Donici nr. 26-28, jud. Cluj, România, și stațiile ITP sau partenerii care achiziționează abonamentele noastre. Termenii se aplică tuturor serviciilor livrate prin softitp.ro și aplicația Flow, inclusiv modulelor suplimentare (website, automatizări de comunicare, rapoarte).
+        - paragraph [ref=f14e18]: Prin plasarea unei comenzi, activarea unui abonament sau folosirea platformei, declari că ai citit și ai acceptat acești termeni. Dacă reprezinți o companie, confirmi că ai autoritatea necesară pentru a o obliga contractual.
+      - generic [ref=f14e19]:
+        - heading "2. Definiții" [level=2] [ref=f14e20]
+        - list [ref=f14e21]:
+          - listitem [ref=f14e22]: „Furnizor" – ALVERNA IMOBILIARE SRL, dezvoltatorul și proprietarul SoftITP Flow.
+          - listitem [ref=f14e23]: „Client" – stația ITP sau partenerul care încheie abonamentul.
+          - listitem [ref=f14e24]: „Serviciu" – aplicația SoftITP Flow, hostingul site-ului public, modulele de notificări și orice add-on contractual.
+          - listitem [ref=f14e25]: „Utilizator" – persoană împuternicită de Client să folosească aplicația (operator, inspector, administrator).
+          - listitem [ref=f14e26]: „Comandă" – solicitarea transmisă de Client prin site, email sau contract, ce specifică pachetul și cantitatea.
+      - generic [ref=f14e27]:
+        - heading "3. Activarea și livrarea serviciilor (Livrare digitală)" [level=2] [ref=f14e28]
+        - paragraph [ref=f14e29]: Serviciile sunt digitale și se activează după confirmarea plății sau semnarea contractului. Nu există livrare fizică, iar accesul se face prin conturi create în platformă.
+        - paragraph [ref=f14e30]: "Procesul standard: validăm datele firmei, configurăm spațiul SoftITP Flow și transmitem datele de autentificare administratorului. Pentru module suplimentare (website, integrare programări) stabilim împreună un calendar de implementare și furnizăm livrabilele intermediare pe email."
+        - paragraph [ref=f14e31]: Clientul este responsabil să ofere informațiile necesare (tarife, orar, branding). Întârzierile cauzate de lipsa materialelor nu pot fi imputate Furnizorului.
+      - generic [ref=f14e32]:
+        - heading "4. Prețuri, facturare și taxe" [level=2] [ref=f14e33]
+        - paragraph [ref=f14e34]: Tarifele afișate pe softitp.ro sunt exprimate în EUR/stație/lună, fără TVA, și pot include reduceri promoționale. Facturarea se face în lei, la cursul BNR din ziua emiterii.
+        - paragraph [ref=f14e35]: Abonamentele se facturează recurent (lunar sau anual, după caz) în avans. Factura se transmite electronic la adresa indicată în formularul de comandă, iar plata se poate realiza cu cardul prin Netopia Payments sau prin transfer bancar.
+        - paragraph [ref=f14e36]: Neplata la scadență atrage notificări automate. Dacă factura rămâne neachitată 15 zile după termen, ne rezervăm dreptul de a suspenda accesul până la stingerea obligațiilor.
+      - generic [ref=f14e37]:
+        - heading "5. Durată, reziliere și anularea abonamentului" [level=2] [ref=f14e38]
+        - paragraph [ref=f14e39]: Contractul se reînnoiește automat atâta timp cât abonamentul este activ și facturile sunt plătite. Clientul poate renunța oricând, trimițând o notificare scrisă la suport@softitp.ro cu minimum 30 de zile înainte de data dorită pentru dezactivare.
+        - paragraph [ref=f14e40]: După confirmarea rezilierii, accesul rămâne activ până la finalul perioadei facturate. Dacă a fost achitată o perioadă mai lungă, restituim valoarea zilelor neutilizate calculată pro-rata, în maximum 15 zile lucrătoare.
+        - paragraph [ref=f14e41]: Furnizorul poate rezilia contractul cu preaviz de 15 zile în caz de încălcare materială a obligațiilor (neplată repetată, utilizare frauduloasă, compromiterea securității). În situații grave ne rezervăm dreptul de suspendare imediată.
+      - generic [ref=f14e42]:
+        - heading "6. Obligațiile clientului" [level=2] [ref=f14e43]
+        - list [ref=f14e44]:
+          - listitem [ref=f14e45]: Să ofere date corecte despre companie, să păstreze confidențialitatea credențialelor și să notifice imediat eventualele breșe.
+          - listitem [ref=f14e46]: Să folosească platforma conform legislației ITP și să nu introducă conținut ilegal, defăimător sau care încalcă drepturile terților.
+          - listitem [ref=f14e47]: Să asigure instruirea personalului propriu privind procedurile interne și regulile de protecție a datelor.
+      - generic [ref=f14e48]:
+        - heading "7. Suport și nivel de serviciu" [level=2] [ref=f14e49]
+        - paragraph [ref=f14e50]: Asigurăm disponibilitatea platformei de minimum 99% lunar (excluzând perioadele de mentenanță planificate anunțate cu 48h înainte).
+        - paragraph [ref=f14e51]: Suportul standard este disponibil în zilele lucrătoare 09:00–18:00 prin email și telefon. Pentru incidente critice (platformă indisponibilă) intervenim în maximum 2 ore.
+        - paragraph [ref=f14e52]: Actualizările aplicației sunt livrate automat, fără costuri suplimentare. Clientul se angajează să testeze noile funcții înainte de a le folosi în producție.
+      - generic [ref=f14e53]:
+        - heading "8. Protecția datelor și confidențialitate" [level=2] [ref=f14e54]
+        - paragraph [ref=f14e55]: SoftITP Flow acționează ca împuternicit în raport cu datele clienților finali ai stației ITP. Prelucrăm datele strict conform instrucțiunilor Clientului și prevederilor GDPR. Detalii tehnice și drepturile persoanelor vizate sunt descrise în Politica GDPR.
+        - paragraph [ref=f14e56]: Clientul trebuie să aibă o bază legală pentru datele introduse și să emită propriile informări către clienți. Toate exporturile, solicitările persoanelor vizate și ștergerile se gestionează direct din aplicație sau printr-o cerere către support.
+      - generic [ref=f14e57]:
+        - heading "9. Limitări de răspundere" [level=2] [ref=f14e58]
+        - paragraph [ref=f14e59]: Răspunderea totală a Furnizorului pentru orice claim este limitată la valoarea abonamentului plătit de Client în ultimele 12 luni. Nu suntem răspunzători pentru pierderi indirecte (profit nerealizat, oportunități ratate) sau întârzieri cauzate de furnizori terți (SMS, hosting) dacă am depus diligențe rezonabile.
+        - paragraph [ref=f14e60]: Clientul este responsabil pentru acuratețea datelor introduse și pentru respectarea programărilor confirmate către clienții finali.
+      - generic [ref=f14e61]:
+        - heading "10. Contact și dispoziții finale" [level=2] [ref=f14e62]
+        - paragraph [ref=f14e63]: Întrebările contractuale se trimit la suport@softitp.ro sau la +40 745 223 355. Orice modificare a termenilor va fi comunicată prin email și publicată pe softitp.ro, secțiunea Resurse juridice.
+        - paragraph [ref=f14e64]: Prezentul document intră în vigoare la data publicării și rămâne aplicabil până la o versiune ulterioară.
+  - alert [ref=f14e65]

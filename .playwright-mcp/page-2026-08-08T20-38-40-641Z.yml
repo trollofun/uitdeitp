@@ -1,0 +1,31 @@
+- generic [ref=f4e5]:
+  - generic [ref=f4e6]:
+    - heading "Bun venit la Inspecto!" [level=1] [ref=f4e11]
+    - paragraph [ref=f4e12]: Contul dumneavoastra a fost creat cu succes!
+    - paragraph [ref=f4e13]: Perioada de proba de 30 de zile a fost activata!
+    - paragraph [ref=f4e15]: Nu veti fi taxat in urmatoarele 30 de zile. Puteti anula oricand inainte de sfarsitul perioadei de proba.
+  - generic [ref=f4e19]:
+    - heading "Ce urmeaza - pasii de configurare:" [level=2] [ref=f4e20]
+    - generic [ref=f4e21]:
+      - generic [ref=f4e23]:
+        - generic [ref=f4e24]: "1"
+        - generic [ref=f4e25]:
+          - heading "Configurati SMS" [level=3] [ref=f4e26]
+          - paragraph [ref=f4e30]: Conectati-va la dashboard-ul de administrator si accesati sectiunea Setari pentru a configura SMS-urile. Completati cu datele dumneavoastra (puteti alege sa scrieti orice la numele companiei, cum va cunoaste clientul pe dumneavoastra de exemplu)
+          - img "Configurare SMS in Setari" [ref=f4e32]
+      - generic [ref=f4e34]:
+        - generic [ref=f4e35]: "2"
+        - generic [ref=f4e36]:
+          - heading "Adaugati inspectori" [level=3] [ref=f4e37]
+          - paragraph [ref=f4e41]: In dashboard, accesati sectiunea de inspectori si apasati butonul "Adauga inspector".
+          - paragraph [ref=f4e43]: Primul cont de inspector este creat automat pentru administrator. Va puteti autentifica in aplicatia de inspector folosind acelasi email si aceeasi parola ca la contul de administrator.
+          - paragraph [ref=f4e47]: "Daca aveti mai multi inspectori, ii puteti adauga din sectiunea dedicata:"
+          - generic [ref=f4e48]:
+            - img "Buton Adauga Inspector" [ref=f4e50]
+            - img "Formular Date Inspector" [ref=f4e52]
+  - generic [ref=f4e53]:
+    - link "Autentifica-te la contul de administrator" [ref=f4e54] [cursor=pointer]:
+      - /url: /
+    - paragraph [ref=f4e58]:
+      - text: Aveti intrebari? Contactati-ne la
+      - strong [ref=f4e59]: inspectoo.ro@gmail.com

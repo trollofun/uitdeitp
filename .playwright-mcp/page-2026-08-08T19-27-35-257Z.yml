@@ -1,0 +1,99 @@
+- generic [active] [ref=f5e11]:
+  - generic: "numele: domeniu: calea: expiră: numele: domeniu: calea: expiră: numele: domeniu: calea: expiră: numele: domeniu: calea: expiră:"
+  - generic [ref=f5e12]:
+    - banner [ref=f5e13]:
+      - generic [ref=f5e15]:
+        - generic [ref=f5e16]: 
+        - generic [ref=f5e17]: 
+        - heading "Data si ora" [level=1] [ref=f5e18]
+    - generic [ref=f5e23]:
+      - generic [ref=f5e25]:
+        - heading "Data dorita" [level=2] [ref=f5e26]
+        - generic [ref=f5e27]:
+          - combobox [ref=f5e29] [cursor=pointer]:
+            - option "Luni, 10 August" [selected]
+            - option "Marti, 11 August"
+            - option "Miercuri, 12 August"
+            - option "Joi, 13 August"
+            - option "Vineri, 14 August"
+            - option "Sambata, 15 August"
+            - option "Luni, 17 August"
+            - option "Marti, 18 August"
+            - option "Miercuri, 19 August"
+            - option "Joi, 20 August"
+            - option "Vineri, 21 August"
+            - option "Sambata, 22 August"
+            - option "Luni, 24 August"
+            - option "Marti, 25 August"
+            - option "Miercuri, 26 August"
+            - option "Joi, 27 August"
+            - option "Vineri, 28 August"
+            - option "Sambata, 29 August"
+            - option "Luni, 31 August"
+            - option "Marti, 1 Septembrie"
+            - option "Miercuri, 2 Septembrie"
+            - option "Joi, 3 Septembrie"
+            - option "Vineri, 4 Septembrie"
+            - option "Sambata, 5 Septembrie"
+            - option "Luni, 7 Septembrie"
+            - option "Marti, 8 Septembrie"
+            - option "Miercuri, 9 Septembrie"
+            - option "Joi, 10 Septembrie"
+            - option "Vineri, 11 Septembrie"
+            - option "Sambata, 12 Septembrie"
+            - option "Luni, 14 Septembrie"
+            - option "Marti, 15 Septembrie"
+            - option "Miercuri, 16 Septembrie"
+            - option "Joi, 17 Septembrie"
+            - option "Vineri, 18 Septembrie"
+            - option "Sambata, 19 Septembrie"
+            - option "Luni, 21 Septembrie"
+            - option "Marti, 22 Septembrie"
+            - option "Miercuri, 23 Septembrie"
+            - option "Joi, 24 Septembrie"
+            - option "Vineri, 25 Septembrie"
+            - option "Sambata, 26 Septembrie"
+            - option "Luni, 28 Septembrie"
+            - option "Marti, 29 Septembrie"
+            - option "Miercuri, 30 Septembrie"
+            - option "Joi, 1 Octombrie"
+            - option "Vineri, 2 Octombrie"
+          - generic: 
+        - paragraph [ref=f5e30]: "*Dupa selectarea datei vor fi afisate orele libere"
+      - generic [ref=f5e32]:
+        - heading "Ore disponibile" [level=2] [ref=f5e33]
+        - generic [ref=f5e34]:
+          - button "08:00" [ref=f5e44] [cursor=pointer]
+          - button "08:20" [ref=f5e45] [cursor=pointer]
+          - button "08:40" [ref=f5e46] [cursor=pointer]
+          - button "09:00" [ref=f5e47] [cursor=pointer]
+          - button "09:20" [ref=f5e48] [cursor=pointer]
+          - button "09:40" [ref=f5e49] [cursor=pointer]
+          - button "10:00" [ref=f5e50] [cursor=pointer]
+          - button "10:20" [ref=f5e51] [cursor=pointer]
+          - button "10:40" [ref=f5e52] [cursor=pointer]
+          - button "11:00" [ref=f5e53] [cursor=pointer]
+          - button "11:20" [ref=f5e54] [cursor=pointer]
+          - button "11:40" [ref=f5e55] [cursor=pointer]
+          - button "12:00" [ref=f5e56] [cursor=pointer]
+          - button "12:20" [ref=f5e57] [cursor=pointer]
+          - button "12:40" [ref=f5e58] [cursor=pointer]
+          - button "13:00" [ref=f5e59] [cursor=pointer]
+          - button "13:20" [ref=f5e60] [cursor=pointer]
+          - button "13:40" [ref=f5e61] [cursor=pointer]
+          - button "14:20" [ref=f5e62] [cursor=pointer]
+          - button "14:40" [ref=f5e63] [cursor=pointer]
+          - button "15:00" [ref=f5e64] [cursor=pointer]
+          - button "15:20" [ref=f5e65] [cursor=pointer]
+          - button "15:40" [ref=f5e66] [cursor=pointer]
+          - button "16:00" [ref=f5e67] [cursor=pointer]
+          - button "16:20" [ref=f5e68] [cursor=pointer]
+          - button "16:40" [ref=f5e69] [cursor=pointer]
+          - button "17:00" [ref=f5e70] [cursor=pointer]
+          - button "17:20" [ref=f5e71] [cursor=pointer]
+          - button "17:40" [ref=f5e72] [cursor=pointer]
+          - button "18:00" [ref=f5e73] [cursor=pointer]
+          - button "18:20" [ref=f5e74] [cursor=pointer]
+          - button "18:40" [ref=f5e75] [cursor=pointer]
+          - button "19:00" [ref=f5e76] [cursor=pointer]
+        - paragraph [ref=f5e43]: "*Alege ora dorita din lista de mai sus"

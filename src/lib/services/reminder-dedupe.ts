@@ -121,6 +121,163 @@ export async function resolveDuplicate({
   return { supersededIds, scope };
 }
 
+export interface BatchCandidate {
+  /** Indicele rândului în fișierul importat, ca raportul să poată arăta linia. */
+  index: number;
+  guestPhone: string;
+  plateNumber: string;
+  expiryDate: string;
+}
+
+export interface BatchDecision {
+  index: number;
+  /** Un rând existent câștigă — nu se inserează nimic pentru linia asta. */
+  keptExistingId?: string;
+  /** Rânduri pe care linia asta le înlocuiește. */
+  supersededIds: string[];
+}
+
+/**
+ * Aceeași regulă ca `resolveDuplicate`, dar pentru un lot întreg.
+ *
+ * `resolveDuplicate` face ~3 drumuri la bază per rând: la 500 de linii dintr-un
+ * Excel ar însemna ~1500 de cereri și un import care expiră înainte să termine.
+ *
+ * Aici se fac **trei** interogări indiferent de mărimea lotului: o citire a
+ * tuturor potrivirilor, o marcare a celor înlocuite, o ștergere logică a celor
+ * care s-ar ciocni de indexul unic. Precedența (scadența mai târzie câștigă) și
+ * `collidesWithIncoming` sunt exact aceleași funcții — regula rămâne una
+ * singură, altfel importul ar diverge tăcut de kiosk și de Contract A.
+ *
+ * Duplicatele **din interiorul fișierului** se rezolvă tot aici: două linii cu
+ * același telefon și aceeași plăcuță sunt o greșeală de export, foarte
+ * frecventă. Câștigă scadența mai târzie; cealaltă e raportată, nu inserată.
+ */
+export async function resolveDuplicatesBatch(
+  supabase: SupabaseClient<any, any, any>,
+  stationId: string | null,
+  candidates: BatchCandidate[]
+): Promise<BatchDecision[]> {
+  const scope = flags.dedupeScope;
+  const decisions = new Map<number, BatchDecision>(
+    candidates.map((c) => [c.index, { index: c.index, supersededIds: [] }])
+  );
+
+  if (candidates.length === 0) return [];
+
+  // 1. Duplicatele din fișier, înainte de a atinge baza.
+  const bestByKey = new Map<string, BatchCandidate>();
+  const losersInFile = new Set<number>();
+
+  for (const candidate of candidates) {
+    const key = `${candidate.guestPhone}|${candidate.plateNumber}`;
+    const current = bestByKey.get(key);
+
+    if (!current) {
+      bestByKey.set(key, candidate);
+      continue;
+    }
+
+    // Câștigă scadența mai târzie; la egalitate, prima apariție.
+    const loser = candidate.expiryDate > current.expiryDate ? current : candidate;
+    const winner = loser === current ? candidate : current;
+    bestByKey.set(key, winner);
+    losersInFile.add(loser.index);
+    decisions.get(loser.index)!.keptExistingId = 'duplicate-in-file';
+  }
+
+  const live = [...bestByKey.values()];
+
+  // 2. O singură citire pentru toate perechile rămase.
+  const phones = [...new Set(live.map((c) => c.guestPhone))];
+  const plates = [...new Set(live.map((c) => c.plateNumber))];
+
+  let query = supabase
+    .from('reminders')
+    .select('id, expiry_date, station_id, guest_phone, plate_number')
+    .in('guest_phone', phones)
+    .in('plate_number', plates)
+    .is('deleted_at', null);
+
+  if (scope === 'per_station' && stationId) {
+    query = query.eq('station_id', stationId);
+  }
+
+  const { data: existing, error } = await query;
+
+  if (error) {
+    // Ca la varianta per-rând: fără dedupe e mai bine decât fără import. Un
+    // duplicat real va fi oprit oricum de indexul unic, cu 23505.
+    console.warn('[Dedupe] batch lookup failed, proceeding without dedupe', {
+      code: error.code,
+      message: error.message,
+    });
+    return [...decisions.values()];
+  }
+
+  // Interogarea de mai sus e un produs cartezian (orice telefon × orice
+  // plăcuță), deci poate întoarce rânduri care nu corespund niciunei perechi
+  // reale. Le grupăm pe cheia exactă.
+  const existingByKey = new Map<string, typeof existing>();
+  for (const row of existing ?? []) {
+    const key = `${row.guest_phone}|${row.plate_number}`;
+    if (!existingByKey.has(key)) existingByKey.set(key, []);
+    existingByKey.get(key)!.push(row);
+  }
+
+  const toSupersede: string[] = [];
+  const toSoftDelete: string[] = [];
+
+  for (const candidate of live) {
+    const key = `${candidate.guestPhone}|${candidate.plateNumber}`;
+    const matches = existingByKey.get(key) ?? [];
+    const decision = decisions.get(candidate.index)!;
+
+    for (const row of matches) {
+      if (row.expiry_date && row.expiry_date > candidate.expiryDate) {
+        // Rândul din bază e mai nou: linia din fișier e depășită.
+        decision.keptExistingId = row.id;
+        break;
+      }
+
+      toSupersede.push(row.id);
+      decision.supersededIds.push(row.id);
+
+      if (collidesWithIncoming(scope, row.station_id ?? null, stationId)) {
+        toSoftDelete.push(row.id);
+      }
+    }
+  }
+
+  const now = new Date().toISOString();
+
+  if (toSupersede.length > 0) {
+    const { error: supersedeError } = await supabase
+      .from('reminders')
+      .update({ superseded_at: now })
+      .in('id', toSupersede);
+
+    if (supersedeError) {
+      console.warn('[Dedupe] batch supersede failed', { code: supersedeError.code });
+    }
+  }
+
+  if (toSoftDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('reminders')
+      .update({ deleted_at: now })
+      .in('id', toSoftDelete);
+
+    if (deleteError) {
+      // Fără ștergerea logică, insertul se va lovi de indexul unic. Mai bine
+      // aflăm aici decât să raportăm 23505 pentru fiecare linie.
+      console.warn('[Dedupe] batch soft-delete failed', { code: deleteError.code });
+    }
+  }
+
+  return [...decisions.values()];
+}
+
 /** Links superseded rows to the winner once its id is known. */
 export async function linkSupersededBy(
   supabase: SupabaseClient<any, any, any>,

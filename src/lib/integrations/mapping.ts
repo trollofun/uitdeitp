@@ -38,12 +38,21 @@ function toDateOnly(value: Date): string {
   return value.toISOString().split('T')[0];
 }
 
-function intervalsOf(station: MappingStation): number[] {
-  const raw = station.default_intervals;
+/**
+ * Intervalele de notificare ale unei stații, dintr-o coloană `jsonb` care poate
+ * conține orice. Exportată pentru că importul din Excel are nevoie de exact
+ * aceeași regulă — altfel reminderele importate s-ar comporta diferit de cele
+ * venite prin Contract A, la aceeași stație.
+ */
+export function stationIntervals(raw: unknown): number[] {
   if (Array.isArray(raw) && raw.every((n) => typeof n === 'number') && raw.length > 0) {
     return raw as number[];
   }
   return [5];
+}
+
+function intervalsOf(station: MappingStation): number[] {
+  return stationIntervals(station.default_intervals);
 }
 
 /** Returns null when the payload carries no recipient (visit data only). */

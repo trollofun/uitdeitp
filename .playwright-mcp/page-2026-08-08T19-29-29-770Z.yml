@@ -1,0 +1,21 @@
+- generic [ref=f12e4]:
+  - main [ref=f12e5]:
+    - generic [ref=f12e8]:
+      - generic [ref=f12e9]: Inregistrare statie ITP
+      - generic [ref=f12e12]:
+        - generic [ref=f12e15]:
+          - generic [ref=f12e16]: business
+          - generic [ref=f12e18]:
+            - generic: Cod statie ITP
+            - textbox "Cod statie ITP" [ref=f12e19]
+        - generic [ref=f12e22]:
+          - generic [ref=f12e23]: email
+          - generic [ref=f12e25]:
+            - generic: Adresa email
+            - textbox "Adresa email" [ref=f12e26]
+        - generic [ref=f12e27]:
+          - generic [ref=f12e28]: info
+          - text: Daca statia ITP nu este inregistrata, vei primi instant pe email un link de inregistrare
+      - button "Inregistrare" [ref=f12e30] [cursor=pointer]
+  - link [ref=f12e32] [cursor=pointer]:
+    - /url: https://wa.me/+40734592949

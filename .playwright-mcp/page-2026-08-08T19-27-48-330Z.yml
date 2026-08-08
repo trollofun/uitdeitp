@@ -1,0 +1,22 @@
+- generic [ref=f10e4]:
+  - main [ref=f10e5]:
+    - generic [ref=f10e8]:
+      - generic [ref=f10e9]: Autentificare
+      - generic [ref=f10e12]:
+        - generic [ref=f10e15]:
+          - generic [ref=f10e16]: business
+          - generic [ref=f10e18]:
+            - generic: Cod statie ITP
+            - textbox "Cod statie ITP" [ref=f10e19]
+        - generic [ref=f10e21]:
+          - generic [ref=f10e22]:
+            - generic [ref=f10e23]: phone
+            - generic [ref=f10e25]:
+              - generic: Numar de telefon
+              - textbox "Numar de telefon" [ref=f10e26]
+          - generic [ref=f10e27]: "Formatul telefonului este: 0721 234 567"
+      - generic [ref=f10e30]:
+        - button "Am uitat parola" [ref=f10e31] [cursor=pointer]
+        - button "Autentificare »" [ref=f10e33] [cursor=pointer]
+  - link [ref=f10e35] [cursor=pointer]:
+    - /url: https://wa.me/+40734592949

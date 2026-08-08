@@ -1,0 +1,339 @@
+- generic [active] [ref=f22e1]:
+  - generic [ref=f22e4]:
+    - navigation [ref=f22e5]:
+      - generic [ref=f22e6]:
+        - text: SITP se închide. Abonamentele existente rămân active pentru întreaga perioadă achitată — sau poți solicita rambursarea integrală la
+        - link "contact@sitp.ro" [ref=f22e7] [cursor=pointer]:
+          - /url: mailto:contact@sitp.ro
+        - text: .
+      - generic [ref=f22e9]:
+        - link "SITP - Pagina principală" [ref=f22e10] [cursor=pointer]:
+          - /url: /
+          - img "SITP" [ref=f22e12]
+        - generic [ref=f22e13]:
+          - button "Funcționalități" [ref=f22e14]
+          - button "Tarife" [ref=f22e15]
+          - button "Tutoriale" [ref=f22e16]
+          - button "FAQ" [ref=f22e17]
+        - link "Conectează-te" [ref=f22e19] [cursor=pointer]:
+          - /url: /auth/signin
+    - main [ref=f22e20]:
+      - generic [ref=f22e24]:
+        - generic [ref=f22e25]:
+          - button [ref=f22e29]
+          - generic [ref=f22e35]:
+            - generic [ref=f22e36]: Pentru inspectori si stații
+            - heading "Inspecții rapide, mai mulți clienți" [level=1] [ref=f22e38]
+            - paragraph [ref=f22e39]: "Simplifică procesul de inspecție: poze direct din telefon, scanare cu AI a documentelor, programări online și alerte SMS automate."
+            - generic [ref=f22e40]:
+              - link "Începe acum" [ref=f22e41] [cursor=pointer]:
+                - /url: /auth/signin
+              - button "Descoperă platforma" [ref=f22e45]
+            - generic [ref=f22e46]:
+              - generic [ref=f22e47]: Scanare cu AI
+              - generic [ref=f22e49]: Fotografii din telefon
+              - generic [ref=f22e51]: SMS automate
+        - paragraph [ref=f22e53]: Încearcă 14 zile gratuit!
+      - generic [ref=f22e55]:
+        - generic [ref=f22e56]:
+          - paragraph [ref=f22e57]: Flux digital complet
+          - heading "De la telefon - direct în computer" [level=2] [ref=f22e58]
+          - paragraph [ref=f22e59]: Scanezi informatiile cu AI direct din telefon, gata de copiat in SIRAR.
+          - paragraph [ref=f22e60]: Fotografiile apar instant în computer.
+          - paragraph [ref=f22e61]: Fără dublu efort, fără transcrieri manuale.
+        - generic [ref=f22e62]:
+          - generic [ref=f22e63]:
+            - img "Scanare documente cu AI direct din telefon — CIV, talon, plăcuță" [ref=f22e65]
+            - paragraph [ref=f22e66]:
+              - generic [ref=f22e67]: "1"
+              - text: Apeși butonul AI să scanezi placuta masinii instant, iar apoi documentele.
+          - generic [ref=f22e68]:
+            - img "Date extrase automat după scanarea cu AI — Talon și CIV populate" [ref=f22e70]
+            - paragraph [ref=f22e71]:
+              - generic [ref=f22e72]: "2"
+              - text: Datele apar automat, gata de copiat si sunt transmise in computer.
+        - generic [ref=f22e73]:
+          - generic [ref=f22e74]:
+            - heading "Totul ajunge live în computer" [level=3] [ref=f22e75]
+            - paragraph [ref=f22e76]: În timp ce faci inspecția din telefon, fotografiile și datele extrase cu AI apar instant în computer. Clientul e salvat automat cu scadența calculată, iar SMS-ul pleacă la timpul potrivit — fără intervenție din partea ta.
+            - list [ref=f22e77]:
+              - listitem [ref=f22e78]:
+                - generic [ref=f22e82]:
+                  - paragraph [ref=f22e83]: Scanare cu AI
+                  - paragraph [ref=f22e84]: CIV, talon, plăcuță — extrase automat, gata de copiat direct în SIRAR.
+              - listitem [ref=f22e85]:
+                - generic [ref=f22e89]:
+                  - paragraph [ref=f22e90]: Fotografii transmise live
+                  - paragraph [ref=f22e91]: Faci poza pe telefon, apare instant în computer, redenumită conform RNTR.
+              - listitem [ref=f22e92]:
+                - generic [ref=f22e96]:
+                  - paragraph [ref=f22e97]: Client salvat automat
+                  - paragraph [ref=f22e98]: Din fluxul de inspecție, cu scadența calculată automat — fără introducere manuală.
+              - listitem [ref=f22e99]:
+                - generic [ref=f22e103]:
+                  - paragraph [ref=f22e104]: SMS automat la scadență
+                  - paragraph [ref=f22e105]: Clientul deja înregistrat primește notificarea fără intervenție, la timpul potrivit.
+              - listitem [ref=f22e106]:
+                - generic [ref=f22e110]:
+                  - paragraph [ref=f22e111]: Și multe alte funcționalități
+                  - paragraph [ref=f22e112]: Programări online, rapoarte detaliate, gestiune clienți, inspecții complete.
+            - button "Vezi toate funcționalitățile" [ref=f22e113]
+          - img "Dashboard SITP — inspecția completă cu fotografii și date, sincronizată din telefon" [ref=f22e121]
+      - generic [ref=f22e123]:
+        - generic [ref=f22e124]:
+          - paragraph [ref=f22e125]: Funcționalități
+          - heading "Tot ce ai nevoie, într-un singur loc" [level=2] [ref=f22e126]
+          - paragraph [ref=f22e127]: Simplifică gestiunea stației tale ITP și oferă un serviciu de calitate superioară clienților tăi.
+        - generic [ref=f22e128]:
+          - generic [ref=f22e136]:
+            - heading "Gestiune Clienți" [level=3] [ref=f22e137]
+            - paragraph [ref=f22e138]: Centralizează toate datele clienților. Acces rapid la istoric, documente și scadențe ITP.
+          - generic [ref=f22e144]:
+            - heading "Alerte Automate" [level=3] [ref=f22e145]
+            - paragraph [ref=f22e146]: SMS la confirmarea programării și alerte automate înainte de expirare ITP. Configurabil – perioada și frecvența, la alegere.
+          - generic [ref=f22e151]:
+            - heading "Rapoarte & Statistici" [level=3] [ref=f22e152]
+            - paragraph [ref=f22e153]: "Monitorizează evoluția stației cu rapoarte detaliate: clienți, reveniri, alerte trimise, venituri."
+          - generic [ref=f22e159]:
+            - heading "Fotografii Direct pe Dispozitiv" [level=3] [ref=f22e160]
+            - paragraph [ref=f22e161]: Fă poze cu tableta sau telefonul la mașină, încarcă direct în aplicație și redenumire automată conform RAR.
+          - generic [ref=f22e166]:
+            - heading "Acces de Oriunde" [level=3] [ref=f22e167]
+            - paragraph [ref=f22e168]: Funcționează pe orice dispozitiv – telefon, tabletă sau calculator. Disponibilă 24/7, fără instalare.
+          - generic [ref=f22e173]:
+            - heading "Securitate & GDPR" [level=3] [ref=f22e174]
+            - paragraph [ref=f22e175]: Criptare SSL, backup zilnic automat, izolare multi-tenant. Servere în UE, conform cu GDPR.
+      - generic [ref=f22e177]:
+        - generic [ref=f22e178]:
+          - paragraph [ref=f22e179]: Tarife
+          - heading "Prețuri transparente" [level=2] [ref=f22e180]
+          - paragraph [ref=f22e181]: Toate abonamentele includ acces complet la platformă, suport tehnic și actualizări gratuite.
+        - generic [ref=f22e182]:
+          - generic [ref=f22e183]:
+            - generic [ref=f22e184]:
+              - heading "3 luni" [level=4] [ref=f22e185]
+              - generic [ref=f22e186]:
+                - generic [ref=f22e187]: "107"
+                - generic [ref=f22e188]: lei
+              - generic [ref=f22e189]:
+                - generic [ref=f22e190]: 120 lei
+                - generic [ref=f22e191]: "-11%"
+              - paragraph [ref=f22e192]: ~36 lei/lună
+            - list [ref=f22e193]:
+              - listitem [ref=f22e194]:
+                - generic [ref=f22e197]: Gestiune nelimitată clienți
+              - listitem [ref=f22e198]:
+                - generic [ref=f22e201]: Fotografii direct pe tableta/telefon, conform RAR
+              - listitem [ref=f22e202]:
+                - generic [ref=f22e205]: Rapoarte detaliate
+              - listitem [ref=f22e206]:
+                - generic [ref=f22e209]: Dispozitive nelimitate
+              - listitem [ref=f22e210]:
+                - generic [ref=f22e213]: Suport tehnic 24/7
+            - link "Alege Abonament" [ref=f22e214] [cursor=pointer]:
+              - /url: /inregistrare-statie
+          - generic [ref=f22e215]:
+            - generic [ref=f22e216]: Recomandat
+            - generic [ref=f22e217]:
+              - heading "12 luni" [level=4] [ref=f22e218]
+              - generic [ref=f22e219]:
+                - generic [ref=f22e220]: "305"
+                - generic [ref=f22e221]: lei
+              - generic [ref=f22e222]:
+                - generic [ref=f22e223]: 360 lei
+                - generic [ref=f22e224]: "-15%"
+              - paragraph [ref=f22e225]: ~25 lei/lună
+            - list [ref=f22e226]:
+              - listitem [ref=f22e227]:
+                - generic [ref=f22e230]: Gestiune nelimitată clienți
+              - listitem [ref=f22e231]:
+                - generic [ref=f22e234]: Fotografii direct pe tableta/telefon, conform RAR
+              - listitem [ref=f22e235]:
+                - generic [ref=f22e238]: Rapoarte detaliate
+              - listitem [ref=f22e239]:
+                - generic [ref=f22e242]: Dispozitive nelimitate
+              - listitem [ref=f22e243]:
+                - generic [ref=f22e246]: Suport tehnic 24/7
+            - link "Alege Abonament" [ref=f22e247] [cursor=pointer]:
+              - /url: /inregistrare-statie
+          - generic [ref=f22e248]:
+            - generic [ref=f22e249]:
+              - heading "6 luni" [level=4] [ref=f22e250]
+              - generic [ref=f22e251]:
+                - generic [ref=f22e252]: "183"
+                - generic [ref=f22e253]: lei
+              - generic [ref=f22e254]:
+                - generic [ref=f22e255]: 210 lei
+                - generic [ref=f22e256]: "-13%"
+              - paragraph [ref=f22e257]: ~31 lei/lună
+            - list [ref=f22e258]:
+              - listitem [ref=f22e259]:
+                - generic [ref=f22e262]: Gestiune nelimitată clienți
+              - listitem [ref=f22e263]:
+                - generic [ref=f22e266]: Fotografii direct pe tableta/telefon, conform RAR
+              - listitem [ref=f22e267]:
+                - generic [ref=f22e270]: Rapoarte detaliate
+              - listitem [ref=f22e271]:
+                - generic [ref=f22e274]: Dispozitive nelimitate
+              - listitem [ref=f22e275]:
+                - generic [ref=f22e278]: Suport tehnic 24/7
+            - link "Alege Abonament" [ref=f22e279] [cursor=pointer]:
+              - /url: /inregistrare-statie
+        - paragraph [ref=f22e280]: "* Prețurile afișate reprezintă costurile integrale. Nu se percepe TVA."
+        - generic [ref=f22e281]:
+          - generic [ref=f22e282]:
+            - heading "Pachete SMS" [level=3] [ref=f22e283]
+            - paragraph [ref=f22e284]: Cu cât mai multe SMS-uri, cu atât mai avantajos
+          - table [ref=f22e286]:
+            - rowgroup [ref=f22e287]:
+              - row [ref=f22e288]:
+                - columnheader "Pachet" [ref=f22e289]
+                - columnheader "SMS-uri" [ref=f22e290]
+                - columnheader "Preț" [ref=f22e291]
+                - columnheader "Per SMS" [ref=f22e292]
+                - columnheader "Economie" [ref=f22e293]
+            - rowgroup [ref=f22e294]:
+              - row [ref=f22e295]:
+                - cell "Pachet 1" [ref=f22e296]
+                - cell "50" [ref=f22e297]
+                - cell "21 lei" [ref=f22e298]
+                - cell "~0.42 lei" [ref=f22e299]
+                - cell "—" [ref=f22e300]
+              - row [ref=f22e301]:
+                - cell "Pachet 2" [ref=f22e302]
+                - cell "100" [ref=f22e303]
+                - cell "38 lei" [ref=f22e304]
+                - cell "~0.38 lei" [ref=f22e305]
+                - cell "-10%" [ref=f22e306]
+              - row [ref=f22e308]:
+                - cell "Pachet 3" [ref=f22e309]
+                - cell "200" [ref=f22e310]
+                - cell "72 lei" [ref=f22e311]
+                - cell "~0.36 lei" [ref=f22e312]
+                - cell "-14%" [ref=f22e313]
+              - row [ref=f22e315]:
+                - cell "Pachet 4" [ref=f22e316]
+                - cell "500" [ref=f22e317]
+                - cell "169 lei" [ref=f22e318]
+                - cell "~0.34 lei" [ref=f22e319]
+                - cell "-20%" [ref=f22e320]
+              - row [ref=f22e322]:
+                - cell "Pachet 5" [ref=f22e323]
+                - cell "1000" [ref=f22e324]
+                - cell "316 lei" [ref=f22e325]
+                - cell "~0.32 lei" [ref=f22e326]
+                - cell "-25%" [ref=f22e327]
+              - row [ref=f22e329]:
+                - cell "Pachet 6" [ref=f22e330]
+                - cell "1500" [ref=f22e331]
+                - cell "450 lei" [ref=f22e332]
+                - cell "~0.30 lei" [ref=f22e333]
+                - cell "-29%" [ref=f22e334]
+          - paragraph [ref=f22e336]: "* Prețurile afișate sunt integrale, nu se percepe TVA · SMS-urile sunt valabile nelimitat"
+      - generic [ref=f22e338]:
+        - generic [ref=f22e339]:
+          - paragraph [ref=f22e340]: Tutoriale
+          - heading "Ghiduri video" [level=2] [ref=f22e341]
+          - paragraph [ref=f22e342]: Învață rapid cum funcționează platforma – de la configurare până la inspecții.
+        - generic [ref=f22e343]:
+          - button [ref=f22e344]:
+            - img "Cum se fac programarile?" [ref=f22e346]
+            - generic [ref=f22e352]:
+              - heading "Cum se fac programarile?" [level=3] [ref=f22e353]
+              - paragraph [ref=f22e354]: Crearea, editarea și mutarea programărilor din calendar.
+          - button [ref=f22e355]:
+            - img "Setari si functionalitati" [ref=f22e357]
+            - generic [ref=f22e363]:
+              - heading "Setari si functionalitati" [level=3] [ref=f22e364]
+              - paragraph [ref=f22e365]: Profil, program de lucru, tarife, inspectori, notificări și abonament.
+          - button [ref=f22e366]:
+            - img "Gestiune clienti, trimitere SMS-uri, import clienti" [ref=f22e368]
+            - generic [ref=f22e374]:
+              - heading "Gestiune clienti, trimitere SMS-uri, import clienti" [level=3] [ref=f22e375]
+              - paragraph [ref=f22e376]: Adăugarea clienților, notificări SMS automate și import din CSV.
+      - generic [ref=f22e378]:
+        - generic [ref=f22e379]:
+          - paragraph [ref=f22e380]: FAQ
+          - heading "Întrebări frecvente" [level=2] [ref=f22e381]
+        - generic [ref=f22e382]:
+          - generic [ref=f22e383]:
+            - button "Cui îi este adresată această platformă?" [ref=f22e384]
+            - paragraph [ref=f22e389]: Tuturor stațiilor ITP autorizate RAR.
+          - generic [ref=f22e390]:
+            - button "Pot să testez gratuit platforma?" [ref=f22e391]
+            - paragraph [ref=f22e396]: Da! Completează formularul de înregistrare și vei primi acces gratuit pentru 14 zile.
+          - generic [ref=f22e397]:
+            - button "Cât durează implementarea?" [ref=f22e398]
+            - paragraph [ref=f22e403]: Implementarea este instantanee. După înregistrare, poți folosi platforma imediat. Importul clienților durează câteva secunde.
+          - generic [ref=f22e404]:
+            - button "De pe ce număr se trimit alertele SMS?" [ref=f22e405]
+            - paragraph [ref=f22e410]: De pe numar scurt de tip 1XXX.
+          - generic [ref=f22e411]:
+            - button "Pot folosi platforma de pe telefon?" [ref=f22e412]
+            - paragraph [ref=f22e417]: Da! Platforma este complet responsive și funcționează pe telefon, tabletă și calculator.
+          - generic [ref=f22e418]:
+            - button "Datele mele sunt în siguranță?" [ref=f22e419]
+            - paragraph [ref=f22e424]: Folosim criptare, izolare multi-tenant, conform GDPR.
+          - generic [ref=f22e425]:
+            - button "Ce metode de plată acceptați?" [ref=f22e426]
+            - paragraph [ref=f22e431]: Plata se face prin card via stripe, facturile pe firma se emit automat folosind platforma oblio. Aveti acces la facturi in plaftorma si primiti de asemenea si pe mail la fiecare plata.
+        - generic [ref=f22e432]:
+          - paragraph [ref=f22e433]: Nu ai găsit răspunsul?
+          - link "Contactează-ne" [ref=f22e434] [cursor=pointer]:
+            - /url: mailto:contact@sitp.ro
+      - generic [ref=f22e440]:
+        - heading "Pregătit să-ți modernizezi stația?" [level=2] [ref=f22e441]
+        - paragraph [ref=f22e442]: Alătură-te stațiilor ITP care folosesc deja SITP pentru a gestiona clienți, programări și alerte automate.
+        - generic [ref=f22e443]:
+          - link "Începe gratuit" [ref=f22e444] [cursor=pointer]:
+            - /url: /inregistrare-statie
+          - link "Vezi tarifele" [ref=f22e447] [cursor=pointer]:
+            - /url: "#pricing"
+    - contentinfo [ref=f22e448]:
+      - generic [ref=f22e449]:
+        - generic [ref=f22e450]:
+          - generic [ref=f22e451]:
+            - paragraph [ref=f22e454]: Platformă profesională pentru gestiunea stațiilor ITP. Simplificăm procesele zilnice și ajutăm la fidelizarea clienților.
+            - link "contact@sitp.ro" [ref=f22e456] [cursor=pointer]:
+              - /url: mailto:contact@sitp.ro
+          - generic [ref=f22e457]:
+            - heading "Navigare" [level=4] [ref=f22e458]
+            - list [ref=f22e459]:
+              - listitem [ref=f22e460]:
+                - link "Funcționalități" [ref=f22e461] [cursor=pointer]:
+                  - /url: "#features"
+              - listitem [ref=f22e462]:
+                - link "Cum funcționează" [ref=f22e463] [cursor=pointer]:
+                  - /url: "#tutoriale"
+              - listitem [ref=f22e464]:
+                - link "Tarife" [ref=f22e465] [cursor=pointer]:
+                  - /url: "#pricing"
+              - listitem [ref=f22e466]:
+                - link "Întrebări frecvente" [ref=f22e467] [cursor=pointer]:
+                  - /url: "#faq"
+          - generic [ref=f22e468]:
+            - heading "Legal" [level=4] [ref=f22e469]
+            - list [ref=f22e470]:
+              - listitem [ref=f22e471]:
+                - link "Termeni și Condiții" [ref=f22e472] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=f22e473]:
+                - link "Confidențialitate" [ref=f22e474] [cursor=pointer]:
+                  - /url: /privacy
+              - listitem [ref=f22e475]:
+                - link "Acord Prelucrare Date" [ref=f22e476] [cursor=pointer]:
+                  - /url: /dpa
+              - listitem [ref=f22e477]:
+                - link "Subprocesori" [ref=f22e478] [cursor=pointer]:
+                  - /url: /subprocessors
+        - generic [ref=f22e479]:
+          - paragraph [ref=f22e480]: © 2026 SITP. Toate drepturile rezervate.
+          - link "Conectează-te" [ref=f22e481] [cursor=pointer]:
+            - /url: /auth/signin
+  - generic [ref=f22e483]:
+    - paragraph [ref=f22e484]:
+      - text: Folosim doar cookie-uri esențiale pentru funcționarea aplicației (sesiune, securitate). Nu folosim cookie-uri de analitics sau publicitate.
+      - link "Politica de Confidențialitate" [ref=f22e485] [cursor=pointer]:
+        - /url: /privacy
+    - button "Am înțeles" [ref=f22e486]
+  - alert [ref=f22e487]

@@ -1,0 +1,61 @@
+- generic [active] [ref=f5e11]:
+  - generic: "numele: domeniu: calea: expiră: numele: domeniu: calea: expiră: numele: domeniu: calea: expiră: numele: domeniu: calea: expiră:"
+  - generic [ref=f5e12]:
+    - banner [ref=f5e13]:
+      - generic [ref=f5e15]:
+        - generic [ref=f5e16]: 
+        - generic [ref=f5e17]: 
+        - heading "Confirmare" [level=1] [ref=f5e77]
+    - generic [ref=f5e78]:
+      - generic [ref=f5e80]:
+        - list [ref=f5e82] [cursor=pointer]:
+          - listitem [ref=f5e83]:
+            - generic [ref=f5e84]:
+              - figure [ref=f5e85]:
+                - generic [ref=f5e86]: 
+              - generic [ref=f5e88]:
+                - heading "ITP SVU SERVICE S.R.L." [level=2] [ref=f5e89]
+                - generic [ref=f5e90]: Lun, 10 Aug • ora 12:00
+              - figure [ref=f5e91]:
+                - generic [ref=f5e92]: 
+        - list [ref=f5e93]:
+          - listitem [ref=f5e94]:
+            - generic [ref=f5e95]:
+              - figure [ref=f5e96]:
+                - generic [ref=f5e97]: 
+              - generic [ref=f5e99]:
+                - heading "1 serviciu" [level=2] [ref=f5e100]
+                - paragraph [ref=f5e101]: "Inspector #1"
+          - listitem [ref=f5e102]:
+            - generic [ref=f5e103]:
+              - figure [ref=f5e104]:
+                - generic [ref=f5e105]: 
+              - heading "Lun, 10 Aug • ora 12:00" [level=2] [ref=f5e108]
+      - generic [ref=f5e109]:
+        - paragraph [ref=f5e110]: Numele si numarul de telefon sunt obligatorii.
+        - generic [ref=f5e113]:
+          - textbox "Nume si prenume" [ref=f5e114]
+          - generic: 
+        - generic [ref=f5e117]:
+          - textbox "0721 234 567" [ref=f5e118]
+          - generic: 
+      - generic [ref=f5e119]:
+        - paragraph [ref=f5e120]: Observatii si mentiuni
+        - textbox "Observatii si mentiuni" [ref=f5e124]
+      - generic [ref=f5e125]:
+        - paragraph [ref=f5e126]: Anul primei inmatriculari
+        - textbox "Anul primei inmatriculari" [ref=f5e130]
+        - paragraph [ref=f5e131]: Marca si modelul masinii
+        - textbox "Marca si modelul masinii" [ref=f5e135]
+        - paragraph [ref=f5e136]: Combustibil
+        - textbox "Combustibil" [ref=f5e140]
+        - paragraph [ref=f5e141]: Numar de inmatriculare
+        - textbox "Numar de inmatriculare" [ref=f5e145]
+    - generic [ref=f5e146]:
+      - generic [ref=f5e147]:
+        - text: Prin confirmarea rezervarii, confirmati ca ati citit si sunteti de acord cu
+        - link "termenii si conditiile" [ref=f5e148] [cursor=pointer]:
+          - /url: https://itpmanager.ro/termeni-si-conditii
+      - button "Confirma " [ref=f5e150] [cursor=pointer]:
+        - text: Confirma
+        - generic [ref=f5e151]: 

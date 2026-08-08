@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { flags } from '@/lib/config/flags';
 import { StationClients } from '@/components/stations/dashboard/StationClients';
+import { ImportClients } from '@/components/stations/dashboard/ImportClients';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,5 +54,12 @@ export default async function StationClientsPage() {
     );
   }
 
-  return <StationClients station={station} />;
+  // Importul stă lângă listă, nu într-o pagină separată: e primul lucru pe care
+  // îl face o stație nouă, și ultimul la care se mai gândește după aceea.
+  return (
+    <div className="space-y-6">
+      <StationClients station={station} />
+      <ImportClients />
+    </div>
+  );
 }

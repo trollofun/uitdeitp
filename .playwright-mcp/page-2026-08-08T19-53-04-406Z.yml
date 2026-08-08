@@ -1,0 +1,38 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - main [ref=e3]:
+      - img "SoftITP Flow" [ref=e4]
+      - generic [ref=e5]: În curând · pre-lansare
+      - heading "Platforma completă pentru stații ITP, în curând." [level=1] [ref=e10]
+      - paragraph [ref=e11]: Programări online, istoric clienți și vehicule, notificări automate și website dedicat. Lasă-ne emailul și ești printre primii anunțați la lansare.
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - text: Companie
+          - textbox [ref=e15]
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - generic [ref=e18]: Email
+            - textbox "Email" [ref=e19]:
+              - /placeholder: adresa@email.ro
+          - button "Anunță-mă" [ref=e20] [cursor=pointer]
+        - paragraph [ref=e24]:
+          - text: Prin înscriere ești de acord cu
+          - link "Politica de confidențialitate" [ref=e25] [cursor=pointer]:
+            - /url: /politica-confidentialitate
+          - text: .
+    - contentinfo [ref=e26]:
+      - generic [ref=e27]:
+        - paragraph [ref=e28]:
+          - text: © 2026 SoftITP.
+          - link "suport@softitp.ro" [ref=e29] [cursor=pointer]:
+            - /url: mailto:suport@softitp.ro
+        - navigation [ref=e30]:
+          - link "Termeni" [ref=e31] [cursor=pointer]:
+            - /url: /termeni-si-conditii
+          - link "Confidențialitate" [ref=e32] [cursor=pointer]:
+            - /url: /politica-confidentialitate
+          - link "Cookie-uri" [ref=e33] [cursor=pointer]:
+            - /url: /politica-cookie
+          - link "GDPR" [ref=e34] [cursor=pointer]:
+            - /url: /politica-gdpr
+  - alert [ref=e35]

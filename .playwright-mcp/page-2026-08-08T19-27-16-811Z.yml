@@ -1,0 +1,125 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - heading "ITP SVU SERVICE S.R.L." [level=1] [ref=e8]
+        - generic [ref=e9]:
+          - paragraph [ref=e11]: Strada Dobrogei, Nr. 46 ,Langa calea ferata
+          - generic [ref=e13]:
+            - link "" [ref=e14] [cursor=pointer]:
+              - /url: https://www.facebook.com/ITPbySVU.CL037
+            - link "" [ref=e16] [cursor=pointer]:
+              - /url: https://i.t.p_by_svu
+            - link "" [ref=e18] [cursor=pointer]:
+              - /url: https://itpcalarasi.ro/
+    - generic [ref=e25]:
+      - tablist [ref=e26]:
+        - tab "Servicii" [selected] [ref=e27] [cursor=pointer]
+      - tabpanel "Servicii" [ref=e28]:
+        - generic [ref=e29]:
+          - heading "ITP" [level=2] [ref=e30]
+          - list [ref=e31]:
+            - listitem [ref=e32]:
+              - generic [ref=e33]:
+                - generic [ref=e35]:
+                  - heading "Autoturism" [level=3] [ref=e36]
+                  - paragraph [ref=e37]: ITP Autoturism cu masa maxima totala < 3.5T
+                - figure [ref=e38]:
+                  - generic [ref=e39]:
+                    - checkbox [ref=e40]
+                    - generic [ref=e41] [cursor=pointer]
+            - listitem [ref=e42]:
+              - generic [ref=e43]:
+                - generic [ref=e45]:
+                  - heading "Autoturism si autoutilitare 4x4" [level=3] [ref=e46]
+                  - paragraph [ref=e47]: ITP Autoturism si autoutilitare 4x4
+                - figure [ref=e48]:
+                  - generic [ref=e49]:
+                    - checkbox [ref=e50]
+                    - generic [ref=e51] [cursor=pointer]
+            - listitem [ref=e52]:
+              - generic [ref=e53]:
+                - generic [ref=e55]:
+                  - heading "Microbuz, autorulota, automobile utilitare, masa pana la 3.5T inclusiv" [level=3] [ref=e56]
+                  - paragraph [ref=e57]: ITP Microbuz, autorulota, automobile utilitare, mixte, specilizate, speciale, cu masa totala maxima autorizata pana la 3.5T inclusiv
+                - figure [ref=e58]:
+                  - generic [ref=e59]:
+                    - checkbox [ref=e60]
+                    - generic [ref=e61] [cursor=pointer]
+            - listitem [ref=e62]:
+              - generic [ref=e63]:
+                - generic [ref=e65]:
+                  - heading "Microbuz, autorulota, automobile utilitare, masa pana la 3.5T inclusiv" [level=3] [ref=e66]
+                  - paragraph [ref=e67]: ITP Microbuz, autorulota, automobile utilitare, mixte, specilizate, speciale, cu masa totala maxima autorizata pana la 3.5T inclusiv
+                - figure [ref=e68]:
+                  - generic [ref=e69]:
+                    - checkbox [ref=e70]
+                    - generic [ref=e71] [cursor=pointer]
+            - listitem [ref=e72]:
+              - generic [ref=e73]:
+                - generic [ref=e75]:
+                  - heading "Moped si motocicleta" [level=3] [ref=e76]
+                  - paragraph [ref=e77]: ITP Moped si motocicleta
+                - figure [ref=e78]:
+                  - generic [ref=e79]:
+                    - checkbox [ref=e80]
+                    - generic [ref=e81] [cursor=pointer]
+            - listitem [ref=e82]:
+              - generic [ref=e83]:
+                - generic [ref=e85]:
+                  - heading "Remorca pentru motocicleta" [level=3] [ref=e86]
+                  - paragraph [ref=e87]: ITP Remorca pentru motocicleta
+                - figure [ref=e88]:
+                  - generic [ref=e89]:
+                    - checkbox [ref=e90]
+                    - generic [ref=e91] [cursor=pointer]
+            - listitem [ref=e92]:
+              - generic [ref=e93]:
+                - generic [ref=e95]:
+                  - heading "Remorca si rulota fara sistem de franare" [level=3] [ref=e96]
+                  - paragraph [ref=e97]: ITP Remorca si rulota fara sistem de franare
+                - figure [ref=e98]:
+                  - generic [ref=e99]:
+                    - checkbox [ref=e100]
+                    - generic [ref=e101] [cursor=pointer]
+        - generic [ref=e102]:
+          - heading "Categoria2" [level=2] [ref=e103]
+          - list [ref=e104]:
+            - listitem [ref=e105]:
+              - generic [ref=e106]:
+                - generic [ref=e108]:
+                  - heading "Eco" [level=3] [ref=e109]
+                  - paragraph [ref=e110]: Vehicul Electric/hibrid
+                - figure [ref=e111]:
+                  - generic [ref=e112]:
+                    - checkbox [ref=e113]
+                    - generic [ref=e114] [cursor=pointer]
+            - listitem [ref=e115]:
+              - generic [ref=e116]:
+                - generic [ref=e118]:
+                  - heading "ITP Școala Șoferi" [level=3] [ref=e119]
+                  - paragraph [ref=e120]: Învățăcel
+                - figure [ref=e121]:
+                  - generic [ref=e122]:
+                    - checkbox [ref=e123]
+                    - generic [ref=e124] [cursor=pointer]
+            - listitem [ref=e125]:
+              - generic [ref=e126]:
+                - generic [ref=e128]:
+                  - heading "ITP Taxi/Uber" [level=3] [ref=e129]
+                  - paragraph [ref=e130]: Transport Persoane
+                - figure [ref=e131]:
+                  - generic [ref=e132]:
+                    - checkbox [ref=e133]
+                    - generic [ref=e134] [cursor=pointer]
+  - generic [ref=e135]:
+    - dialog [active] [ref=e136]:
+      - generic [ref=e137]:
+        - heading [level=2] [ref=e138]:
+          - strong [ref=e139]: Acest site foloseste cookie-uri
+        - paragraph [ref=e140]: Folosim cookie-uri pentru a colecta si analiza informații despre performanța și utilizarea site-ului, pentru a oferi funcții personalizate pe social media și pentru a îmbunătăți conținutul reclamelor.
+        - paragraph [ref=e141]:
+          - link "Află mai multe" [ref=e142] [cursor=pointer]:
+            - /url: https://agendamea.ro
+      - button "Sunt de acord" [ref=e144] [cursor=pointer]
+    - text: "numele: domeniu: calea: expiră: numele: domeniu: calea: expiră: numele: domeniu: calea: expiră: numele: domeniu: calea: expiră:"

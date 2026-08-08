@@ -1,0 +1,19 @@
+- generic [active] [ref=f12e1]:
+  - generic [ref=f12e3]:
+    - paragraph [ref=f12e4]: Code 404
+    - heading "Ups... stația asta e în zona oarbă" [level=1] [ref=f12e5]
+    - paragraph [ref=f12e6]: Nu am găsit pagina pe care o cauți. Poate că s-a evaporat în calea lactee digitale sau încă nu am construit-o.
+    - generic [ref=f12e7]:
+      - link "Mergi acasă" [ref=f12e8] [cursor=pointer]:
+        - /url: /
+      - link "Verifică statusul platformei" [ref=f12e9] [cursor=pointer]:
+        - /url: /status
+      - link "Deschide documentația" [ref=f12e10] [cursor=pointer]:
+        - /url: /docs
+    - generic [ref=f12e11]:
+      - paragraph [ref=f12e12]: Sugestii rapide
+      - list [ref=f12e13]:
+        - listitem [ref=f12e14]: • verifică dacă link-ul este scris corect
+        - listitem [ref=f12e15]: • încearcă să reîncarci pagea sau revino mai târziu
+        - listitem [ref=f12e16]: • scrie-ne dacă problema persistă – ne place să vânăm 404-uri
+  - alert [ref=f12e17]
