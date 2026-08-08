@@ -16,12 +16,23 @@ import { createClient } from '@supabase/supabase-js';
 import { flags } from '@/lib/config/flags';
 import { sendSms } from '@/lib/services/notification';
 import { valueNormalizerFor } from '@/lib/services/sms-encoding';
+import { appPath } from '@/lib/config/app-url';
 import { logSms } from '@/lib/services/notification-log';
 import { getStationSendKey } from '@/lib/services/station-credits';
 import { CANONICAL_CONSENT_VERSIONS } from '@/lib/integrations/contract-a';
 
 /** The cron shares a 60s budget with the reminder pass. */
 const MAX_REVIEW_SENDS_PER_RUN = 50;
+
+/**
+ * Câte luni trebuie să treacă între două cereri de recenzie către același număr.
+ *
+ * Șase, pentru că ITP-ul se face anual sau la doi ani: un client normal n-ar
+ * trebui să primească mai mult de o cerere pe an. Fereastra mai scurtă îl apără
+ * pe cel cu mai multe mașini de a fi întrebat de trei ori într-o săptămână,
+ * fără să blocheze cererea legitimă de la inspecția următoare.
+ */
+const REVIEW_MIN_MONTHS_BETWEEN_REQUESTS = 6;
 
 export interface ReviewPassResult {
   skipped?: string;
@@ -67,7 +78,9 @@ export async function processReviewRequestsForToday(): Promise<ReviewPassResult>
 
     const { data: candidates } = await supabase
       .from('reminders')
-      .select('id, guest_phone, guest_name, plate_number, consent_version, opt_out')
+      .select(
+        'id, guest_phone, guest_name, plate_number, consent_version, opt_out, inspection_result'
+      )
       .eq('station_id', station.id)
       .eq('source', 'import')
       .eq('inspected_at', targetDate)
@@ -124,36 +137,83 @@ export async function processReviewRequestsForToday(): Promise<ReviewPassResult>
         continue;
       }
 
+      // Poarta pe rezultat. Azi filtrul e la sursă — SIRAR trimite doar
+      // inspecțiile trecute, din ITP Pro și din ITP Pro Auto deopotrivă, deci
+      // `inspection_result` e NULL peste tot și poarta nu schimbă nimic.
+      //
+      // Dar SIRAR a cerut să putem primi și respingerile. În ziua în care le
+      // primim, asta e singura oprire între un om căruia tocmai i-am respins
+      // mașina și un SMS care îi mulțumește și îi cere o recenzie. Costă o linie
+      // acum; mai târziu ar costa o reputație.
+      if (reminder.inspection_result === 'rejected') {
+        await skip('inspection_rejected');
+        continue;
+      }
+
+      // Anti-spam dincolo de `unique(reminder_id)`: constrângerea aceea apără
+      // împotriva a două mesaje pentru *aceeași* inspecție. Nu apără clientul
+      // care aduce trei mașini în aceeași lună, sau care revine la 6 luni cu
+      // aceeași mașină după o remediere — pentru el sunt inspecții diferite,
+      // deci rânduri diferite, deci constrângerea tace.
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth() - REVIEW_MIN_MONTHS_BETWEEN_REQUESTS);
+
+      const { data: recent } = await supabase
+        .from('review_requests')
+        .select('id')
+        .eq('phone', reminder.guest_phone)
+        .eq('status', 'sent')
+        .gte('sent_at', cutoff.toISOString())
+        .limit(1)
+        .maybeSingle();
+
+      if (recent) {
+        await skip('recent_request');
+        continue;
+      }
+
+      // Claim the slot first: the unique constraint on reminder_id is what
+      // guarantees one message per client per inspection even on a retry.
+      //
+      // Revendicarea se face acum **înaintea** randării, nu după: tokenul
+      // linkului scurt se naște la insert, iar mesajul are nevoie de el.
+      const { data: claimed, error: claimError } = await supabase
+        .from('review_requests')
+        .insert({
+          reminder_id: reminder.id,
+          station_id: station.id,
+          phone: reminder.guest_phone,
+          scheduled_for: targetDate,
+          status: 'scheduled',
+          consent_version: reminder.consent_version,
+        } as never)
+        .select('token')
+        .single();
+
+      if (claimError || !claimed) {
+        // 23505 = already handled in a previous run
+        if (claimError?.code !== '23505') {
+          console.warn('[Review] could not claim slot', { id: reminder.id, code: claimError?.code });
+        }
+        continue;
+      }
+
       // Aceeași regulă ca la reminderele obișnuite: dacă șablonul stației e
       // curat, nu-l stricăm cu diacritice venite din numele clientului sau al
       // stației — un singur „ș" ar dubla costul fiecărui SMS de recenzie.
       const template = station.sms_template_review ?? '';
       const v = valueNormalizerFor(template);
 
+      // `{review_link}` primește linkul **nostru**, nu pe cel al stației: altfel
+      // n-am ști niciodată dacă cineva a dat clic, iar stația n-ar avea cum să
+      // justifice costul. Redirectul către formularul Google se face în `/r`.
+      const shortLink = appPath(`/r?t=${encodeURIComponent((claimed as { token: string }).token)}`);
+
       const message = template
         .replace(/{station_name}/g, v(station.name))
-        .replace(/{review_link}/g, station.review_link ?? '')
+        .replace(/{review_link}/g, shortLink)
         .replace(/{name}/g, v(reminder.guest_name ?? 'Client'))
         .replace(/{plate}/g, v(reminder.plate_number));
-
-      // Claim the slot first: the unique constraint on reminder_id is what
-      // guarantees one message per client per inspection even on a retry.
-      const { error: claimError } = await supabase.from('review_requests').insert({
-        reminder_id: reminder.id,
-        station_id: station.id,
-        phone: reminder.guest_phone,
-        scheduled_for: targetDate,
-        status: 'scheduled',
-        consent_version: reminder.consent_version,
-      } as never);
-
-      if (claimError) {
-        // 23505 = already handled in a previous run
-        if (claimError.code !== '23505') {
-          console.warn('[Review] could not claim slot', { id: reminder.id, code: claimError.code });
-        }
-        continue;
-      }
 
       const apiKey = await getStationSendKey(station);
       const sms = await sendSms(

@@ -9,11 +9,13 @@
  * (slug, RAR code, ingest) are admin-only and live in the admin panel.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { SmsCostHint } from '@/components/shared/SmsCostHint';
+import { checkReviewLink } from '@/lib/services/review-link';
 
 interface StationSettingsData {
   id: string;
@@ -37,9 +39,12 @@ interface CreditPackage {
 export function StationSettings({
   station,
   reviewsLive,
+  reviewStats,
 }: {
   station: StationSettingsData;
   reviewsLive: boolean;
+  /** Câte cereri au plecat și câți oameni au deschis efectiv formularul. */
+  reviewStats?: { sent: number; clicked: number };
 }) {
   const { toast } = useToast();
   const [saving, setSaving] = useState<string | null>(null);
@@ -47,6 +52,13 @@ export function StationSettings({
   const [checkoutChecked, setCheckoutChecked] = useState(false);
 
   const [reviewLink, setReviewLink] = useState(station.review_link ?? '');
+
+  // Verificarea rulează în timp ce scrie, dar tace pe câmpul gol: nu-i arătăm
+  // o eroare cuiva care încă n-a apucat să lipească nimic.
+  const linkCheck = useMemo(
+    () => (reviewLink.trim() ? checkReviewLink(reviewLink) : null),
+    [reviewLink]
+  );
   const [reviewEnabled, setReviewEnabled] = useState(Boolean(station.review_sms_enabled));
   const [reviewDelay, setReviewDelay] = useState(station.review_delay_days ?? 3);
   const [reviewTemplate, setReviewTemplate] = useState(station.sms_template_review ?? '');
@@ -142,6 +154,27 @@ export function StationSettings({
           </p>
         )}
 
+        {/* Cifra care justifică plata. Se arată abia după primul mesaj: un
+            „0 din 0" nu spune nimic și doar face funcția să pară stricată. */}
+        {reviewStats && reviewStats.sent > 0 && (
+          <div className="mt-4 flex flex-wrap gap-6 rounded-xl border bg-muted/40 p-4 text-sm">
+            <div>
+              <div className="text-2xl font-semibold">{reviewStats.sent}</div>
+              <div className="text-gray-600">cereri trimise</div>
+            </div>
+            <div>
+              <div className="text-2xl font-semibold">{reviewStats.clicked}</div>
+              <div className="text-gray-600">au deschis formularul</div>
+            </div>
+            <div>
+              <div className="text-2xl font-semibold">
+                {Math.round((reviewStats.clicked / reviewStats.sent) * 100)}%
+              </div>
+              <div className="text-gray-600">rată de deschidere</div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 space-y-4">
           <label className="flex items-start gap-3">
             <input
@@ -165,6 +198,20 @@ export function StationSettings({
               onChange={(event) => setReviewLink(event.target.value)}
               placeholder="https://g.page/r/..."
             />
+            {/* Fără asta, un link greșit se salva fără să crâcnească și eșua la
+                fiecare client, luni la rând, fără ca nimeni să afle. */}
+            {linkCheck && !linkCheck.ok && (
+              <p className="mt-1 text-sm text-amber-600 dark:text-amber-500">{linkCheck.error}</p>
+            )}
+            {linkCheck?.ok && (
+              <p className="mt-1 text-sm text-green-700 dark:text-green-500">
+                Link valid. Clienții primesc un link scurt al nostru, ca să putem număra
+                câți au deschis formularul.
+              </p>
+            )}
+            <p className="mt-1 text-sm text-gray-600">
+              Îl iei din Google Maps: deschizi fișa stației → Distribuie → Copiază link.
+            </p>
           </div>
 
           <div>
@@ -194,6 +241,15 @@ export function StationSettings({
             <p className="mt-1 text-sm text-gray-600">
               Poți folosi {'{station_name}'} și {'{review_link}'} — se completează automat.
             </p>
+            <SmsCostHint
+              rendered={reviewTemplate
+                .replace(/{station_name}/g, station.name)
+                .replace(/{review_link}/g, 'https://uitdeitp.ro/r?t=Ab3xK9mQz2Lp')
+                .replace(/{name}/g, 'Ion Popescu')
+                .replace(/{plate}/g, 'CT30LLE')}
+              template={reviewTemplate}
+              onFix={setReviewTemplate}
+            />
           </div>
 
           <Button

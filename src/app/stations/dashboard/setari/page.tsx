@@ -55,5 +55,23 @@ export default async function StationSettingsPage() {
     );
   }
 
-  return <StationSettings station={station} reviewsLive={flags.reviewSmsEnabled} />;
+  // Măsurătoarea e chiar argumentul pentru care funcția merită plătită: fără
+  // ea, o stație nu poate ști dacă cererile de recenzie au produs ceva.
+  // Politica RLS „Station owners see own review requests" acoperă asta, deci
+  // interogăm cu sesiunea patronului, nu cu clientul de serviciu.
+  const { data: reviewRows } = await supabase
+    .from('review_requests')
+    .select('status, clicked_at')
+    .eq('station_id', station.id);
+
+  const sent = reviewRows?.filter((row) => row.status === 'sent').length ?? 0;
+  const clicked = reviewRows?.filter((row) => row.clicked_at !== null).length ?? 0;
+
+  return (
+    <StationSettings
+      station={station}
+      reviewsLive={flags.reviewSmsEnabled}
+      reviewStats={{ sent, clicked }}
+    />
+  );
 }

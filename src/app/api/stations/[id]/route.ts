@@ -2,6 +2,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { checkReviewLink } from '@/lib/services/review-link';
 
 const StationUpdateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -25,7 +26,22 @@ const StationUpdateSchema = z.object({
   hmac_mode: z.enum(['log', 'enforce']).optional(),
   // Post-inspection review request (F2.5). Owner-editable: the station's own
   // Google link and wording. Sending stays gated on REVIEW_SMS_ENABLED.
-  review_link: z.string().url().optional().nullable(),
+  // `z.string().url()` accepta orice URL — inclusiv un link de căutare Google
+  // sau un shortener care expiră. Linkul „mergea" la salvare și eșua tăcut la
+  // fiecare client, luni la rând. Acum se validează forma și se normalizează.
+  review_link: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((value) => (value?.trim() ? value.trim() : null))
+    .superRefine((value, ctx) => {
+      if (value === null) return;
+      const check = checkReviewLink(value);
+      if (!check.ok) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: check.error });
+      }
+    })
+    .transform((value) => (value === null ? null : (checkReviewLink(value).normalized ?? value))),
   review_sms_enabled: z.boolean().optional(),
   review_delay_days: z.number().int().min(1).max(30).optional(),
   sms_template_review: z.string().min(10).max(320).optional().nullable(),
