@@ -50,6 +50,11 @@ export default async function StationsManagePage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {/* Ecranul principal al stației nu era linkat de nicăieri —
+                  se ajungea la el doar știind URL-ul pe de rost. */}
+              <Link href="/stations/dashboard">
+                <Button size="sm">Deschide stația</Button>
+              </Link>
               <Link href="/dashboard">
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />

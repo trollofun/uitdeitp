@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { redirect, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { PhoneNumberCheck } from '@/components/dashboard/PhoneNumberCheck';
+import { AppHeader } from '@/components/layout/AppHeader';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createBrowserClient } from '@/lib/supabase/client';
@@ -56,29 +57,30 @@ export default function DashboardLayout({
       {/* Phone Number Verification Check */}
       <PhoneNumberCheck />
 
-      {/* Mobile Menu Button - Fixed position, only visible on mobile */}
-      <div className="fixed top-4 left-4 z-30 lg:hidden">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setIsMobileSidebarOpen(true)}
-          aria-label="Open menu"
-          className="shadow-md"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-      </div>
-
       {/* Sidebar */}
       <Sidebar
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* Main Content - Add padding on mobile for menu button */}
-      <main className="flex-1 overflow-y-auto pt-16 lg:pt-0 px-4 lg:px-0">
-        {children}
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* The switcher lives here rather than in the page body, so it survives
+            navigation to /dashboard/reminders and the rest. The mobile menu
+            button moved in with it — it used to float over the content. */}
+        <AppHeader>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            aria-label="Deschide meniul"
+            className="lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </AppHeader>
+
+        <main className="flex-1 overflow-y-auto px-4 lg:px-0">{children}</main>
+      </div>
     </div>
   );
 }

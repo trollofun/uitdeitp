@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { NextResponse, type NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
+import { resolveLandingPath } from '@/lib/auth/contexts';
 
 /**
  * OAuth Callback Route Handler
@@ -61,16 +62,24 @@ export async function GET(request: NextRequest) {
           provider: data.user.app_metadata.provider
         });
 
+        // Signing in with Google is how station owners actually arrive, so
+        // this path needs the same role-aware landing as the password form.
+        // An explicit ?next= (e.g. "you were sent to login from here") still
+        // wins — it is a deliberate destination, not a default.
+        const target = requestUrl.searchParams.get('next')
+          ? next
+          : await resolveLandingPath(supabase);
+
         // Determine redirect URL based on environment
         const forwardedHost = request.headers.get('x-forwarded-host');
         const isLocalEnv = process.env.NODE_ENV === 'development';
 
         if (isLocalEnv) {
-          return NextResponse.redirect(`${requestUrl.origin}${next}`);
+          return NextResponse.redirect(`${requestUrl.origin}${target}`);
         } else if (forwardedHost) {
-          return NextResponse.redirect(`https://${forwardedHost}${next}`);
+          return NextResponse.redirect(`https://${forwardedHost}${target}`);
         } else {
-          return NextResponse.redirect(`${requestUrl.origin}${next}`);
+          return NextResponse.redirect(`${requestUrl.origin}${target}`);
         }
       }
     } catch (error) {

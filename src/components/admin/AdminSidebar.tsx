@@ -12,12 +12,16 @@ import {
   Menu,
   X,
   ListChecks,
+  Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
 const navigation = [
   { name: 'Stații', href: '/admin/stations', icon: Building2 },
+  // Pagina exista de la început, dar nu era în meniu — se ajungea la ea
+  // doar dintr-un card de pe /admin.
+  { name: 'Utilizatori', href: '/admin/users', icon: Users },
   { name: 'Reminder-uri', href: '/admin/reminders', icon: ListChecks },
   { name: 'Notificări', href: '/admin/notifications', icon: Bell },
   { name: 'Analiză', href: '/admin/analytics', icon: BarChart3 },

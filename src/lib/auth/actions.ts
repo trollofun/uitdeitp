@@ -1,6 +1,7 @@
 'use server';
 
 import { appPath } from '@/lib/config/app-url';
+import { resolveLandingPath } from '@/lib/auth/contexts';
 import { createServerClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -65,6 +66,8 @@ function checkRateLimit(key: string, maxAttempts = 5, windowMs = 15 * 60 * 1000)
  * Login with email and password
  */
 export async function login(data: LoginInput): Promise<ActionResult> {
+  let destination = '/dashboard';
+
   try {
     // Validate input
     const validated = loginSchema.parse(data);
@@ -93,6 +96,7 @@ export async function login(data: LoginInput): Promise<ActionResult> {
     }
 
     revalidatePath('/', 'layout');
+    destination = await resolveLandingPath(supabase);
   } catch (error) {
     console.error('Login error:', error);
     return {
@@ -103,7 +107,7 @@ export async function login(data: LoginInput): Promise<ActionResult> {
 
   // redirect() throws NEXT_REDIRECT — it must live outside try/catch,
   // otherwise a successful login surfaces as a generic error to the user
-  redirect('/dashboard');
+  redirect(destination);
 }
 
 /**

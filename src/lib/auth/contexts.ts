@@ -1,0 +1,122 @@
+/**
+ * The places a signed-in person can be, and where they land after login.
+ *
+ * uitdeITP is three products wearing one login: the station's CRM, the
+ * platform admin panel, and a driver's own reminders. Until now the interface
+ * never said which one you were in — the sidebar showed the same four driver
+ * links to everyone, and the only role-aware buttons lived in the body of
+ * /dashboard, so they vanished on every subpage.
+ *
+ * One place decides what you have access to, so the header, the landing
+ * redirect and the middleware cannot drift apart.
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export type ContextKind = 'station' | 'personal' | 'platform';
+
+export interface AppContext {
+  kind: ContextKind;
+  /** Shown in the switcher. For a station this is the station's own name. */
+  label: string;
+  href: string;
+}
+
+export interface UserContexts {
+  contexts: AppContext[];
+  /** The one matching the current path, or the first available. */
+  current: AppContext;
+  role: string;
+}
+
+const PERSONAL: AppContext = {
+  kind: 'personal',
+  label: 'Vehiculele mele',
+  href: '/dashboard',
+};
+
+const PLATFORM: AppContext = {
+  kind: 'platform',
+  label: 'Administrare platformă',
+  href: '/admin',
+};
+
+/** Which context a path belongs to. */
+export function contextKindForPath(pathname: string): ContextKind {
+  if (pathname.startsWith('/admin')) return 'platform';
+  if (pathname.startsWith('/stations')) return 'station';
+  return 'personal';
+}
+
+/**
+ * Where to send someone right after they sign in.
+ *
+ * A station owner is the paying customer: their screen is the station, not the
+ * driver dashboard. Everyone keeps every context — this only decides the first
+ * one they see.
+ */
+export function landingPathFor(role: string, hasStation: boolean): string {
+  if (hasStation) return '/stations/dashboard';
+  if (role === 'admin') return '/admin';
+  return '/dashboard';
+}
+
+/**
+ * Landing path for the signed-in user of this client. Falls back to
+ * /dashboard on any failure — a lookup error must never block a good login.
+ */
+export async function resolveLandingPath(
+  supabase: SupabaseClient<any, any, any>
+): Promise<string> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return '/dashboard';
+
+    const [{ data: profile }, { data: stations }] = await Promise.all([
+      supabase.from('user_profiles').select('role').eq('id', user.id).maybeSingle(),
+      supabase.from('kiosk_stations').select('id').eq('owner_id', user.id).limit(1),
+    ]);
+
+    return landingPathFor((profile?.role as string) ?? 'user', (stations?.length ?? 0) > 0);
+  } catch (error) {
+    console.warn('[Auth] landing path lookup failed, using /dashboard', error);
+    return '/dashboard';
+  }
+}
+
+export async function getUserContexts(
+  supabase: SupabaseClient<any, any, any>,
+  userId: string,
+  pathname = '/dashboard'
+): Promise<UserContexts> {
+  const [{ data: profile }, { data: stations }] = await Promise.all([
+    supabase.from('user_profiles').select('role').eq('id', userId).maybeSingle(),
+    // RLS already scopes this; the explicit filter is defence in depth.
+    // Station membership (Etapa 2) plugs in here — the shape does not change.
+    supabase.from('kiosk_stations').select('id, name').eq('owner_id', userId).order('name'),
+  ]);
+
+  const role = (profile?.role as string) ?? 'user';
+  const contexts: AppContext[] = [];
+
+  for (const station of stations ?? []) {
+    contexts.push({
+      kind: 'station',
+      label: station.name,
+      href: '/stations/dashboard',
+    });
+  }
+
+  contexts.push(PERSONAL);
+
+  if (role === 'admin') {
+    contexts.push(PLATFORM);
+  }
+
+  const wanted = contextKindForPath(pathname);
+  const current = contexts.find((c) => c.kind === wanted) ?? contexts[0];
+
+  return { contexts, current, role };
+}

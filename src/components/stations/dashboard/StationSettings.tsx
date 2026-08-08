@@ -10,11 +10,10 @@
  */
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 interface StationSettingsData {
   id: string;
@@ -91,16 +90,9 @@ export function StationSettings({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4">
-      <header className="space-y-2">
-        <Link
-          href="/stations/dashboard"
-          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Înapoi
-        </Link>
+      {/* Fără link „Înapoi": navigația stației e permanentă în layout. */}
+      <header>
         <h1 className="text-3xl font-bold tracking-tight">Setări</h1>
-        <p className="text-gray-600">{station.name}</p>
       </header>
 
       {/* Credits */}

@@ -14,11 +14,10 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Phone, Search } from 'lucide-react';
+import { Loader2, Phone, Search } from 'lucide-react';
 
 interface ClientRow {
   id: string;
@@ -137,16 +136,9 @@ export function StationClients({ station }: { station: { id: string; name: strin
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4">
-      <header className="space-y-2">
-        <Link
-          href="/stations/dashboard"
-          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Înapoi
-        </Link>
+      {/* Fără link „Înapoi": navigația stației e permanentă în layout. */}
+      <header>
         <h1 className="text-3xl font-bold tracking-tight">Clienții tăi</h1>
-        <p className="text-gray-600">{station.name}</p>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">

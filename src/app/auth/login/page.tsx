@@ -39,8 +39,14 @@ export default function LoginPage() {
       }
 
       if (data?.user) {
-        // Redirect to dashboard
-        router.push('/dashboard');
+        // A station owner belongs in the station, not on the driver dashboard.
+        // The server decides; this page only follows.
+        const landing = await fetch('/api/me/contexts')
+          .then((r) => (r.ok ? r.json() : null))
+          .then((json) => json?.landing as string | undefined)
+          .catch(() => undefined);
+
+        router.push(landing ?? '/dashboard');
         router.refresh();
       }
     } catch (err) {
