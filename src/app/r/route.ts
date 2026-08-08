@@ -20,14 +20,31 @@ import { appUrl } from '@/lib/config/app-url';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Un redirect care are efect secundar nu are voie să fie păstrat în cache.
+ *
+ * `force-dynamic` spune Next.js să nu prerandeze ruta, dar nu spune nimic
+ * rețelei de distribuție despre răspuns. Măsurat pe producție cu un token nou:
+ * primul clic se contoriza, al doilea venea din cache și nu mai ajungea la
+ * funcție deloc — deci `click_count` rămânea 1 oricâți oameni ar fi deschis
+ * linkul. Un contor care se oprește la 1 e mai rău decât niciun contor: arată
+ * ca un răspuns.
+ */
+function noStore(response: NextResponse): NextResponse {
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  response.headers.set('CDN-Cache-Control', 'no-store');
+  response.headers.set('Vercel-CDN-Cache-Control', 'no-store');
+  return response;
+}
+
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('t');
 
   // Orice eșec duce omul acasă, nu într-o pagină de eroare: a dat clic dintr-un
   // SMS, nu are ce face cu un mesaj despre token invalid.
-  const fallback = NextResponse.redirect(appUrl(), { status: 302 });
+  const fallback = () => noStore(NextResponse.redirect(appUrl(), { status: 302 }));
 
-  if (!token) return fallback;
+  if (!token) return fallback();
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,7 +70,7 @@ export async function GET(req: NextRequest) {
     console.warn('[Review] click not recorded', { error });
   }
 
-  if (!reviewLink) return fallback;
+  if (!reviewLink) return fallback();
 
-  return NextResponse.redirect(reviewLink, { status: 302 });
+  return noStore(NextResponse.redirect(reviewLink, { status: 302 }));
 }
