@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/InputField';
 import { Card } from '@/components/ui/Card';
 import { BrandingEditor } from '@/components/admin/BrandingEditor';
 import { NotificationTemplateEditor } from '@/components/admin/NotificationTemplateEditor';

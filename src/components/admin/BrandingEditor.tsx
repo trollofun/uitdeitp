@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/InputField';
 import { ImagePlus } from 'lucide-react';
 
 interface BrandingEditorProps {

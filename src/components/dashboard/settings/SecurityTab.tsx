@@ -94,7 +94,7 @@ export function SecurityTab() {
           description: 'Toate sesiunile au fost închise',
         });
         // Redirect to login
-        window.location.href = '/login';
+        window.location.href = '/auth/login';
       } else {
         toast({
           title: 'Eroare',

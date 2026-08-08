@@ -245,7 +245,7 @@ export async function resetPassword(data: ResetPasswordInput): Promise<ActionRes
     };
   }
 
-  redirect('/login');
+  redirect('/auth/login');
 }
 
 /**
@@ -273,7 +273,7 @@ export async function logout(): Promise<ActionResult> {
     };
   }
 
-  redirect('/login');
+  redirect('/auth/login');
 }
 
 /**
