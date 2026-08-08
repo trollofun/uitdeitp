@@ -21,6 +21,25 @@ import { appUrl } from '@/lib/config/app-url';
 export const dynamic = 'force-dynamic';
 
 /**
+ * Fără asta, contorul se oprea la 1 pentru fiecare token — și mi-a luat patru
+ * încercări să înțeleg de ce.
+ *
+ * `dynamic = 'force-dynamic'` oprește prerandarea paginii, dar **nu** oprește
+ * Data Cache-ul din Next.js, care memorează apelurile `fetch`. supabase-js
+ * folosește `fetch`, deci apelul RPC — aceeași adresă, același corp, același
+ * token — era servit din cache la a doua deschidere: primeam linkul corect
+ * înapoi, dar cererea nu mai ajungea niciodată la bază, deci `UPDATE`-ul nu
+ * mai rula.
+ *
+ * Asta explica și de ce URL-uri distincte (`?x=1`, `?x=2`) nu schimbau nimic:
+ * cheia de cache e a apelului către Supabase, nu a cererii venite din SMS.
+ *
+ * `force-no-store` se aplică tuturor `fetch`-urilor din rută. Regula generală:
+ * orice rută care scrie în bază prin supabase-js are nevoie de ea.
+ */
+export const fetchCache = 'force-no-store';
+
+/**
  * Un redirect care are efect secundar nu are voie să fie păstrat în cache.
  *
  * `force-dynamic` spune Next.js să nu prerandeze ruta, dar nu spune nimic
