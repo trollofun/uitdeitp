@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, Info } from 'lucide-react';
+import { SmsCostHint } from '@/components/shared/SmsCostHint';
 
 interface NotificationTemplateEditorProps {
   smsTemplate5d: string;
@@ -157,9 +158,11 @@ export function NotificationTemplateEditor({
                   className="font-mono text-sm"
                   placeholder="Ex: Salut {name}, ITP pentru {plate}..."
                 />
-                <p className="text-sm text-muted-foreground mt-1">
-                  Caractere: {sms5d.length} / 160 (1 SMS = 160 caractere)
-                </p>
+                <SmsCostHint
+                  rendered={renderPreview(sms5d, stationName, stationPhone, stationAddress)}
+                  template={sms5d}
+                  onFix={setSms5d}
+                />
               </div>
               {showPreview && (
                 <div className="bg-muted p-4 rounded-lg">
@@ -190,9 +193,11 @@ export function NotificationTemplateEditor({
                   className="font-mono text-sm"
                   placeholder="Ex: ATENȚIE {name}, ITP {plate} expiră în 3 zile..."
                 />
-                <p className="text-sm text-muted-foreground mt-1">
-                  Caractere: {sms3d.length} / 160
-                </p>
+                <SmsCostHint
+                  rendered={renderPreview(sms3d, stationName, stationPhone, stationAddress)}
+                  template={sms3d}
+                  onFix={setSms3d}
+                />
               </div>
               {showPreview && (
                 <div className="bg-muted p-4 rounded-lg">
@@ -223,9 +228,11 @@ export function NotificationTemplateEditor({
                   className="font-mono text-sm"
                   placeholder="Ex: URGENT {name}, ITP {plate} expiră MÂINE..."
                 />
-                <p className="text-sm text-muted-foreground mt-1">
-                  Caractere: {sms1d.length} / 160
-                </p>
+                <SmsCostHint
+                  rendered={renderPreview(sms1d, stationName, stationPhone, stationAddress)}
+                  template={sms1d}
+                  onFix={setSms1d}
+                />
               </div>
               {showPreview && (
                 <div className="bg-muted p-4 rounded-lg">

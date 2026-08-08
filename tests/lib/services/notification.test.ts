@@ -7,6 +7,7 @@ import {
   DEFAULT_SMS_TEMPLATES,
   getTemplateForDays,
 } from '@/lib/services/notification';
+import { findNonGsm7 } from '@/lib/services/sms-encoding';
 import { NotificationData } from '@/types';
 
 describe('Notification Service', () => {
@@ -84,10 +85,24 @@ describe('Notification Service', () => {
     });
 
     it('should render 7-day template', () => {
-      const result = renderSmsTemplate(DEFAULT_SMS_TEMPLATES['7d'], mockData);
+      // `days_until` lipsea din mockData, deci `{days_until}` rămânea literal și
+      // testul cădea. Calea de producție (`reminder-processor.ts`) îl trimite
+      // mereu, deci niciun client n-a primit vreodată acel text — dar testul
+      // trebuie să reflecte datele reale, nu unele incomplete.
+      const result = renderSmsTemplate(DEFAULT_SMS_TEMPLATES['7d'], {
+        ...mockData,
+        days_until: 7,
+      });
       expect(result).toContain('Ion Popescu');
       expect(result).toContain('B-123-ABC');
       expect(result).toContain('7 zile');
+    });
+
+    it('should leave no unreplaced placeholder in a fully-populated render', () => {
+      Object.values(DEFAULT_SMS_TEMPLATES).forEach(template => {
+        const result = renderSmsTemplate(template, { ...mockData, days_until: 7 });
+        expect(result).not.toMatch(/\{[a-z_]+\}/);
+      });
     });
 
     it('should render expired template', () => {
@@ -129,7 +144,15 @@ describe('Notification Service', () => {
       expect(calculateSmsParts('a'.repeat(160))).toBe(1);
       expect(calculateSmsParts('a'.repeat(161))).toBe(2);
       expect(calculateSmsParts('a'.repeat(153))).toBe(1);
-      expect(calculateSmsParts('a'.repeat(154))).toBe(2);
+      // 154 încape într-un singur SMS: limita de 153 e pentru mesajele
+      // multipart, unde 7 septeți se duc pe antetul de concatenare. Un mesaj
+      // singur are 160 la dispoziție. Testul cerea 2 dintr-o confuzie între
+      // cele două limite.
+      expect(calculateSmsParts('a'.repeat(154))).toBe(1);
+      expect(calculateSmsParts('a'.repeat(160))).toBe(1);
+      expect(calculateSmsParts('a'.repeat(161))).toBe(2);
+      // Aceeași lungime, cu diacritice, costă de trei ori mai mult.
+      expect(calculateSmsParts('ă'.repeat(160))).toBe(3);
     });
 
     it('should handle Romanian characters', () => {
@@ -250,15 +273,25 @@ describe('Notification Service', () => {
       });
     });
 
+    // Testul cerea diacritice ca dovadă că textul e românesc. Diacriticele mută
+    // mesajul pe UCS-2 (70 de caractere pe parte în loc de 160), deci fiecare
+    // reminder se taxa dublu — vezi `tests/unit/sms-encoding.test.ts`. Limba se
+    // verifică acum prin cuvinte, nu prin semne diacritice.
     it('should be in Romanian', () => {
       Object.values(DEFAULT_SMS_TEMPLATES).forEach(template => {
-        expect(template.toLowerCase()).toMatch(/[ăîâșț]/);
+        expect(template.toLowerCase()).toMatch(/\b(itp|expira|programe|zile)/);
+      });
+    });
+
+    it('should stay within GSM-7 so each message costs one SMS', () => {
+      Object.values(DEFAULT_SMS_TEMPLATES).forEach(template => {
+        expect(findNonGsm7(template)).toEqual([]);
       });
     });
 
     it('should have appropriate urgency levels', () => {
       expect(DEFAULT_SMS_TEMPLATES['1d']).toContain('URGENT');
-      expect(DEFAULT_SMS_TEMPLATES.expired).toContain('ATENȚIE');
+      expect(DEFAULT_SMS_TEMPLATES.expired).toContain('ATENTIE');
     });
 
     it('should be valid SMS length', () => {
@@ -329,7 +362,11 @@ describe('Notification Service', () => {
       expect(isValidSmsLength(rendered)).toBe(true);
     });
 
-    it('should handle special characters in data', () => {
+    // Înainte se cerea ca „Ș" să supraviețuiască. Dar un singur „Ș" venit din
+    // numele clientului dubla costul unui șablon altfel curat, fără ca stația să
+    // afle. Acum normalizăm valorile injectate — dar numai când șablonul e curat,
+    // ca să nu stricăm degeaba numele omului într-un mesaj oricum UCS-2.
+    it('should normalise injected data so one client name cannot double the cost', () => {
       const specialData = {
         ...mockData,
         name: 'Ion Ș Popescu',
@@ -337,7 +374,17 @@ describe('Notification Service', () => {
       };
 
       const rendered = renderSmsTemplate(DEFAULT_SMS_TEMPLATES['7d'], specialData);
-      expect(rendered).toContain('Ș');
+      expect(rendered).toContain('Ion S Popescu');
+      expect(findNonGsm7(rendered)).toEqual([]);
+    });
+
+    it('should keep diacritics when the station wrote them itself', () => {
+      const rendered = renderSmsTemplate('ITP {plate} expiră. Bună, {name}!', {
+        ...mockData,
+        name: 'Ion Ș Popescu',
+      });
+
+      expect(rendered).toContain('Ion Ș Popescu');
     });
 
     it('should handle all urgency levels', () => {

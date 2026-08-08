@@ -15,6 +15,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { flags } from '@/lib/config/flags';
 import { sendSms } from '@/lib/services/notification';
+import { valueNormalizerFor } from '@/lib/services/sms-encoding';
 import { logSms } from '@/lib/services/notification-log';
 import { getStationSendKey } from '@/lib/services/station-credits';
 import { CANONICAL_CONSENT_VERSIONS } from '@/lib/integrations/contract-a';
@@ -123,11 +124,17 @@ export async function processReviewRequestsForToday(): Promise<ReviewPassResult>
         continue;
       }
 
-      const message = (station.sms_template_review ?? '')
-        .replace(/{station_name}/g, station.name)
+      // Aceeași regulă ca la reminderele obișnuite: dacă șablonul stației e
+      // curat, nu-l stricăm cu diacritice venite din numele clientului sau al
+      // stației — un singur „ș" ar dubla costul fiecărui SMS de recenzie.
+      const template = station.sms_template_review ?? '';
+      const v = valueNormalizerFor(template);
+
+      const message = template
+        .replace(/{station_name}/g, v(station.name))
         .replace(/{review_link}/g, station.review_link ?? '')
-        .replace(/{name}/g, reminder.guest_name ?? 'Client')
-        .replace(/{plate}/g, reminder.plate_number);
+        .replace(/{name}/g, v(reminder.guest_name ?? 'Client'))
+        .replace(/{plate}/g, v(reminder.plate_number));
 
       // Claim the slot first: the unique constraint on reminder_id is what
       // guarantees one message per client per inspection even on a retry.
