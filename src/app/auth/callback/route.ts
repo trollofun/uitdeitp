@@ -93,6 +93,6 @@ export async function GET(request: NextRequest) {
   // No code found - likely an invalid callback
   logger.warn('OAuth callback accessed without code parameter');
   return NextResponse.redirect(
-    new URL('/login', requestUrl.origin)
+    new URL('/auth/login', requestUrl.origin)
   );
 }

@@ -18,7 +18,7 @@ const footerSections: FooterSection[] = [
     links: [
       { label: 'Acasă', href: '/' },
       { label: 'FAQ', href: '/#faq' },
-      { label: 'Autentificare', href: '/login' },
+      { label: 'Autentificare', href: '/auth/login' },
     ],
   },
   {
