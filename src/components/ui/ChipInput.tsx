@@ -3,7 +3,7 @@
 import { useState, KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './Button';
-import { Input } from './Input';
+import { Input } from './InputField';
 import { Badge } from './Badge';
 import { cn } from '@/lib/utils';
 

@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/InputField';
 import { Label } from '@/components/ui/label';
 import {
   Select,

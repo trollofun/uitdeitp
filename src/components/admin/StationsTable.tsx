@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { MoreHorizontal, Pencil, Trash2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/InputField';
 import {
   Table,
   TableBody,

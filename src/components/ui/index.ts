@@ -2,7 +2,7 @@
 // Export all components for easy importing
 
 export { Button, buttonVariants, type ButtonProps } from './Button';
-export { Input, type InputProps } from './Input';
+export { Input, type InputProps } from './InputField';
 export {
   Card,
   CardHeader,

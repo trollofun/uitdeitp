@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import { ro } from 'date-fns/locale';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/InputField';
 import {
   Table,
   TableBody,

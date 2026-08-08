@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/InputField';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/hooks/useToast';
 import { Loader2, UserPlus } from 'lucide-react';
