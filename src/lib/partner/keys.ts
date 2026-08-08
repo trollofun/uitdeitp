@@ -54,10 +54,17 @@ export class PartnerAuthError extends Error {
  * Rezolvă Bearer-ul la un partener. Aruncă PartnerAuthError, ca ruta să poată
  * loga rezultatul uniform.
  *
- * 401 pentru „nu te cunosc", 403 pentru „te cunosc dar nu ai voie" — distincția
- * contează pentru apelant: Academy clasifică 401 ca neconcludent (o cheie prost
- * rotită la noi nu trebuie să pară o respingere a cererii lui) și 403 ca
- * terminal.
+ * REGULA DE STATUS, cerută explicit de Academy și corectă indiferent de cine
+ * cere: **401 = ceva despre cheia ta; 403 = ceva despre cererea ta.**
+ *
+ * Deci orice problemă de credențial — lipsă, necunoscută, revocată, scope
+ * insuficient — întoarce 401, pe care apelantul îl tratează ca neconcludent și
+ * reia. 403 rămâne rezervat unui singur lucru: emailul inspectorului nu are
+ * cont confirmat, ceea ce e terminal și acționabil de om.
+ *
+ * Fără regula asta, o cheie M2M prost rotită la noi i-ar spune inspectorului
+ * că are emailul neconfirmat — exact eșecul pe care clasificarea lor există ca
+ * să-l prevină.
  */
 export async function authenticatePartner(
   authorizationHeader: string | null,
@@ -84,11 +91,11 @@ export async function authenticatePartner(
   }
 
   if (data.revoked_at) {
-    throw new PartnerAuthError('key_revoked', 403, 'Cheia a fost revocată');
+    throw new PartnerAuthError('key_revoked', 401, 'Cheia a fost revocată');
   }
 
   if (!(data.scopes ?? []).includes(requiredScope)) {
-    throw new PartnerAuthError('insufficient_scope', 403, `Cheia nu are scope-ul ${requiredScope}`);
+    throw new PartnerAuthError('insufficient_scope', 401, `Cheia nu are scope-ul ${requiredScope}`);
   }
 
   return { id: data.id, label: data.label, scopes: data.scopes ?? [] };
