@@ -15,6 +15,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { logout } from '@/lib/auth/actions';
 import { useState } from 'react';
 
 const navigation = [
@@ -31,6 +32,18 @@ const navigation = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      // logout() se ocupă de redirect
+    } catch (error) {
+      console.error('Logout error:', error);
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <>
@@ -96,17 +109,22 @@ export function AdminSidebar() {
 
         {/* Logout */}
         <div className="border-t p-4">
-          <form action="/auth/signout" method="post">
-            <Button
-              variant="ghost"
-              className={cn('w-full', collapsed ? 'justify-center' : 'justify-start')}
-              type="submit"
-              title={collapsed ? 'Deconectare' : undefined}
-            >
-              <LogOut className="h-5 w-5" />
-              {!collapsed && <span className="ml-3">Deconectare</span>}
-            </Button>
-          </form>
+          {/* Posta către /auth/signout, rută care n-a existat niciodată — deci
+              butonul dădea 404 de când a fost scris. Folosește acum aceeași
+              acțiune de server ca meniul șoferului: o singură implementare de
+              deconectare, care se ocupă și de redirect. */}
+          <Button
+            variant="ghost"
+            className={cn('w-full', collapsed ? 'justify-center' : 'justify-start')}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title={collapsed ? 'Deconectare' : undefined}
+          >
+            <LogOut className="h-5 w-5" />
+            {!collapsed && (
+              <span className="ml-3">{isLoggingOut ? 'Se deconectează…' : 'Deconectare'}</span>
+            )}
+          </Button>
         </div>
       </div>
 
