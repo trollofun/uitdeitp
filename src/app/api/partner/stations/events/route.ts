@@ -178,9 +178,15 @@ export async function POST(req: NextRequest) {
           .update({
             deactivated_at: new Date().toISOString(),
             deactivated_reason: typeof data.reason === 'string' ? data.reason : null,
-            // `is_active: false` oprește și kiosk-ul, nu doar ingestul: o stație
-            // deconectată n-are voie să mai colecteze date de la clienți.
-            is_active: false,
+            // **Doar ingestul.** Prima versiune punea și `is_active: false`,
+            // ceea ce ar fi omorât și kiosk-ul — greșit, și greșit exact în
+            // dauna unui client care plătește.
+            //
+            // Academy emite evenimentul când „ultima cheie utilizabilă a
+            // dispărut", adică despre licența SIRAR. Kiosk-ul e produsul nostru,
+            // vândut separat: o stație poate renunța la Automatizare și rămâne
+            // client uitdeITP. Ce depinde de instalarea SIRAR e Contract A, deci
+            // doar aia se oprește.
             ingest_enabled: false,
           } as never)
           .eq('id', station.id);
@@ -196,7 +202,9 @@ export async function POST(req: NextRequest) {
           .update({
             deactivated_at: null,
             deactivated_reason: null,
-            is_active: true,
+            // Simetric cu dezactivarea: n-am oprit `is_active`, deci nu-l
+            // repornim. O stație dezactivată manual din admin nu are voie să
+            // reînvie dintr-un eveniment despre licența SIRAR.
             ingest_enabled: true,
           } as never)
           .eq('id', station.id);
