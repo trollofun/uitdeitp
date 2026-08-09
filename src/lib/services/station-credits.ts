@@ -95,6 +95,121 @@ export function resetStationKeyCache(): void {
   keyCache.clear();
 }
 
+export type ProvisionKeyResult =
+  | { ok: true; apiKeyId: string; keyPrefix: string; alreadyProvisioned?: boolean }
+  | { ok: false; reason: 'no_admin_key' | 'no_rar_code' | 'notifyhub_error' | 'vault_error'; detail?: string };
+
+/**
+ * Cere NotifyHub o cheie proprie pentru stație și o pune în Vault.
+ *
+ * Contract F promite că **noi** cerem cheia NotifyHub la claim, nu Academy —
+ * două motive independente: maparea `station_id → notifyhub_api_key_id` trebuie
+ * să trăiască aici fiindcă webhook-ul Gumroad de topup depinde de ea, iar
+ * Academy n-are nicio primitivă de criptare la rest, deci n-ar avea unde ține
+ * un secret recuperabil.
+ *
+ * Promisiunea exista în contract și în comentariile rutei de provisionare, dar
+ * **codul nu cerea nimic**: coloanele `notifyhub_*` rămâneau goale. O stație
+ * provisionată ar fi trimis pe cheia platformei — deci fără credite proprii și
+ * cu topup-ul Gumroad rupt tăcut, fiindcă n-ar fi avut ce credita.
+ *
+ * `billing_mode: 'postpaid'` deliberat, nu `credits`: flip-ul comercial e o
+ * decizie separată (§154 din documentul de arhitectură), iar o stație nou
+ * provisionată nu trebuie să se trezească blocată pe sold zero.
+ */
+export async function provisionStationNotifyHubKey(station: {
+  id: string;
+  name: string;
+  rar_code: string | null;
+}): Promise<ProvisionKeyResult> {
+  const adminKey = process.env.NOTIFYHUB_ADMIN_KEY;
+
+  // NotifyHub refuză orice cheie de admin sub 32 de caractere („endpoint is
+  // dead without ADMIN_API_KEY"), deci o valoare scurtă ar da 401 la fiecare
+  // apel fără să spună de ce. Mai bine aflăm aici.
+  if (!adminKey || adminKey.length < 32) {
+    return { ok: false, reason: 'no_admin_key' };
+  }
+
+  if (!station.rar_code) {
+    // `owner_ref` e corelarea lor cu stația noastră. Fără el, soldul s-ar naște
+    // nelegat de nimic și ar trebui reparat manual.
+    return { ok: false, reason: 'no_rar_code' };
+  }
+
+  const supabase = createServiceClient();
+  const existing = await getStationCreditConfig(station.id);
+
+  if (existing?.notifyhub_api_key_id && existing.notifyhub_key_secret_id) {
+    return {
+      ok: true,
+      apiKeyId: existing.notifyhub_api_key_id,
+      keyPrefix: '',
+      alreadyProvisioned: true,
+    };
+  }
+
+  let payload: { id: string; key: string; key_prefix: string };
+
+  try {
+    const res = await fetch(`${NOTIFYHUB_URL}/api/admin/keys`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+      body: JSON.stringify({
+        label: `uitdeITP — ${station.name}`,
+        owner_ref: station.rar_code,
+        billing_mode: 'postpaid',
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      return {
+        ok: false,
+        reason: 'notifyhub_error',
+        detail: `${res.status} ${body.slice(0, 200)}`,
+      };
+    }
+
+    payload = await res.json();
+  } catch (error) {
+    return {
+      ok: false,
+      reason: 'notifyhub_error',
+      detail: error instanceof Error ? error.message : 'network',
+    };
+  }
+
+  // Cheia se afișează o singură dată la ei. Dacă n-o punem în Vault acum, e
+  // pierdută definitiv și stația rămâne cu un `api_key_id` fără cheie.
+  const { data: secretId, error: vaultError } = await supabase.rpc('secret_put', {
+    p_name: `notifyhub_key_${station.id}_${Date.now()}`,
+    p_secret: payload.key,
+  });
+
+  if (vaultError || !secretId) {
+    console.error('[Credits] secret_put failed for NotifyHub key', vaultError);
+    return { ok: false, reason: 'vault_error', detail: vaultError?.message };
+  }
+
+  await supabase
+    .from('kiosk_stations')
+    .update({
+      notifyhub_api_key_id: payload.id,
+      notifyhub_key_secret_id: secretId as string,
+      notifyhub_provisioned_at: new Date().toISOString(),
+      // Rămâne pe cheia platformei până la flip-ul comercial explicit: emiterea
+      // cheii nu e același lucru cu trecerea pe facturare proprie.
+      use_own_notifyhub_key: false,
+    } as never)
+    .eq('id', station.id);
+
+  resetStationKeyCache();
+
+  return { ok: true, apiKeyId: payload.id, keyPrefix: payload.key_prefix };
+}
+
 export async function getStationBalance(stationId: string): Promise<StationBalance> {
   if (!flags.stationCreditsEnabled) {
     return { available: false, reason: 'feature_disabled' };

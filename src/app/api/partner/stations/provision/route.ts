@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/service';
 import { authenticatePartner, touchPartnerKey, PartnerAuthError } from '@/lib/partner/keys';
 import { generateIngestKey } from '@/lib/integrations/station-keys';
+import { provisionStationNotifyHubKey } from '@/lib/services/station-credits';
 import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 import { appUrl } from '@/lib/config/app-url';
 import { flags } from '@/lib/config/flags';
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const { rar_code, name, tier, inspector_email, rotate } = parsed.data;
+  const { academy_station_id, rar_code, name, tier, inspector_email, rotate } = parsed.data;
   const supabase = createServiceClient();
 
   try {
@@ -206,6 +207,16 @@ export async function POST(req: NextRequest) {
       // și noi).
       stationId = known.id;
       stationName = known.name;
+
+      // Corelarea și planul se actualizează și la join: le primeam de la
+      // început și le aruncam — `academy_station_id` era validat și nefolosit,
+      // `tier` ajungea doar în eticheta cheii. Fără ele, un eveniment de ciclu
+      // de viață nu poate găsi stația decât după `rar_code`, care e tocmai
+      // lucrul care se poate schimba.
+      await supabase
+        .from('kiosk_stations')
+        .update({ academy_station_id, tier } as never)
+        .eq('id', stationId);
     } else {
       const { data: created, error: createError } = await supabase
         .from('kiosk_stations')
@@ -216,6 +227,8 @@ export async function POST(req: NextRequest) {
           is_active: true,
           ingest_enabled: true,
           hmac_mode: 'log',
+          academy_station_id,
+          tier,
         } as never)
         .select('id, rar_code, name')
         .single();
@@ -279,6 +292,31 @@ export async function POST(req: NextRequest) {
     if (keyError || !keyRow) {
       console.error('[Provision] key insert failed:', keyError);
       return fail('key_create_failed', 500, 'Nu am putut emite cheia de ingest');
+    }
+
+    // --- Cheia NotifyHub ---------------------------------------------------
+    // Contract F promite că o cerem noi, iar comentariul din antetul acestui
+    // fișier o afirma de la început — dar **nimic n-o cerea**. Coloanele
+    // `notifyhub_*` rămâneau goale, deci stația ar fi trimis pe cheia
+    // platformei: fără credite proprii și cu topup-ul Gumroad rupt tăcut,
+    // fiindcă webhook-ul n-ar fi avut ce credita.
+    //
+    // Nu blocăm provisionarea dacă eșuează. O stație fără cheie NotifyHub
+    // funcționează (cade pe cheia platformei); o stație fără cheie de ingest
+    // nu funcționează deloc. Se raportează în răspuns ca să nu treacă neobservat
+    // și se poate relua din admin.
+    const notifyhub = await provisionStationNotifyHubKey({
+      id: stationId,
+      name: stationName,
+      rar_code,
+    });
+
+    if (!notifyhub.ok) {
+      console.warn('[Provision] NotifyHub key not issued', {
+        stationId,
+        reason: notifyhub.reason,
+        detail: notifyhub.detail,
+      });
     }
 
     // --- Bundle-ul, pentru reluare ----------------------------------------
