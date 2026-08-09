@@ -52,6 +52,13 @@ export function renderSmsTemplate(template: string, data: NotificationData): str
     rendered = rendered.replace(/{opt_out_link}/g, v(data.opt_out_link));
   }
 
+  // `{booking_link}` dispare cu totul când stația n-are programări pornite, nu
+  // rămâne ca text literal și nici nu lasă în urmă „Programare: ." — se curăță
+  // și eticheta din fața lui, împreună cu spațiul.
+  rendered = data.booking_link
+    ? rendered.replace(/{booking_link}/g, v(data.booking_link))
+    : rendered.replace(/\s*[A-Za-zĂÂÎȘȚăâîșț]*:?\s*{booking_link}\.?/g, '');
+
   return rendered;
 }
 
@@ -111,11 +118,11 @@ export function truncateSms(message: string, maxParts: number = 3): string {
  * `GSM-7` și `parts: 1`. Testele din `tests/unit/sms-encoding.test.ts` o fac deja.
  */
 export const DEFAULT_SMS_TEMPLATES = {
-  '7d': 'Buna {name}! ITP pentru {plate} expira in {days_until} zile (pe {date}). Nu uita sa programezi!\n\nProgramare: {station_phone}',
-  '3d': 'ATENTIE {name}! ITP pentru {plate} expira in {days_until} zile (pe {date})! Programeaza urgent!\n\nProgramare: {station_phone}',
-  '1d': 'URGENT: {name}, ITP pentru {plate} expira MAINE ({date})! Programeaza astazi!\n\nProgramare: {station_phone}',
+  '7d': 'Buna {name}! ITP pentru {plate} expira in {days_until} zile (pe {date}). Nu uita sa programezi!\n\nProgramare: {station_phone}. Online: {booking_link}',
+  '3d': 'ATENTIE {name}! ITP pentru {plate} expira in {days_until} zile (pe {date})! Programeaza urgent!\n\nProgramare: {station_phone}. Online: {booking_link}',
+  '1d': 'URGENT: {name}, ITP pentru {plate} expira MAINE ({date})! Programeaza astazi!\n\nProgramare: {station_phone}. Online: {booking_link}',
   expired:
-    'ATENTIE: {name}, ITP pentru {plate} a EXPIRAT la data de {date}. Programeaza urgent verificare!\n\nProgramare: {station_phone}',
+    'ATENTIE: {name}, ITP pentru {plate} a EXPIRAT la data de {date}. Programeaza urgent verificare!\n\nProgramare: {station_phone}. Online: {booking_link}',
 };
 
 /**

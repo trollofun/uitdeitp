@@ -59,6 +59,12 @@ export interface NotificationData {
   station_address?: string;  // NEW: Station address for custom branding
   app_url?: string;          // NEW: App URL for links in SMS/email
   opt_out_link?: string;     // NEW: GDPR-required opt-out link
+  /**
+   * Linkul de programare al stației, pe domeniul scurt. Prezent doar când
+   * stația are `booking_enabled` — un link către o pagină 404 e mai rău decât
+   * niciun link.
+   */
+  booking_link?: string;
 }
 
 export type NotificationChannel = 'sms' | 'email';

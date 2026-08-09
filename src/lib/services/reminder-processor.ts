@@ -19,6 +19,7 @@ import { getStationSendKey, resetStationKeyCache } from '@/lib/services/station-
 const MAX_CREDIT_RETRIES = 3;
 import { generateOptOutLink } from '@/lib/utils/opt-out';
 import { appUrl } from '@/lib/config/app-url';
+import { shortPath } from '@/lib/config/short-url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -256,7 +257,13 @@ export async function processReminder(
 
       // NEW: Fetch station custom templates if reminder is from a kiosk station
       let smsTemplate: string | undefined;
-      let stationData: { name?: string; station_phone?: string; station_address?: string } = {};
+      let stationData: {
+        name?: string;
+        slug?: string;
+        booking_enabled?: boolean;
+        station_phone?: string;
+        station_address?: string;
+      } = {};
       let stationCredit: {
         id: string;
         use_own_notifyhub_key: boolean | null;
@@ -268,13 +275,15 @@ export async function processReminder(
 
         const { data: station } = await supabase
           .from('kiosk_stations')
-          .select('id, name, station_phone, station_address, sms_template_5d, sms_template_3d, sms_template_1d, use_own_notifyhub_key, notifyhub_key_secret_id')
+          .select('id, name, slug, booking_enabled, station_phone, station_address, sms_template_5d, sms_template_3d, sms_template_1d, use_own_notifyhub_key, notifyhub_key_secret_id')
           .eq('id', reminder.station_id)
           .single();
 
         if (station) {
           stationData = {
             name: station.name,
+            slug: station.slug ?? undefined,
+            booking_enabled: station.booking_enabled ?? false,
             station_phone: station.station_phone || undefined,
             station_address: station.station_address || undefined,
           };
@@ -322,6 +331,12 @@ export async function processReminder(
         station_address: stationData.station_address || '',
         app_url: appUrl(),
         opt_out_link: optOutLink,
+        // Doar când stația chiar are programări pornite. Un link către o pagină
+        // 404 e mai rău decât niciun link — și costă și caractere.
+        booking_link:
+          stationData.booking_enabled && stationData.slug
+            ? shortPath(`/p/${stationData.slug}`)
+            : undefined,
       });
 
       console.log(`[Processor] Rendered message (${renderedMessage.length} chars): ${renderedMessage.substring(0, 100)}...`);

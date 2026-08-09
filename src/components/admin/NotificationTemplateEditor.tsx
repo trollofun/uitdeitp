@@ -40,6 +40,10 @@ const PLACEHOLDERS = [
   { key: '{station_address}', description: 'Adresa stației' },
   { key: '{app_url}', description: 'Link către aplicație' },
   { key: '{opt_out_link}', description: 'Link de dezabonare (GDPR)' },
+  {
+    key: '{booking_link}',
+    description: 'Link de programare online — dispare singur dacă nu ai programări pornite',
+  },
 ];
 
 const SAMPLE_DATA = {
@@ -50,7 +54,8 @@ const SAMPLE_DATA = {
   station_phone: '+40712345678',
   station_address: 'Str. Exemplu Nr. 123, București',
   app_url: 'https://uitdeitp.ro',
-  opt_out_link: 'https://uitdeitp.ro/opt-out/xxx',
+  opt_out_link: 'https://itp.vin/o?t=Ab3xK9mQz2Lp',
+  booking_link: 'https://itp.vin/p/statia-ta',
 };
 
 function renderPreview(template: string, stationName: string, stationPhone: string, stationAddress: string): string {
@@ -63,7 +68,8 @@ function renderPreview(template: string, stationName: string, stationPhone: stri
     .replace(/{station_phone}/g, stationPhone || SAMPLE_DATA.station_phone)
     .replace(/{station_address}/g, stationAddress || SAMPLE_DATA.station_address)
     .replace(/{app_url}/g, SAMPLE_DATA.app_url)
-    .replace(/{opt_out_link}/g, SAMPLE_DATA.opt_out_link);
+    .replace(/{opt_out_link}/g, SAMPLE_DATA.opt_out_link)
+    .replace(/{booking_link}/g, SAMPLE_DATA.booking_link);
 }
 
 export function NotificationTemplateEditor({
