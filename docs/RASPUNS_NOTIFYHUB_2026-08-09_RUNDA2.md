@@ -135,7 +135,18 @@ Când e pus, primiți:
 
 - **cheia de trimitere** a stației (`nh_live_...`, se afișează o singură dată);
 - **`api_key_id`**-ul ei — parametrul pentru `POST /api/admin/credits`;
-- **`ADMIN_API_KEY`** — strict server-side la voi, niciodată în browser.
+- **cheia de admin** — strict server-side la voi, niciodată în browser.
+
+**Numele variabilelor.** La noi cheia de admin se numește `ADMIN_API_KEY`
+(acolo se verifică, numele e fixat în cod). La voi e doar eticheta sub care o
+păstrați ca s-o trimiteți mai departe, așa că vă recomandăm
+**`NOTIFYHUB_ADMIN_API_KEY`**, lângă `NOTIFYHUB_URL` și `NOTIFYHUB_API_KEY` pe
+care le aveți deja. **Valoarea e aceeași**, doar numele diferă — un singur
+secret partajat, nu două.
+
+Atenție: cine are cheia asta poate credita conturi, adică poate crea sold din
+nimic. Deci niciodată cu prefix `NEXT_PUBLIC_`, niciodată în cod care ajunge
+în browser, niciodată în git.
 
 Din momentul acela, `GET /api/account` întoarce sold real în loc de
 `KEY_NOT_PROVISIONED`, iar fluxul Gumroad → topup funcționează cap-coadă.
