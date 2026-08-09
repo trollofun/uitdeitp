@@ -22,6 +22,7 @@ import { Loader2, Phone, Search } from 'lucide-react';
 interface ClientRow {
   id: string;
   plate_number: string;
+  reminder_type?: string | null;
   guest_name: string | null;
   guest_phone: string | null;
   expiry_date: string;
@@ -249,7 +250,17 @@ export function StationClients({ station }: { station: { id: string; name: strin
           {rows.map((row) => (
             <li key={row.id} className="flex flex-wrap items-center gap-3 p-4">
               <div className="min-w-0 flex-1">
-                <p className="font-semibold">{row.plate_number}</p>
+                <p className="flex items-center gap-2 font-semibold">
+                  {row.plate_number}
+                  {/* Eticheta apare doar când nu e ITP: o stație care face
+                      exclusiv ITP n-are nevoie de un „ITP" pe fiecare rând,
+                      dar cine are și RCA trebuie să distingă dintr-o privire. */}
+                  {row.reminder_type && row.reminder_type !== 'itp' && (
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium uppercase text-gray-600">
+                      {row.reminder_type}
+                    </span>
+                  )}
+                </p>
                 <p className="truncate text-sm text-gray-600">
                   {row.guest_name || 'Fără nume'}
                   {view === 'lista' ? ` · expiră ${formatDate(row.expiry_date)}` : ''}

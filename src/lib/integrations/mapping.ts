@@ -9,6 +9,7 @@
 import { addMonths } from 'date-fns';
 import { plateNumberSchema } from '@/lib/validation';
 import type { ContractAPayload } from './contract-a';
+import { normaliseReminderType, type ReminderType } from '@/lib/services/reminder-type';
 
 export interface MappingStation {
   id: string;
@@ -20,7 +21,7 @@ export interface ReminderInsert {
   guest_name: string | null;
   guest_phone: string | null;
   plate_number: string;
-  reminder_type: 'itp';
+  reminder_type: ReminderType;
   expiry_date: string;
   notification_intervals: number[];
   notification_channels: { sms: boolean; email: boolean };
@@ -91,7 +92,10 @@ export function toReminderInsert(
     guest_name: destinatar.nume ?? null,
     guest_phone: destinatar.telefon,
     plate_number: plateNumber,
-    reminder_type: 'itp',
+    // Ce trimite sursa, sau `itp` — 149 din 149 de rânduri existente sunt ITP.
+    reminder_type: normaliseReminderType(
+      (payload as { reminder_type?: unknown }).reminder_type
+    ),
     expiry_date: toDateOnly(expiryDate),
     notification_intervals: intervalsOf(station),
     notification_channels: { sms: true, email: false },

@@ -11,6 +11,7 @@ import { notifyHub } from '@/lib/services/notifyhub';
 import { sendReminderEmail } from '@/lib/services/email';
 import { getDaysUntilExpiry, nextNotificationDateFor } from '@/lib/services/date';
 import { todayInRomania } from '@/lib/config/timezone';
+import { reminderTypeForEmail, reminderTypeLabel } from '@/lib/services/reminder-type';
 import { getUserQuietHours, isInQuietHours, calculateNextAvailableTime } from '@/lib/services/quiet-hours';
 import { renderSmsTemplate, getTemplateForDays, DEFAULT_SMS_TEMPLATES, sendSms } from '@/lib/services/notification';
 import { getStationSendKey, resetStationKeyCache } from '@/lib/services/station-credits';
@@ -195,11 +196,7 @@ export async function processReminder(
         daysUntilExpiry,
         // The row stores lowercase ('itp'); the email helper expects the
         // display casing.
-        type: ((reminder.reminder_type ?? reminder.type ?? 'itp').toUpperCase() === 'RCA'
-          ? 'RCA'
-          : (reminder.reminder_type ?? reminder.type ?? 'itp').toLowerCase() === 'rovinieta'
-            ? 'Rovinieta'
-            : 'ITP') as 'ITP' | 'RCA' | 'Rovinieta',
+        type: reminderTypeForEmail(reminder.reminder_type ?? reminder.type),
         reminderId: reminder.id,
       });
 
@@ -331,6 +328,7 @@ export async function processReminder(
         station_address: stationData.station_address || '',
         app_url: appUrl(),
         opt_out_link: optOutLink,
+        tip: reminderTypeLabel(reminder.reminder_type ?? reminder.type),
         // Doar când stația chiar are programări pornite. Un link către o pagină
         // 404 e mai rău decât niciun link — și costă și caractere.
         booking_link:

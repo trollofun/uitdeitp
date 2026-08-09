@@ -65,6 +65,11 @@ export interface NotificationData {
    * niciun link.
    */
   booking_link?: string;
+  /**
+   * Eticheta scadenței: `ITP`, `RCA`, `Rovinieta`. Fără ea, șablonul stației —
+   * care e per interval, nu per tip — spunea „ITP" oricărui client.
+   */
+  tip?: string;
 }
 
 export type NotificationChannel = 'sms' | 'email';

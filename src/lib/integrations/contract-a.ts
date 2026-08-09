@@ -56,6 +56,13 @@ export const contractAFullSchema = z
       })
       .passthrough(),
     odometru: z.unknown().optional(),
+    /**
+     * Tipul scadenței, **aditiv și opțional**: SIRAR trimite azi doar inspecții
+     * ITP, iar absența câmpului rămâne `itp`. E la rădăcină, nu imbricat, exact
+     * cum ne-au recomandat ei — câmpurile aditive sunt cel mai sigure acolo,
+     * fiindcă nu depind de `.passthrough()` pe blocurile interne.
+     */
+    reminder_type: z.enum(['itp', 'rca', 'rovinieta']).optional(),
     destinatar: destinatarSchema.optional(),
     statie_ref: statieRefSchema.optional(),
     // Legacy field kept accepted (and ignored) for backwards compatibility

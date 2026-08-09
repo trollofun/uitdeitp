@@ -22,6 +22,10 @@ export function renderSmsTemplate(template: string, data: NotificationData): str
   let rendered = template;
 
   // Replace placeholders
+  // `{tip}` cade pe „ITP" când lipsește: toate cele 149 de remindere existente
+  // sunt ITP, iar un șablon vechi care încă zice „{tip} pentru {plate}" rămâne
+  // corect fără nicio migrare.
+  rendered = rendered.replace(/{tip}/g, v(data.tip ?? 'ITP'));
   rendered = rendered.replace(/{name}/g, v(data.name));
   rendered = rendered.replace(/{plate}/g, v(data.plate));
   rendered = rendered.replace(/{date}/g, v(formatDate(data.date)));
@@ -118,11 +122,11 @@ export function truncateSms(message: string, maxParts: number = 3): string {
  * `GSM-7` și `parts: 1`. Testele din `tests/unit/sms-encoding.test.ts` o fac deja.
  */
 export const DEFAULT_SMS_TEMPLATES = {
-  '7d': 'Buna {name}! ITP pentru {plate} expira in {days_until} zile (pe {date}). Nu uita sa programezi!\n\nProgramare: {station_phone}. Online: {booking_link}',
-  '3d': 'ATENTIE {name}! ITP pentru {plate} expira in {days_until} zile (pe {date})! Programeaza urgent!\n\nProgramare: {station_phone}. Online: {booking_link}',
-  '1d': 'URGENT: {name}, ITP pentru {plate} expira MAINE ({date})! Programeaza astazi!\n\nProgramare: {station_phone}. Online: {booking_link}',
+  '7d': 'Buna {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date}). Nu uita sa programezi!\n\nProgramare: {station_phone}. Online: {booking_link}',
+  '3d': 'ATENTIE {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date})! Programeaza urgent!\n\nProgramare: {station_phone}. Online: {booking_link}',
+  '1d': 'URGENT: {name}, {tip} pentru {plate} expira MAINE ({date})! Programeaza astazi!\n\nProgramare: {station_phone}. Online: {booking_link}',
   expired:
-    'ATENTIE: {name}, ITP pentru {plate} a EXPIRAT la data de {date}. Programeaza urgent verificare!\n\nProgramare: {station_phone}. Online: {booking_link}',
+    'ATENTIE: {name}, {tip} pentru {plate} a EXPIRAT la data de {date}. Programeaza urgent verificare!\n\nProgramare: {station_phone}. Online: {booking_link}',
 };
 
 /**

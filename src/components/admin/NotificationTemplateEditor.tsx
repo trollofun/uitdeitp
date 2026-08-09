@@ -33,6 +33,7 @@ interface NotificationTemplateEditorProps {
 const PLACEHOLDERS = [
   { key: '{name}', description: 'Numele clientului' },
   { key: '{plate}', description: 'Numărul de înmatriculare' },
+  { key: '{tip}', description: 'ITP, RCA sau Rovinieta — după tipul scadenței' },
   { key: '{date}', description: 'Data expirării (format: 15 Dec 2025)' },
   { key: '{days_until}', description: 'Zile până la expirare (număr dinamic - ex: 5, 10)' },
   { key: '{station_name}', description: 'Numele stației tale' },
@@ -49,6 +50,7 @@ const PLACEHOLDERS = [
 const SAMPLE_DATA = {
   name: 'Ion Popescu',
   plate: 'B123ABC',
+  tip: 'ITP',
   date: '20 Dec 2025',
   station_name: 'Auto Service Demo',
   station_phone: '+40712345678',
@@ -62,6 +64,7 @@ function renderPreview(template: string, stationName: string, stationPhone: stri
   return template
     .replace(/{name}/g, SAMPLE_DATA.name)
     .replace(/{plate}/g, SAMPLE_DATA.plate)
+    .replace(/{tip}/g, SAMPLE_DATA.tip)
     .replace(/{date}/g, SAMPLE_DATA.date)
     .replace(/{days_until}/g, '5')  // Show example: 5 days until expiry
     .replace(/{station_name}/g, stationName || SAMPLE_DATA.station_name)
