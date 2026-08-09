@@ -6,6 +6,7 @@
  */
 
 import { formatInTimeZone } from 'date-fns-tz';
+import { PLATFORM_TZ } from '@/lib/config/timezone';
 
 interface QuietHoursSettings {
   quiet_hours_enabled: boolean;
@@ -25,12 +26,11 @@ export function isInQuietHours(settings: QuietHoursSettings | null): boolean {
     return false;
   }
 
-  const ROMANIAN_TZ = 'Europe/Bucharest';
   const now = new Date();
 
   // Get current time in Romanian timezone
-  const currentTime = formatInTimeZone(now, ROMANIAN_TZ, 'HH:mm');
-  const currentDay = parseInt(formatInTimeZone(now, ROMANIAN_TZ, 'i'), 10); // 1=Monday, 7=Sunday
+  const currentTime = formatInTimeZone(now, PLATFORM_TZ, 'HH:mm');
+  const currentDay = parseInt(formatInTimeZone(now, PLATFORM_TZ, 'i'), 10); // 1=Monday, 7=Sunday
 
   // Check if weekends are exempt
   if (settings.quiet_hours_weekdays_only && (currentDay === 6 || currentDay === 7)) {
@@ -64,7 +64,6 @@ export function calculateNextAvailableTime(
     return null;
   }
 
-  const ROMANIAN_TZ = 'Europe/Bucharest';
   const now = new Date();
 
   // If not currently in quiet hours, can send immediately
@@ -77,8 +76,8 @@ export function calculateNextAvailableTime(
   const [endHour, endMinute] = endTime.split(':').map(Number);
 
   // Get current date in Romanian timezone
-  const currentDate = formatInTimeZone(now, ROMANIAN_TZ, 'yyyy-MM-dd');
-  const currentTime = formatInTimeZone(now, ROMANIAN_TZ, 'HH:mm');
+  const currentDate = formatInTimeZone(now, PLATFORM_TZ, 'yyyy-MM-dd');
+  const currentTime = formatInTimeZone(now, PLATFORM_TZ, 'HH:mm');
 
   let nextAvailableDate = new Date(currentDate);
 

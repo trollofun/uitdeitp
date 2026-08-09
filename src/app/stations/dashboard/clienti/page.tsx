@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { flags } from '@/lib/config/flags';
 import { StationClients } from '@/components/stations/dashboard/StationClients';
 import { ImportClients } from '@/components/stations/dashboard/ImportClients';
+import { RetentionReport } from '@/components/stations/dashboard/RetentionReport';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,7 @@ export default async function StationClientsPage() {
   return (
     <div className="space-y-6">
       <StationClients station={station} />
+      <RetentionReport />
       <ImportClients />
     </div>
   );

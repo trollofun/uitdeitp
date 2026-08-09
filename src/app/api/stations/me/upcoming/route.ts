@@ -11,6 +11,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { handleApiError, createSuccessResponse, ApiError, ApiErrorCode } from '@/lib/api/errors';
 import { flags } from '@/lib/config/flags';
 import { requirePatron } from '@/lib/stations/me';
+import { monthBoundsInRomania } from '@/lib/config/timezone';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +29,10 @@ export async function GET(req: NextRequest) {
       throw new ApiError(ApiErrorCode.VALIDATION_ERROR, 'Parametrul month este invalid', 400);
     }
 
-    const from = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), 1));
-    const to = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0));
+    // Marginile lunii se calculează în ora României, nu în UTC. Varianta veche
+    // producea intervalul lunii precedente în noaptea de 1 ale lunii — deci
+    // calendarul stației arăta altceva decât ziua în care pleacă reminderele.
+    const { from, to } = monthBoundsInRomania(base);
 
     const station = await requirePatron(url.searchParams.get('station_id'));
     const supabase = createServerClient();
@@ -39,8 +42,8 @@ export async function GET(req: NextRequest) {
       .select('id, plate_number, guest_name, guest_phone, expiry_date, next_notification_date')
       .eq('station_id', station.id)
       .is('deleted_at', null)
-      .gte('expiry_date', from.toISOString().split('T')[0])
-      .lte('expiry_date', to.toISOString().split('T')[0])
+      .gte('expiry_date', from)
+      .lte('expiry_date', to)
       .order('expiry_date', { ascending: true });
 
     if (error) throw error;
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
     }
 
     return createSuccessResponse({
-      month: `${from.getUTCFullYear()}-${String(from.getUTCMonth() + 1).padStart(2, '0')}`,
+      month: from.slice(0, 7),
       total: data?.length ?? 0,
       days: Array.from(byDay.entries()).map(([date, clients]) => ({
         date,

@@ -27,6 +27,8 @@ import {
 import { verifySignature } from '@/lib/integrations/hmac';
 import { toReminderInsert } from '@/lib/integrations/mapping';
 import { resolveDuplicate, linkSupersededBy } from '@/lib/services/reminder-dedupe';
+import { plateNumberSchema } from '@/lib/validation';
+import { recordServiceVisit } from '@/lib/services/service-visits';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -198,8 +200,25 @@ export async function POST(req: NextRequest) {
       idempotencyKey
     );
 
-    // No recipient: visit data only, definitively accepted (no retry). Service
-    // history will consume these in a later phase.
+    // Vizita se înregistrează **înaintea** oricărei decizii despre destinatar:
+    // e un fapt despre mașină, nu despre persoană. Comentariul de mai jos spunea
+    // „service history will consume these in a later phase" — faza aia e acum.
+    const plateForVisit =
+      payload.payload_variant === 'lite'
+        ? payload.plate_number
+        : (payload.vehicul.numar_inmatriculare ?? payload.vehicul.placa)!;
+
+    await recordServiceVisit({
+      supabase,
+      payload: payload as unknown as Record<string, unknown>,
+      stationId: auth.station.id,
+      plateNumber: plateNumberSchema.parse(plateForVisit),
+      externalRef: idempotencyKey,
+      reminderId: null,
+    });
+
+    // No recipient: visit data only, definitively accepted (no retry). Vizita e
+    // deja scrisă mai sus, deci un `202` nu mai înseamnă „nu rămâne nimic".
     if (!insert) {
       await audit({
         station_id: auth.station.id,

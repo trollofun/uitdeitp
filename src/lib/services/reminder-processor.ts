@@ -10,6 +10,7 @@
 import { notifyHub } from '@/lib/services/notifyhub';
 import { sendReminderEmail } from '@/lib/services/email';
 import { getDaysUntilExpiry, nextNotificationDateFor } from '@/lib/services/date';
+import { todayInRomania } from '@/lib/config/timezone';
 import { getUserQuietHours, isInQuietHours, calculateNextAvailableTime } from '@/lib/services/quiet-hours';
 import { renderSmsTemplate, getTemplateForDays, DEFAULT_SMS_TEMPLATES, sendSms } from '@/lib/services/notification';
 import { getStationSendKey, resetStationKeyCache } from '@/lib/services/station-credits';
@@ -529,7 +530,7 @@ export async function processRemindersForToday() {
   // Example: 09:00 EET = 07:00 UTC (cron runs at 07:00 UTC)
   resetStationKeyCache();
 
-  const today = formatInTimeZone(new Date(), 'Europe/Bucharest', 'yyyy-MM-dd');
+  const today = todayInRomania();
 
   console.log('[Processor] Starting reminder processing for Romanian date:', today);
 

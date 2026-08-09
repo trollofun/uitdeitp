@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { processReminder } from '@/lib/services/reminder-processor';
 import { formatInTimeZone } from 'date-fns-tz';
+import { PLATFORM_TZ } from '@/lib/config/timezone';
 
 /**
  * GET /api/cron/test-reminders
@@ -51,10 +52,9 @@ export async function GET(req: NextRequest) {
     const dateParam = searchParams.get('date');
 
     const supabase = createAdminClient();
-    const ROMANIAN_TZ = 'Europe/Bucharest';
 
     // Determine target date
-    const targetDate = dateParam || formatInTimeZone(new Date(), ROMANIAN_TZ, 'yyyy-MM-dd');
+    const targetDate = dateParam || formatInTimeZone(new Date(), PLATFORM_TZ, 'yyyy-MM-dd');
 
     // 🔇 OPTIMIZATION: Only log in development to reduce noise
     if (process.env.NODE_ENV === 'development') {
