@@ -17,6 +17,14 @@ export const PARTNER_KEY_PREFIX = 'pk_prov_';
  * **creează** identități de stație, ciclul de viață le **modifică**. O cheie
  * care poate dezactiva o stație n-are neapărat nevoie să poată crea una, iar
  * cine rotește cheile trebuie să poată da doar una din cele două.
+ *
+ * Modelul rămâne separat; **distribuția** nu. Azi Academy poartă ambele scope-uri
+ * pe aceeași cheie (2026-08-09), fiindcă la ei ambele apeluri pleacă din același
+ * proces, citind aceeași variabilă de mediu: două chei ar sta în același loc, cu
+ * aceeași rază de explozie, dar ar dubla secretele de rotit și ocaziile de a
+ * rămâne setate-dar-goale. Separarea redevine reală în ziua în care livrarea
+ * evenimentelor pleacă din alt serviciu decât provisionarea — atunci se emite a
+ * doua cheie, fără nicio schimbare de cod aici.
  */
 export type PartnerScope = 'stations:provision' | 'stations:lifecycle';
 
@@ -76,9 +84,19 @@ export async function authenticatePartner(
   authorizationHeader: string | null,
   requiredScope: PartnerScope
 ): Promise<AuthenticatedPartner> {
-  const token = authorizationHeader?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  // `Bearer ` + nimic e o variabilă de mediu setată-dar-goală la apelant, nu o
+  // cheie greșită. Le distingem explicit: `invalid_key` trimite pe cine
+  // depanează să caute cheia potrivită, când de fapt cheia lipsește cu totul.
+  // Defectul ăsta a lovit ecosistemul de două ori în trei zile (GUMROAD_WEBHOOK_URL_TOKEN,
+  // UITDEITP_PARTNER_API_KEY) și e exact riscul pe care îl asumăm ținând ambele
+  // scope-uri pe o singură cheie — deci merită numit în răspuns, nu ghicit.
+  const token = authorizationHeader?.match(/^Bearer\s+(.*)$/i)?.[1]?.trim();
   if (!token) {
-    throw new PartnerAuthError('missing_bearer', 401, 'Authorization: Bearer <key> este obligatoriu');
+    throw new PartnerAuthError(
+      'missing_bearer',
+      401,
+      'Authorization: Bearer <key> este obligatoriu (antet absent sau cheie goală)'
+    );
   }
 
   const { data, error } = await createServiceClient()
