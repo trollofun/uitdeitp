@@ -122,7 +122,12 @@ export async function provisionStationNotifyHubKey(station: {
   name: string;
   rar_code: string | null;
 }): Promise<ProvisionKeyResult> {
-  const adminKey = process.env.NOTIFYHUB_ADMIN_KEY;
+  // `.trim()` nu e cosmetic: NotifyHub compară valoarea **trimmed** cu ce
+  // trimitem noi, iar un `\n` lipit accidental la copiere în Vercel n-ar
+  // schimba lungimea destul cât să pice verificarea de 32 de caractere — ar
+  // produce doar un 401 pe care l-am căuta în valoarea greșită, nu în spațiul
+  // invizibil de la capăt.
+  const adminKey = process.env.NOTIFYHUB_ADMIN_KEY?.trim();
 
   // NotifyHub refuză orice cheie de admin sub 32 de caractere („endpoint is
   // dead without ADMIN_API_KEY"), deci o valoare scurtă ar da 401 la fiecare
@@ -293,7 +298,12 @@ export async function topupStation({
   amountParts: number;
   paymentRef: string;
 }): Promise<TopupResult> {
-  const adminKey = process.env.NOTIFYHUB_ADMIN_KEY;
+  // `.trim()` nu e cosmetic: NotifyHub compară valoarea **trimmed** cu ce
+  // trimitem noi, iar un `\n` lipit accidental la copiere în Vercel n-ar
+  // schimba lungimea destul cât să pice verificarea de 32 de caractere — ar
+  // produce doar un 401 pe care l-am căuta în valoarea greșită, nu în spațiul
+  // invizibil de la capăt.
+  const adminKey = process.env.NOTIFYHUB_ADMIN_KEY?.trim();
   const config = await getStationCreditConfig(stationId);
 
   if (!adminKey || !config?.notifyhub_api_key_id) {
