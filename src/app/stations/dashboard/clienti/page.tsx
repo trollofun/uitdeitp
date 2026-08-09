@@ -4,6 +4,7 @@ import { flags } from '@/lib/config/flags';
 import { StationClients } from '@/components/stations/dashboard/StationClients';
 import { ImportClients } from '@/components/stations/dashboard/ImportClients';
 import { RetentionReport } from '@/components/stations/dashboard/RetentionReport';
+import { StationAgenda } from '@/components/stations/dashboard/StationAgenda';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,7 @@ export default async function StationClientsPage() {
   // îl face o stație nouă, și ultimul la care se mai gândește după aceea.
   return (
     <div className="space-y-6">
+      <StationAgenda />
       <StationClients station={station} />
       <RetentionReport />
       <ImportClients />

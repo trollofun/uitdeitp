@@ -26,6 +26,7 @@ export interface MyStation {
   logo_url: string | null;
   primary_color: string | null;
   default_intervals: unknown;
+  booking_enabled?: boolean | null;
   sms_template_5d: string | null;
   sms_template_3d: string | null;
   sms_template_1d: string | null;
@@ -40,7 +41,7 @@ export interface MyStationAccess {
 }
 
 const STATION_FIELDS =
-  'id, name, slug, station_phone, station_address, logo_url, primary_color, default_intervals, sms_template_5d, sms_template_3d, sms_template_1d, email_template_5d, email_template_3d, email_template_1d';
+  'id, name, slug, booking_enabled, station_phone, station_address, logo_url, primary_color, default_intervals, sms_template_5d, sms_template_3d, sms_template_1d, email_template_5d, email_template_3d, email_template_1d';
 
 /**
  * Full access record. Prefer this over resolveMyStation() when the route's

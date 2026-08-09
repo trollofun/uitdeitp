@@ -19,6 +19,9 @@ import { generateSlots, type BookingConfig } from '@/lib/services/booking/slots'
 import { todayInRomania, PLATFORM_TZ } from '@/lib/config/timezone';
 import { roPhoneSchema, plateNumberSchema } from '@/lib/validation';
 import { formatInTimeZone } from 'date-fns-tz';
+import { shortPath } from '@/lib/config/short-url';
+import { sendSms } from '@/lib/services/notification';
+import { toGsm7 } from '@/lib/services/sms-encoding';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -174,6 +177,29 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
     return fail(row.error_code, status, message);
   }
 
+  const label = formatInTimeZone(startsAt, PLATFORM_TZ, 'dd.MM.yyyy, HH:mm');
+
+  // Confirmarea pleacă acum, nu la cron: o programare fără confirmare pe telefon
+  // e o promisiune pe care clientul n-o poate verifica, iar linkul de anulare e
+  // singura cale prin care un slot abandonat se mai eliberează — la
+  // `slot_capacity = 1` (implicit), altfel ora rămâne blocată definitiv.
+  //
+  // Eșecul trimiterii NU anulează rezervarea: programarea e în bază, clientul a
+  // văzut confirmarea pe ecran. Un SMS pierdut e mai puțin rău decât o oră
+  // pierdută.
+  try {
+    const message = toGsm7(
+      `Programare confirmata la ${station.name}: ${label}. Anulare: ${shortPath(`/a?t=${row.token}`)}`
+    );
+
+    await sendSms(body.customer_phone, message, undefined, undefined, {
+      idempotencyKey: `booking:${row.appointment_id}`,
+      messageType: 'booking_confirmation',
+    });
+  } catch (smsError) {
+    console.warn('[Booking] confirmation SMS failed', { id: row.appointment_id, smsError });
+  }
+
   return NextResponse.json(
     {
       success: true,
@@ -181,7 +207,7 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
         id: row.appointment_id,
         token: row.token,
         starts_at: startsAt.toISOString(),
-        label: formatInTimeZone(startsAt, PLATFORM_TZ, 'dd.MM.yyyy, HH:mm'),
+        label,
         station: { name: station.name, phone: station.station_phone, address: station.station_address },
       },
     },

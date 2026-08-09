@@ -46,8 +46,9 @@ export function hasShortDomain(): boolean {
  *
  * `/p/` e programarea: `itp.vin/p/euro-auto` în loc de
  * `www.uitdeitp.ro/programare/euro-auto` — încă 12 caractere.
+ * `/a` e anularea, care intră în SMS-ul de confirmare.
  */
-export const SHORT_PATHS = ['/o', '/r', '/p/'] as const;
+export const SHORT_PATHS = ['/o', '/r', '/a', '/p/'] as const;
 
 export function isShortPath(pathname: string): boolean {
   return SHORT_PATHS.some((prefix) =>

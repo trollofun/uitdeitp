@@ -15,6 +15,10 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Check, CalendarDays, PhoneCall } from 'lucide-react';
+// Aceeași apărare ca la kiosk. Fără widget aici, pornirea globală a
+// `TURNSTILE_ENABLED` — al cărei scop e kioskul — ar fi respins **toate**
+// programările cu 403, fiindcă ruta cere tokenul iar formularul nu-l trimitea.
+import { TurnstileGate } from '@/components/kiosk/TurnstileGate';
 
 interface Slot {
   starts_at: string;
@@ -51,12 +55,26 @@ export function BookingForm({ slug, stationPhone }: { slug: string; stationPhone
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booked, setBooked] = useState<Booked | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
-  const loadSlots = () =>
-    fetch(`/api/booking/${slug}`)
-      .then((r) => r.json())
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  // Un 500 sau un timeout nu are voie să arate ca „nu sunt ore libere":
+  // clientul ar conchide că stația e plină și ar suna, exact ce încercăm să
+  // evităm.
+  const loadSlots = () => {
+    setLoadFailed(false);
+    return fetch(`/api/booking/${slug}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((json) => setDays(json?.data?.days ?? []))
-      .catch(() => setDays([]));
+      .catch(() => {
+        setLoadFailed(true);
+        setDays([]);
+      });
+  };
 
   useEffect(() => {
     loadSlots();
@@ -77,6 +95,7 @@ export function BookingForm({ slug, stationPhone }: { slug: string; stationPhone
           customer_phone: phone,
           customer_name: name.trim() || undefined,
           plate_number: plate.trim() || undefined,
+          turnstile_token: turnstileToken ?? undefined,
         }),
       });
 
@@ -131,6 +150,26 @@ export function BookingForm({ slug, stationPhone }: { slug: string; stationPhone
 
   if (days === null) {
     return <Loader2 className="mt-8 h-6 w-6 animate-spin text-gray-400" />;
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="mt-8 rounded-2xl border bg-card p-6">
+        <p className="text-gray-600">
+          Nu am putut încărca orele disponibile. Reîncarcă pagina
+          {stationPhone && (
+            <>
+              {' '}
+              sau sună la{' '}
+              <a href={`tel:${stationPhone}`} className="font-medium underline">
+                {stationPhone}
+              </a>
+            </>
+          )}
+          .
+        </p>
+      </div>
+    );
   }
 
   if (days.length === 0) {
@@ -226,6 +265,8 @@ export function BookingForm({ slug, stationPhone }: { slug: string; stationPhone
               />
             </div>
           </div>
+
+          <TurnstileGate onToken={setTurnstileToken} />
 
           {error && <p className="text-sm text-amber-600 dark:text-amber-500">{error}</p>}
 
