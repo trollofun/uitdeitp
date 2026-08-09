@@ -1,6 +1,17 @@
 -- ============================================================================
 -- F1.3 PREPARED — rollback to the global unique index.
 --
+-- ORDER MATTERS, and it is the MIRROR of the forward migration:
+--
+--   0) FIRST set DEDUPE_SCOPE=global in Vercel + redeploy — BEFORE any SQL.
+--      Why: the app under 'per_station' only soft-deletes same-station rows.
+--      If the global index came back while the app still ran 'per_station',
+--      every cross-station submission would hit 23505 → 409 for a kiosk
+--      client who did nothing wrong. The reverse window (per-station indexes
+--      + 'global' app) is safe: the app soft-deletes every match again, which
+--      actually converges the data toward what the global index needs.
+--   1) then step A below, 2) then B, 3) then C.
+--
 -- Careful: after the flip, two stations may legitimately hold the same
 -- (guest_phone, plate_number). Recreating the global index requires picking a
 -- winner per pair first, which step A does deterministically (latest expiry
@@ -47,5 +58,6 @@ DROP INDEX CONCURRENTLY IF EXISTS public.idx_unique_active_station_guest_reminde
 DROP INDEX CONCURRENTLY IF EXISTS public.idx_unique_active_guest_no_station;
 
 -- ----------------------------------------------------------------------------
--- AFTER the SQL: set DEDUPE_SCOPE=global in Vercel and redeploy.
+-- DEDUPE_SCOPE=global must already be live at this point (step 0 above).
+-- If it is not, flip it now before letting kiosk traffic resume.
 -- ----------------------------------------------------------------------------

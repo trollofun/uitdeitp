@@ -36,11 +36,24 @@ SELECT COUNT(*) AS active_guest_reminders
   FROM public.reminders
  WHERE deleted_at IS NULL AND guest_phone IS NOT NULL;
 
+-- 5) Superseded rows whose winner sits at a DIFFERENT station. These are the
+--    false positives F1.3 exists to stop: under the global index a return to
+--    another station soft-deletes OUR row, so the client vanishes from the
+--    retention report as if they had come back to us. Count how much of the
+--    existing superseded history is already poisoned this way — those rows
+--    stay wrong after the flip (the migration does not rewrite history).
+SELECT COUNT(*) AS cross_station_superseded
+  FROM public.reminders l
+  JOIN public.reminders w ON w.id = l.superseded_by
+ WHERE l.station_id IS DISTINCT FROM w.station_id;
+
 -- ----------------------------------------------------------------------------
--- BASELINE measured 2026-08-07 on the live database:
+-- BASELINE measured 2026-08-07, re-verified 2026-08-09 on the live database:
 --   (1) 0 rows      — no collisions under the per-station key
 --   (2) 1 row       — a single guest reminder without a station
 --   (3) 0 rows      — no phone+plate shared across stations
---   (4) 90 rows
+--   (4) 90 rows on 08-07; 94 rows on 08-09 (of 133 active, 149 total)
+--   (5) 0 rows      — all 7 superseded rows are same-station (test plates
+--                     CT99TST / CT90BTC); no poisoned history to annotate
 -- Re-run before the window; abort if (1) is non-empty.
 -- ----------------------------------------------------------------------------

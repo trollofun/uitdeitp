@@ -8,11 +8,31 @@
  * - Network error handling
  */
 
+import { appUrl } from '@/lib/config/app-url';
+
 /**
  * Sleep utility for retry delays
  */
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * URL-ul de callback atașat fiecărui send, sau null când nu are sens.
+ *
+ * Două gărzi, amândouă ca să nu stricăm trimiterea propriu-zisă:
+ *  - fără NOTIFYHUB_CALLBACK_SECRET nu atașăm nimic — ruta noastră ar
+ *    răspunde 503 la orice callback, deci am umple outbox-ul lor cu
+ *    reîncercări condamnate;
+ *  - NotifyHub validează callbackUrl cu Zod (https public, fără loopback)
+ *    și respinge TOATĂ cererea la încălcare — un localhost din dev ar
+ *    transforma fiecare SMS într-un 400.
+ */
+function dlrCallbackUrl(): string | null {
+  if (!process.env.NOTIFYHUB_CALLBACK_SECRET?.trim()) return null;
+  const base = appUrl();
+  if (!base.startsWith('https://')) return null;
+  return `${base}/api/webhooks/notifyhub`;
 }
 
 interface SendSmsRequest {
@@ -30,6 +50,11 @@ interface SendSmsRequest {
   idempotency_key?: string;
   /** 'otp' | 'reminder' | … — lets NotifyHub bill and report by kind */
   message_type?: string;
+  /**
+   * Endpoint-ul nostru de DLR (F3.3 la ei). Fără el, confirmarea de livrare
+   * moare la NotifyHub și notification_log rămâne pe 'sent' pentru totdeauna.
+   */
+  callbackUrl?: string;
 }
 
 interface SendSmsResponse {
@@ -101,10 +126,12 @@ class NotifyHubClient {
     const apiKey = options.apiKey || this.apiKey;
     let lastError: SendSmsResponse | null = null;
 
+    const callbackUrl = request.callbackUrl ?? dlrCallbackUrl();
     const payload: SendSmsRequest = {
       ...request,
       ...(options.idempotencyKey ? { idempotency_key: options.idempotencyKey } : {}),
       ...(options.messageType ? { message_type: options.messageType } : {}),
+      ...(callbackUrl ? { callbackUrl } : {}),
     };
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
