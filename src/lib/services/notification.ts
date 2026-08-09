@@ -119,14 +119,21 @@ export function truncateSms(message: string, maxParts: number = 3): string {
  * pleacă la fiecare reminder — diferența e jumătate din factura de SMS.
  *
  * Dacă modifici ceva aici, verifică cu `segmentSms()` că rezultatul rămâne
- * `GSM-7` și `parts: 1`. Testele din `tests/unit/sms-encoding.test.ts` o fac deja.
+ * `GSM-7` și `parts: 1` — **pentru cel mai lung tip și cel mai lung slug**, nu
+ * pentru cazul comod. `{tip}` variază între „ITP" (3) și „Rovinieta" (9), iar
+ * `{booking_link}` crește cu lungimea slug-ului stației. Șabloanele aveau 162
+ * de caractere cu ITP și un slug scurt — sub limită — și 168 cu rovinietă și un
+ * slug lung, adică 2 SMS tăcut. „Nu uita sa programezi!" era redundant lângă
+ * „Programare:" de dedesubt, deci a plecat el.
+ *
+ * `tests/unit/template-longest-type.test.ts` verifică toate combinațiile.
  */
 export const DEFAULT_SMS_TEMPLATES = {
-  '7d': 'Buna {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date}). Nu uita sa programezi!\n\nProgramare: {station_phone}. Online: {booking_link}',
-  '3d': 'ATENTIE {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date})! Programeaza urgent!\n\nProgramare: {station_phone}. Online: {booking_link}',
-  '1d': 'URGENT: {name}, {tip} pentru {plate} expira MAINE ({date})! Programeaza astazi!\n\nProgramare: {station_phone}. Online: {booking_link}',
+  '7d': 'Buna {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date}).\n\nProgramare: {station_phone}. Online: {booking_link}',
+  '3d': 'ATENTIE {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date})!\n\nProgramare: {station_phone}. Online: {booking_link}',
+  '1d': 'URGENT: {name}, {tip} pentru {plate} expira MAINE ({date})!\n\nProgramare: {station_phone}. Online: {booking_link}',
   expired:
-    'ATENTIE: {name}, {tip} pentru {plate} a EXPIRAT la data de {date}. Programeaza urgent verificare!\n\nProgramare: {station_phone}. Online: {booking_link}',
+    'ATENTIE: {name}, {tip} pentru {plate} a EXPIRAT pe {date}.\n\nProgramare: {station_phone}. Online: {booking_link}',
 };
 
 /**

@@ -50,7 +50,11 @@ const PLACEHOLDERS = [
 const SAMPLE_DATA = {
   name: 'Ion Popescu',
   plate: 'B123ABC',
-  tip: 'ITP',
+  // **Cel mai lung** tip, nu cel mai scurt. Contorul de cost trebuie să arate
+  // cazul cel mai rău: „Rovinieta" e cu 6 caractere peste „ITP", suficient cât
+  // să împingă un șablon de 157 de caractere în a doua parte. Cu „ITP" ca
+  // exemplu, stația ar fi văzut „1 SMS" și ar fi plătit 2 la fiecare rovinietă.
+  tip: 'Rovinieta',
   date: '20 Dec 2025',
   station_name: 'Auto Service Demo',
   station_phone: '+40712345678',
