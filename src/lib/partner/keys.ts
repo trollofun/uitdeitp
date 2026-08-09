@@ -12,7 +12,13 @@ import { createServiceClient } from '@/lib/supabase/service';
 
 export const PARTNER_KEY_PREFIX = 'pk_prov_';
 
-export type PartnerScope = 'stations:provision';
+/**
+ * `stations:lifecycle` e separat de `stations:provision` deliberat: provisionarea
+ * **creează** identități de stație, ciclul de viață le **modifică**. O cheie
+ * care poate dezactiva o stație n-are neapărat nevoie să poată crea una, iar
+ * cine rotește cheile trebuie să poată da doar una din cele două.
+ */
+export type PartnerScope = 'stations:provision' | 'stations:lifecycle';
 
 export interface GeneratedPartnerKey {
   raw: string;
