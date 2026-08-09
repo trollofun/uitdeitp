@@ -42,7 +42,17 @@ export async function logSms({
       sent_at: new Date().toISOString(),
       provider: result.provider ?? null,
       provider_message_id: result.messageId ?? null,
-      estimated_cost: result.cost ?? null,
+      // NET, deliberat: `estimated_cost` trebuie să însemne același lucru aici
+      // și la NotifyHub. De la 2026-08-09 `cost` include TVA, deci a-l stoca
+      // sub numele ăsta ar face ca două baze să țină numere diferite cu 21%
+      // sub aceeași denumire. Bruta merge în coloana ei.
+      estimated_cost: result.costNet ?? null,
+      cost_gross: result.cost ?? null,
+      vat_rate: result.vatRate ?? null,
+      currency: result.currency ?? null,
+      // Câte SMS-uri s-au taxat efectiv — până acum nu se scria nicăieri, deci
+      // costul real al unui mesaj era neauditabil de ambele părți.
+      parts: result.parts ?? null,
       error_message: result.success ? null : (result.error ?? null),
       metadata: metadata as never,
     });

@@ -37,7 +37,21 @@ interface SendSmsResponse {
   messageId?: string;
   provider?: string;
   parts?: number;
+  /**
+   * **Cu TVA**, de la schimbarea NotifyHub din 2026-08-09. Înainte era net.
+   *
+   * Nu-l folosim în contabilizare tocmai din cauza asta: coloana noastră
+   * `estimated_cost` trebuie să însemne același lucru cu `estimated_cost` de la
+   * ei, altfel două sisteme cu aceeași denumire ar ține numere care diferă cu
+   * 21% și nimeni n-ar observa până la prima reconciliere. Pentru bani folosim
+   * `costNet`; ăsta rămâne ca să putem arăta suma finală plătită.
+   */
   cost?: number;
+  /** Suma netă, comparabilă cu factura providerului. Asta se stochează. */
+  costNet?: number;
+  vat?: number;
+  vatRate?: number;
+  currency?: string;
   error?: string;
   code?: string;
   /** Upstream HTTP status; 402 = insufficient credits (per-station billing) */
@@ -115,10 +129,33 @@ class NotifyHubClient {
             httpStatus: response.status,
           };
 
-          // Don't retry on 4xx errors (client errors, auth failures)
-          if (response.status >= 400 && response.status < 500) {
+          // 429 e singurul 4xx care merită reîncercat: nu spune „cererea ta e
+          // greșită", ci „nu acum". NotifyHub a cerut explicit backoff pe el
+          // (răspunsul lor din 2026-08-09, §7). Fără asta, o limită atinsă la
+          // 09:00 însemna un reminder pierdut pentru toată ziua, deși a doua
+          // încercare peste câteva secunde ar fi trecut.
+          //
+          // Reîncercarea refolosește același `idempotency_key` din payload,
+          // deci dacă prima cerere chiar a trecut și doar răspunsul s-a pierdut,
+          // clientul nu primește două SMS-uri.
+          const retryable429 = response.status === 429;
+
+          if (response.status >= 400 && response.status < 500 && !retryable429) {
             console.error(`[NotifyHub] Client error (no retry): ${response.status}`, errorResponse);
             return errorResponse;
+          }
+
+          if (retryable429 && attempt < maxRetries) {
+            // `Retry-After` e în secunde când vine; altfel backoff exponențial.
+            const retryAfter = Number(response.headers.get('retry-after'));
+            const delay = Number.isFinite(retryAfter) && retryAfter > 0
+              ? Math.min(retryAfter * 1000, 30_000)
+              : Math.pow(2, attempt - 1) * 1000;
+
+            console.warn(`[NotifyHub] Rate limited, retrying in ${delay}ms`);
+            lastError = errorResponse;
+            await sleep(delay);
+            continue;
           }
 
           // Retry on 5xx errors (server errors)
@@ -149,6 +186,13 @@ class NotifyHubClient {
             provider: data.data.provider,
             parts: data.data.parts,
             cost: data.data.cost,
+            // `cost_net` a apărut odată cu trecerea lui `cost` pe brut
+            // (2026-08-09). Cât timp flag-urile lor sunt încă în tranziție,
+            // un răspuns mai vechi n-are câmpul — atunci `cost` **este** netul.
+            costNet: data.data.cost_net ?? data.data.cost,
+            vat: data.data.vat,
+            vatRate: data.data.vat_rate,
+            currency: data.data.currency,
             httpStatus: response.status,
           };
         }
