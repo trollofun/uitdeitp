@@ -1,4 +1,4 @@
-import { appUrl } from '@/lib/config/app-url';
+import { shortUrl } from '@/lib/config/short-url';
 /**
  * Opt-out Link Generator (SMS-Optimized)
  *
@@ -69,7 +69,10 @@ export function decodeOptOutToken(token: string): string | null {
  * Character savings: 20 chars (~12% of SMS length)
  */
 export function generateOptOutLink(phone: string): string {
-  const baseUrl = appUrl();
+  // Domeniul scurt (`itp.vin`) când e configurat, altfel cel principal — încă
+  // 8 caractere. Cade automat pe `appUrl()` cât timp DNS-ul nu s-a propagat,
+  // deci codul se poate desfășura înaintea domeniului.
+  const baseUrl = shortUrl();
 
   // Encode phone to short base36 token
   const token = encodePhoneToToken(phone);

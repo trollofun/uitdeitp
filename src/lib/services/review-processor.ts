@@ -16,7 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 import { flags } from '@/lib/config/flags';
 import { sendSms } from '@/lib/services/notification';
 import { valueNormalizerFor } from '@/lib/services/sms-encoding';
-import { appPath } from '@/lib/config/app-url';
+import { shortPath } from '@/lib/config/short-url';
 import { logSms } from '@/lib/services/notification-log';
 import { getStationSendKey } from '@/lib/services/station-credits';
 import { CANONICAL_CONSENT_VERSIONS } from '@/lib/integrations/contract-a';
@@ -207,7 +207,7 @@ export async function processReviewRequestsForToday(): Promise<ReviewPassResult>
       // `{review_link}` primește linkul **nostru**, nu pe cel al stației: altfel
       // n-am ști niciodată dacă cineva a dat clic, iar stația n-ar avea cum să
       // justifice costul. Redirectul către formularul Google se face în `/r`.
-      const shortLink = appPath(`/r?t=${encodeURIComponent((claimed as { token: string }).token)}`);
+      const shortLink = shortPath(`/r?t=${encodeURIComponent((claimed as { token: string }).token)}`);
 
       const message = template
         .replace(/{station_name}/g, v(station.name))
