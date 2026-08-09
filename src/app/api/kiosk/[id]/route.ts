@@ -41,6 +41,12 @@ export async function GET(
       );
     }
 
+    const { count: reminderCount } = await supabase
+      .from('reminders')
+      .select('*', { count: 'exact', head: true })
+      .eq('station_id', data.id)
+      .is('deleted_at', null);
+
     // Don't expose sensitive fields to public
     const publicData = {
       id: data.id,
@@ -50,7 +56,9 @@ export async function GET(
       primary_color: data.primary_color,
       station_phone: data.station_phone,
       station_address: data.station_address,
-      total_reminders: data.total_reminders,
+      // Numărat, nu citit din coloană: `total_reminders` n-a fost întreținut
+      // niciodată (0 stocat vs. 93 real).
+      total_reminders: reminderCount ?? 0,
     };
 
     return createSuccessResponse(publicData);

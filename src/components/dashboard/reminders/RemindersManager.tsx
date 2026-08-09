@@ -14,6 +14,7 @@ import { DeleteReminderDialog } from './DeleteReminderDialog'
 import { useReminders } from '@/hooks/reminders/useReminders'
 import { useRealtimeReminders } from '@/hooks/reminders/useRealtimeReminders'
 import { useToast } from '@/hooks/use-toast'
+import { useSendReminderSMS } from '@/hooks/reminders/useSendReminderSMS'
 import type { Database } from '@/types'
 
 type Reminder = Database['public']['Tables']['reminders']['Row']
@@ -124,25 +125,33 @@ export function RemindersManager() {
     }
   }
 
-  // SMS handler
+  /**
+   * Butonul ăsta **mințea**: corpul era un TODO, dar afișa „SMS trimis cu
+   * succes pentru {placa}". Utilizatorul pleca convins că și-a anunțat clientul.
+   *
+   * Ironia era că implementarea reală exista deja — `useSendReminderSMS`
+   * cheamă un endpoint funcțional — doar că n-o importa nicio componentă.
+   * Acum o folosim, iar mesajul de succes apare doar când chiar a plecat ceva.
+   */
+  const sendSms = useSendReminderSMS()
+
   const handleSendSMS = async (reminder: Reminder) => {
     try {
-      toast({
-        title: 'Trimitere SMS',
-        description: 'Se trimite SMS-ul...',
+      const result = await sendSms.mutateAsync({
+        reminder_id: reminder.id,
+        message: `ITP pentru ${reminder.plate_number} expira pe ${new Date(reminder.expiry_date).toLocaleDateString('ro-RO')}. Programeaza-te din timp.`,
       })
-
-      // TODO: Implement SMS sending logic
-      // This would call a Supabase Edge Function or external SMS API
 
       toast({
         title: 'SMS trimis',
-        description: `SMS trimis cu succes pentru ${reminder.plate_number}`,
+        description: result?.messageId
+          ? `Trimis pentru ${reminder.plate_number}`
+          : `Trimis pentru ${reminder.plate_number}`,
       })
     } catch (error) {
       toast({
-        title: 'Eroare',
-        description: 'Nu s-a putut trimite SMS-ul',
+        title: 'SMS-ul nu a plecat',
+        description: error instanceof Error ? error.message : 'Eroare necunoscută',
         variant: 'destructive',
       })
     }

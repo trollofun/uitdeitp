@@ -164,10 +164,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // Increment station counter
-    await supabase.rpc('increment_station_reminders', {
-      station_id_param: reminderData.station_id
-    });
+    // Aici se chema `increment_station_reminders` — un RPC care **nu există**
+    // în bază (verificat în `pg_proc`: zero rezultate pentru `increment_station%`).
+    // Eroarea nu era verificată, deci apelul eșua tăcut la fiecare reminder, de
+    // la început. Rezultatul: `kiosk_stations.total_reminders` arăta 0 în timp
+    // ce stația avea 93 de remindere reale.
+    //
+    // Nu resuscităm contorul denormalizat: ar redeveni greșit la prima cale
+    // care uită să-l incrementeze — kiosk, import, Contract A. Se numără la
+    // citire, unde răspunsul e mereu adevărat.
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {

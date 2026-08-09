@@ -32,16 +32,24 @@ export default async function AddReminderPage() {
     redirect('/unauthorized');
   }
 
-  // Get stations for dropdown (if admin, show all; if station_manager, show only their stations)
-  const stationsQuery = supabase
+  // Selectorul arăta **toate** stațiile active oricui avea rolul de manager.
+  //
+  // Nu era o gaură de securitate — ruta `POST /api/stations/add-reminder`
+  // verifică proprietatea și întoarce 403 pentru o stație străină. Dar erau
+  // două lucruri greșite: numele tuturor stațiilor se scurgeau către oricine
+  // are cont de manager, iar cine alegea din listă o stație care nu e a lui
+  // primea un 403 fără să înțeleagă de ce i s-a oferit opțiunea.
+  //
+  // Lista se filtrează acum ca ruta: managerul își vede stațiile, adminul pe
+  // toate. Aceeași regulă în două locuri, nu una permisivă și una strictă.
+  let stationsQuery = supabase
     .from('kiosk_stations')
     .select('*')
     .eq('is_active', true)
     .order('name');
 
   if (profile.role === 'station_manager') {
-    // TODO: Filter by station manager's assigned stations
-    // For now, show all active stations
+    stationsQuery = stationsQuery.eq('owner_id', user.id);
   }
 
   const { data: stations } = await stationsQuery;
