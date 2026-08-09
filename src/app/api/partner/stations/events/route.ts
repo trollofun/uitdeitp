@@ -17,7 +17,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/service';
-import { authenticatePartner, PartnerAuthError } from '@/lib/partner/keys';
+import { authenticatePartner, touchPartnerKey, PartnerAuthError } from '@/lib/partner/keys';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -50,27 +50,37 @@ type Supabase = ReturnType<typeof createServiceClient>;
  * de tip `rar_code.changed` sosit după schimbare n-ar mai găsi nimic dacă am
  * căuta doar după cod.
  */
+type StationRow = {
+  id: string;
+  name: string;
+  /** Nenul ⇔ ingestul a fost oprit de un eveniment de-al lor, nu de noi. */
+  deactivated_at: string | null;
+  ingest_enabled: boolean | null;
+};
+
+const STATION_COLUMNS = 'id, name, deactivated_at, ingest_enabled';
+
 async function findStation(
   supabase: Supabase,
   academyId?: string,
   rarCode?: string
-): Promise<{ id: string; name: string } | null> {
+): Promise<StationRow | null> {
   if (academyId) {
     const { data } = await supabase
       .from('kiosk_stations')
-      .select('id, name')
+      .select(STATION_COLUMNS)
       .eq('academy_station_id', academyId)
       .maybeSingle();
-    if (data) return data as { id: string; name: string };
+    if (data) return data as StationRow;
   }
 
   if (rarCode) {
     const { data } = await supabase
       .from('kiosk_stations')
-      .select('id, name')
+      .select(STATION_COLUMNS)
       .eq('rar_code', rarCode)
       .maybeSingle();
-    if (data) return data as { id: string; name: string };
+    if (data) return data as StationRow;
   }
 
   return null;
@@ -127,6 +137,12 @@ export async function POST(req: NextRequest) {
     }
     return fail('internal_error', 500, 'Eroare la autentificare');
   }
+
+  // Fire-and-forget, ca la provisionare. E și singura dovadă ieftină că
+  // scope-ul `stations:lifecycle` a devenit activ pe cheia lor: `last_used_at`
+  // se mișcă la prima cerere care trece de autentificare, inclusiv la o probă
+  // cu un tip necunoscut, care nu atinge nicio stație.
+  touchPartnerKey(partner.id);
 
   const idempotencyKey = req.headers.get('idempotency-key')?.trim();
   if (!idempotencyKey) {
@@ -197,6 +213,17 @@ export async function POST(req: NextRequest) {
       }
 
       case 'installation.reactivated': {
+        // Repornim ingestul DOAR dacă tot un eveniment de-al lor l-a oprit —
+        // adică `deactivated_at` e setat. Altfel, `ingest_enabled: false` e o
+        // decizie a noastră (neplată, abuz, cerere a stației) și un eveniment
+        // despre licența SIRAR n-are voie s-o anuleze.
+        //
+        // Nu e teoretic: runda de sincronizare de la pornire emite starea
+        // **curentă** a fiecărei stații, deci trimite `reactivated` pentru tot
+        // ce e viu la ei. Fără garda asta, o fotografie menită să ne alinieze
+        // ar reporni tăcut ingestul pe orice stație oprită manual de noi.
+        const ours = station.deactivated_at !== null;
+
         await supabase
           .from('kiosk_stations')
           .update({
@@ -205,7 +232,7 @@ export async function POST(req: NextRequest) {
             // Simetric cu dezactivarea: n-am oprit `is_active`, deci nu-l
             // repornim. O stație dezactivată manual din admin nu are voie să
             // reînvie dintr-un eveniment despre licența SIRAR.
-            ingest_enabled: true,
+            ...(ours ? { ingest_enabled: true } : {}),
           } as never)
           .eq('id', station.id);
 
@@ -213,7 +240,12 @@ export async function POST(req: NextRequest) {
         // provisionare, cu `rotate: true` — ca să nu existe două căi prin care
         // pot apărea credențiale în ecosistem.
         handled = true;
-        result = { note: 'Reactivată. Cere o cheie nouă prin /provision cu rotate: true.' };
+        result = ours
+          ? { ingest_reenabled: true, note: 'Reactivată. Cere o cheie nouă prin /provision cu rotate: true.' }
+          : {
+              ingest_reenabled: false,
+              note: 'Marcată reactivată, dar ingestul rămâne oprit: nu noi îl oprisem printr-un eveniment de-al vostru.',
+            };
         break;
       }
 
