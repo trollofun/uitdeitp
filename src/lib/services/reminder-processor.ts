@@ -13,7 +13,13 @@ import { getDaysUntilExpiry, nextNotificationDateFor } from '@/lib/services/date
 import { todayInRomania } from '@/lib/config/timezone';
 import { reminderTypeForEmail, reminderTypeLabel } from '@/lib/services/reminder-type';
 import { getUserQuietHours, isInQuietHours, calculateNextAvailableTime } from '@/lib/services/quiet-hours';
-import { renderSmsTemplate, getTemplateForDays, DEFAULT_SMS_TEMPLATES, sendSms } from '@/lib/services/notification';
+import {
+  renderSmsTemplate,
+  renderEmailTemplate,
+  pickStationTemplate,
+  selectSmsTemplate,
+  sendSms,
+} from '@/lib/services/notification';
 import { getStationSendKey, resetStationKeyCache } from '@/lib/services/station-credits';
 
 /** Daily retries before a credit-blocked reminder stops being retried. */
@@ -88,12 +94,15 @@ export async function processReminder(
     phone?: string | null;
     email_enabled?: boolean | null;
     sms_enabled?: boolean | null;
+    full_name?: string | null;
   } | null = null;
 
   if (isRegisteredUser) {
+    // full_name: șabloanele de email ale stației au {name}, iar pentru un user
+    // înregistrat guest_name e de regulă null — fără el, emailul ar zice „Client".
     const { data } = await supabase
       .from('user_profiles')
-      .select('phone, email_enabled, sms_enabled')
+      .select('phone, email_enabled, sms_enabled, full_name')
       .eq('id', reminder.user_id)
       .maybeSingle();
     profile = data;
@@ -180,6 +189,41 @@ export async function processReminder(
 
   console.log(`[Processor] Notification plan: email=${shouldSendEmail}, sms=${shouldSendSMS}, registered=${isRegisteredUser}`);
 
+  // F3.2: datele stației se citesc O SINGURĂ dată, înaintea ambelor canale.
+  // Înainte, interogarea trăia doar în ramura de SMS și nu selecta coloanele
+  // email_template_*: o stație își personaliza emailul în editor și nimeni nu
+  // citea vreodată ce a scris — se trimitea mereu emailul generic.
+  let stationRow: {
+    id: string;
+    name: string;
+    slug: string | null;
+    booking_enabled: boolean | null;
+    station_phone: string | null;
+    station_address: string | null;
+    sms_template_5d: string | null;
+    sms_template_3d: string | null;
+    sms_template_1d: string | null;
+    email_template_5d: string | null;
+    email_template_3d: string | null;
+    email_template_1d: string | null;
+    use_own_notifyhub_key: boolean | null;
+    notifyhub_key_secret_id: string | null;
+  } | null = null;
+
+  if (reminder.station_id && (shouldSendEmail || shouldSendSMS)) {
+    console.log(`[Processor] Fetching custom templates for station ${reminder.station_id}`);
+
+    const { data: station } = await supabase
+      .from('kiosk_stations')
+      .select(
+        'id, name, slug, booking_enabled, station_phone, station_address, sms_template_5d, sms_template_3d, sms_template_1d, email_template_5d, email_template_3d, email_template_1d, use_own_notifyhub_key, notifyhub_key_secret_id'
+      )
+      .eq('id', reminder.station_id)
+      .single();
+
+    stationRow = station;
+  }
+
   let emailResult: { success: boolean; messageId?: string; error?: string } | undefined;
   let smsResult: { success: boolean; messageId?: string; provider?: string; cost?: number; error?: string } | undefined;
   let creditBlocked: 'pending_credits' | 'skipped_no_credits' | null = null;
@@ -189,6 +233,55 @@ export async function processReminder(
   if (shouldSendEmail) {
     if (profile?.email) {
       console.log(`[Processor] Sending email to ${profile.email}`);
+
+      // F3.2: șablonul de email al stației, pentru pragul potrivit zilelor
+      // rămase. Se randează cu renderEmailTemplate, NU cu renderSmsTemplate:
+      // emailul e UTF-8 și diacriticele trebuie păstrate — normalizarea GSM-7
+      // există doar pentru costul pe segmente al SMS-ului.
+      let customBody: string | undefined;
+      let emailTemplateSource: 'custom' | 'default' = 'default';
+
+      if (stationRow) {
+        const picked = pickStationTemplate(daysUntilExpiry, {
+          '1d': stationRow.email_template_1d,
+          '3d': stationRow.email_template_3d,
+          '5d': stationRow.email_template_5d,
+        });
+
+        if (picked.template) {
+          // Dezabonarea cu token e legată de telefon; fără telefon, ducem
+          // clientul la pagina generică — linkul GDPR nu are voie să lipsească.
+          let emailOptOutLink = `${appUrl()}/unsubscribe`;
+          if (profile.phone) {
+            try {
+              emailOptOutLink = generateOptOutLink(profile.phone);
+            } catch {
+              // Telefon într-un format neașteptat — rămâne pagina generică,
+              // emailul tot pleacă.
+            }
+          }
+
+          customBody = renderEmailTemplate(picked.template, {
+            name: profile.full_name || reminder.guest_name || 'Client',
+            plate: reminder.plate_number,
+            date: reminder.expiry_date,
+            days_until: daysUntilExpiry,
+            station_name: stationRow.name || 'uitdeITP',
+            station_phone: stationRow.station_phone || '',
+            station_address: stationRow.station_address || '',
+            app_url: appUrl(),
+            opt_out_link: emailOptOutLink,
+            tip: reminderTypeLabel(reminder.reminder_type ?? reminder.type),
+            booking_link:
+              stationRow.booking_enabled && stationRow.slug
+                ? shortPath(`/p/${stationRow.slug}`)
+                : undefined,
+          });
+          emailTemplateSource = 'custom';
+          console.log(`[Processor] Using station custom ${picked.key} email template`);
+        }
+      }
+
       emailResult = await sendReminderEmail({
         to: profile.email,
         plate: reminder.plate_number,
@@ -198,6 +291,7 @@ export async function processReminder(
         // display casing.
         type: reminderTypeForEmail(reminder.reminder_type ?? reminder.type),
         reminderId: reminder.id,
+        customBody,
       });
 
       if (emailResult.success) {
@@ -211,7 +305,7 @@ export async function processReminder(
           status: 'sent',
           sent_at: new Date().toISOString(),
           provider_message_id: emailResult.messageId,
-          metadata: { days_until_expiry: daysUntilExpiry },
+          metadata: { days_until_expiry: daysUntilExpiry, template_source: emailTemplateSource },
         });
         if (logError) {
           console.warn('[RLS-AUDIT] notification_log insert failed', {
@@ -231,6 +325,7 @@ export async function processReminder(
           metadata: {
             days_until_expiry: daysUntilExpiry,
             error: emailResult.error,
+            template_source: emailTemplateSource,
           },
         });
         if (logError) {
@@ -252,65 +347,52 @@ export async function processReminder(
     if (phoneNumber) {
       console.log(`[Processor] Sending SMS to ${phoneNumber}`);
 
-      // NEW: Fetch station custom templates if reminder is from a kiosk station
-      let smsTemplate: string | undefined;
-      let stationData: {
+      // Datele stației au fost deja citite mai sus (o singură interogare
+      // pentru email + SMS)
+      const stationData: {
         name?: string;
         slug?: string;
         booking_enabled?: boolean;
         station_phone?: string;
         station_address?: string;
-      } = {};
-      let stationCredit: {
+      } = stationRow
+        ? {
+            name: stationRow.name,
+            slug: stationRow.slug ?? undefined,
+            booking_enabled: stationRow.booking_enabled ?? false,
+            station_phone: stationRow.station_phone || undefined,
+            station_address: stationRow.station_address || undefined,
+          }
+        : {};
+      const stationCredit: {
         id: string;
         use_own_notifyhub_key: boolean | null;
         notifyhub_key_secret_id: string | null;
-      } | null = null;
-
-      if (reminder.station_id) {
-        console.log(`[Processor] Fetching custom template for station ${reminder.station_id}`);
-
-        const { data: station } = await supabase
-          .from('kiosk_stations')
-          .select('id, name, slug, booking_enabled, station_phone, station_address, sms_template_5d, sms_template_3d, sms_template_1d, use_own_notifyhub_key, notifyhub_key_secret_id')
-          .eq('id', reminder.station_id)
-          .single();
-
-        if (station) {
-          stationData = {
-            name: station.name,
-            slug: station.slug ?? undefined,
-            booking_enabled: station.booking_enabled ?? false,
-            station_phone: station.station_phone || undefined,
-            station_address: station.station_address || undefined,
-          };
-          stationCredit = {
-            id: station.id,
-            use_own_notifyhub_key: station.use_own_notifyhub_key,
-            notifyhub_key_secret_id: station.notifyhub_key_secret_id,
-          };
-
-          // Select appropriate template based on days until expiry
-          // Match notification intervals: 7/5 days, 3 days, 1 day
-          if (daysUntilExpiry <= 1 && station.sms_template_1d) {
-            smsTemplate = station.sms_template_1d;
-            console.log(`[Processor] Using station custom 1-day template`);
-          } else if (daysUntilExpiry <= 3 && station.sms_template_3d) {
-            smsTemplate = station.sms_template_3d;
-            console.log(`[Processor] Using station custom 3-day template`);
-          } else if (daysUntilExpiry >= 5 && station.sms_template_5d) {
-            smsTemplate = station.sms_template_5d;
-            console.log(`[Processor] Using station custom 5-day template`);
+      } | null = stationRow
+        ? {
+            id: stationRow.id,
+            use_own_notifyhub_key: stationRow.use_own_notifyhub_key,
+            notifyhub_key_secret_id: stationRow.notifyhub_key_secret_id,
           }
-        }
-      }
+        : null;
 
-      // Fall back to default templates if no custom template
-      if (!smsTemplate) {
-        const templateKey = getTemplateForDays(daysUntilExpiry);
-        smsTemplate = DEFAULT_SMS_TEMPLATES[templateKey];
-        console.log(`[Processor] Using default template: ${templateKey}`);
-      }
+      // F3.2: potrivirea veche (`<=1`, `<=3`, `>=5`) lăsa ziua 4 fără niciun
+      // prag — șablonul stației se pierdea tăcut și pleca cel generic.
+      // selectSmsTemplate garantează că ORICE zi nimerește un prag (cel mai
+      // apropiat DE SUS: la 4 zile → șablonul de 5d) și abia apoi cade pe
+      // șablonul implicit, dacă stația nu are unul.
+      const smsSelection = selectSmsTemplate(
+        daysUntilExpiry,
+        stationRow
+          ? {
+              '1d': stationRow.sms_template_1d,
+              '3d': stationRow.sms_template_3d,
+              '5d': stationRow.sms_template_5d,
+            }
+          : null
+      );
+      const smsTemplate = smsSelection.template;
+      console.log(`[Processor] Using ${smsSelection.source} SMS template (${smsSelection.key})`);
 
       // Generate opt-out link (GDPR required)
       const optOutLink = generateOptOutLink(phoneNumber);
@@ -382,7 +464,9 @@ export async function processReminder(
           message_body: renderedMessage,  // Store actual message sent
           metadata: {
             days_until_expiry: daysUntilExpiry,
-            template_source: reminder.station_id ? 'custom' : 'default',
+            // Sursa REALĂ a șablonului, nu doar „are stație": o stație fără
+            // șabloane custom primește tot default — logul trebuie să spună asta.
+            template_source: smsSelection.source,
             station_id: reminder.station_id,
           },
         });
@@ -459,7 +543,7 @@ export async function processReminder(
             days_until_expiry: daysUntilExpiry,
             error: smsResult.error,
             blocked_reason: creditBlocked,
-            template_source: reminder.station_id ? 'custom' : 'default',
+            template_source: smsSelection.source,
           },
         });
         if (logError) {

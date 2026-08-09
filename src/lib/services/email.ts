@@ -5,13 +5,22 @@
  * Ported from Supabase Edge Function for code unification
  */
 
-interface SendEmailParams {
+export interface SendEmailParams {
   to: string;
   plate: string;
   expiryDate: string;
   daysUntilExpiry: number;
   type: 'ITP' | 'RCA' | 'Rovinieta';
   reminderId: string;
+  /**
+   * F3.2: corpul emailului deja randat din șablonul stației (text simplu, cu
+   * placeholder-ele înlocuite). Opțional și aditiv: apelanții existenți nu-l
+   * trimit și primesc exact emailul generic de dinainte.
+   *
+   * Textul păstrează diacriticele intenționat — emailul e UTF-8, nu are taxarea
+   * pe segmente a SMS-ului, deci normalizarea GSM-7 nu are ce căuta aici.
+   */
+  customBody?: string;
 }
 
 interface EmailResult {
@@ -87,9 +96,41 @@ export async function sendReminderEmail(
 }
 
 /**
- * Build HTML email template
+ * Escapare HTML pentru conținut venit din șabloane editabile de stații.
+ * Șablonul e text liber scris de un om în admin — fără escapare, un `<script>`
+ * (sau doar un `<` rătăcit) ar ajunge interpretat în clientul de email.
  */
-function buildEmailHTML(params: SendEmailParams, isUrgent: boolean): string {
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Corpul custom al stației, pregătit pentru HTML: escapat, apoi URL-urile
+ * transformate în linkuri. Linkurile se caută DUPĂ escapare — pe text deja
+ * inofensiv — ca să nu poată introduce markup din șablon.
+ */
+function customBodyToHtml(customBody: string): string {
+  const escaped = escapeHtml(customBody);
+  // {app_url}, {opt_out_link}, {booking_link} sunt URL-uri simple în șablon;
+  // într-un email ele trebuie să fie clickabile, altfel dezabonarea GDPR devine
+  // un exercițiu de copy/paste.
+  return escaped.replace(
+    /(https?:\/\/[^\s&]+(?:&amp;[^\s&]+)*)/g,
+    '<a href="$1" style="color: #3B82F6;">$1</a>'
+  );
+}
+
+/**
+ * Build HTML email template
+ *
+ * Exportat pentru teste: verificăm că `customBody` ajunge în HTML escapat și cu
+ * diacriticele neatinse, fără să trimitem un email real.
+ */
+export function buildEmailHTML(params: SendEmailParams, isUrgent: boolean): string {
   const typeColor =
     params.type === 'ITP' ? '#3B82F6' :
     params.type === 'RCA' ? '#10B981' :
@@ -122,6 +163,21 @@ function buildEmailHTML(params: SendEmailParams, isUrgent: boolean): string {
       <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 8px 0 0 0;">Reminder ${params.type}</p>
     </div>
 
+    ${params.customBody ? `
+    <!-- Conținut custom al stației (F3.2): stația și-a scris propriul mesaj,
+         deci textele generice (alertă, paragrafe standard) nu se mai adaugă
+         peste el — ar fi două voci în același email. -->
+    <div style="padding: 0 40px;">
+      <div style="color: #475569; font-size: 16px; line-height: 24px; margin: 32px 0; white-space: pre-wrap;">${customBodyToHtml(params.customBody)}</div>
+
+      <!-- CTA Button -->
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="https://uitdeitp.ro/dashboard" style="background-color: ${typeColor}; color: #ffffff; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">
+          Vizualizează Detalii
+        </a>
+      </div>
+    </div>
+    ` : `
     ${isUrgent ? `
     <!-- Urgent Alert -->
     <div style="background-color: #FEE2E2; border: 2px solid #DC2626; border-radius: 8px; padding: 16px; margin: 32px 40px 24px;">
@@ -156,6 +212,7 @@ function buildEmailHTML(params: SendEmailParams, isUrgent: boolean): string {
         </a>
       </div>
     </div>
+    `}
 
     <!-- Divider -->
     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">

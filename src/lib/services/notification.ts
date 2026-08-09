@@ -17,8 +17,31 @@ import { segmentSms, valueNormalizerFor } from '@/lib/services/sms-encoding';
  * editor); dacă a scris curat, nu-i stricăm socoteala datele noastre.
  */
 export function renderSmsTemplate(template: string, data: NotificationData): string {
-  const v = valueNormalizerFor(template);
+  // Pentru SMS, valorile injectate se normalizează la GSM-7 (vezi comentariul de
+  // mai sus) — un „Ștefan" nu are voie să dubleze factura stației.
+  return renderTemplateWith(template, data, valueNormalizerFor(template));
+}
 
+/**
+ * Randare de șablon pentru **email**: aceleași placeholder-e ca la SMS, dar FĂRĂ
+ * normalizarea GSM-7. Emailul pleacă în UTF-8 — diacriticele nu costă nimic și
+ * nu au voie să fie stricate: „expiră" trebuie să rămână „expiră", iar clientul
+ * „Ștefan" trebuie să-și vadă numele scris corect.
+ */
+export function renderEmailTemplate(template: string, data: NotificationData): string {
+  return renderTemplateWith(template, data, (value) => value);
+}
+
+/**
+ * Miezul comun de randare. `v` este normalizatorul de valori: `toGsm7` pentru
+ * SMS (când șablonul e curat GSM-7), identitate pentru email. O singură listă de
+ * placeholder-e — dacă apare unul nou, îl primesc automat ambele canale.
+ */
+function renderTemplateWith(
+  template: string,
+  data: NotificationData,
+  v: (value: string) => string
+): string {
   let rendered = template;
 
   // Replace placeholders
@@ -144,6 +167,73 @@ export function getTemplateForDays(daysUntil: number): keyof typeof DEFAULT_SMS_
   if (daysUntil <= 1) return '1d';
   if (daysUntil <= 3) return '3d';
   return '7d';
+}
+
+/** Pragurile de șablon pe care le poate personaliza o stație. */
+export type StationTemplateKey = '1d' | '3d' | '5d';
+
+/** Șabloanele per prag ale unei stații; `null`/gol = neconfigurat. */
+export interface StationDayTemplates {
+  '1d'?: string | null;
+  '3d'?: string | null;
+  '5d'?: string | null;
+}
+
+/**
+ * Alege pragul de șablon al stației pentru un număr de zile până la expirare.
+ *
+ * Regula: pragul cel mai apropiat **DE SUS** — la 4 zile se folosește șablonul
+ * de 5 zile. Vechea potrivire (`<=1`, `<=3`, `>=5`) lăsa ziua 4 fără niciun
+ * prag, iar personalizarea stației se pierdea tăcut în favoarea șablonului
+ * generic. Un mesaj scris pentru „5 zile" trimis cu 4 zile înainte e doar puțin
+ * mai devreme decât promite — unul generic ignoră complet vocea stației. Orice
+ * `daysUntilExpiry` (inclusiv 0, negativ sau 100) nimerește acum un prag.
+ *
+ * Dacă șablonul pragului ales lipsește, se urcă la pragul următor (1d → 3d →
+ * 5d): tot un șablon al stației, doar mai puțin urgent — păstrează
+ * comportamentul vechiului lanț de `else if` și preferă vocea stației în locul
+ * celei generice.
+ */
+export function pickStationTemplate(
+  daysUntilExpiry: number,
+  templates: StationDayTemplates
+): { key: StationTemplateKey; template: string | null } {
+  const key: StationTemplateKey =
+    daysUntilExpiry <= 1 ? '1d' : daysUntilExpiry <= 3 ? '3d' : '5d';
+
+  const fallbackOrder: StationTemplateKey[] =
+    key === '1d' ? ['1d', '3d', '5d'] : key === '3d' ? ['3d', '5d'] : ['5d'];
+
+  for (const k of fallbackOrder) {
+    const t = templates[k];
+    // `trim()`: editorul poate salva șir gol — un șablon gol nu e o alegere,
+    // e o lipsă, deci nu are voie să „câștige" în fața celui implicit.
+    if (t && t.trim().length > 0) {
+      return { key: k, template: t };
+    }
+  }
+
+  return { key, template: null };
+}
+
+/**
+ * Șablonul SMS efectiv pentru un reminder: cel al stației dacă există unul
+ * pentru pragul potrivit, altfel cel implicit din cod. Funcție pură, ca
+ * procesorul să nu mai conțină logică de potrivire netestabilă.
+ */
+export function selectSmsTemplate(
+  daysUntilExpiry: number,
+  stationTemplates?: StationDayTemplates | null
+): { template: string; source: 'custom' | 'default'; key: string } {
+  if (stationTemplates) {
+    const picked = pickStationTemplate(daysUntilExpiry, stationTemplates);
+    if (picked.template) {
+      return { template: picked.template, source: 'custom', key: picked.key };
+    }
+  }
+
+  const key = getTemplateForDays(daysUntilExpiry);
+  return { template: DEFAULT_SMS_TEMPLATES[key], source: 'default', key };
 }
 
 /**

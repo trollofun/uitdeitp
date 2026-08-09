@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { checkReviewLink } from '@/lib/services/review-link';
+import { ROMANIAN_COUNTIES } from '@/lib/services/plate';
 
 const StationUpdateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -11,6 +12,27 @@ const StationUpdateSchema = z.object({
   primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
   station_phone: z.string().optional().nullable(), // Fixed: was contact_phone
   station_address: z.string().optional().nullable(), // Fixed: was contact_email
+  // Directorul public. `public_listed` e opt-in, iar baza refuză activarea
+  // fără oraș, județ și adresă — o fișă publică fără ele e mai rea decât
+  // niciuna. Codul de județ se validează cu aceeași listă ca plăcuțele.
+  public_listed: z.boolean().optional(),
+  city: z.string().trim().min(2).max(80).optional().nullable(),
+  county_code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => v in ROMANIAN_COUNTIES, 'Cod de județ invalid (ex. CT)')
+    .optional()
+    .nullable(),
+  public_description: z.string().trim().max(400).optional().nullable(),
+  pricing: z
+    .array(z.object({ label: z.string().trim().min(2).max(60), price_lei: z.number().int().min(0).max(10000) }))
+    .max(12)
+    .optional(),
+  // Programările: pornirea lor e ce face butonul din fișa publică util.
+  booking_enabled: z.boolean().optional(),
+  slot_minutes: z.number().int().min(10).max(240).optional(),
+  slot_capacity: z.number().int().min(1).max(20).optional(),
   // SMS templates for different intervals
   sms_template_5d: z.string().min(10).optional().nullable(),
   sms_template_3d: z.string().min(10).optional().nullable(),
