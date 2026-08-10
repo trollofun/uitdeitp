@@ -20,6 +20,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { authenticatePartner, touchPartnerKey, PartnerAuthError } from '@/lib/partner/keys';
 import { generateIngestKey } from '@/lib/integrations/station-keys';
 import { provisionStationNotifyHubKey } from '@/lib/services/station-credits';
+import { syncStationRole } from '@/lib/auth/sync-station-role';
 import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 import { appUrl } from '@/lib/config/app-url';
 import { flags } from '@/lib/config/flags';
@@ -255,6 +256,12 @@ export async function POST(req: NextRequest) {
       } as never,
       { onConflict: 'station_id,user_id' }
     );
+
+    // Rolul de platformă urcă odată cu apartenența. Fără asta, `landingPathFor`
+    // trimitea patronul nou la `/stations/dashboard` iar middleware-ul îl arunca
+    // la `/unauthorized`: primul patron real venit prin Academy ar fi aterizat
+    // acolo. Vezi `sync-station-role.ts`.
+    await syncStationRole(supabase, ownerId as string, 'patron');
 
     // owner_id se scrie doar dacă stația nu are deja unul: proprietarul legal
     // nu se schimbă dintr-un claim.

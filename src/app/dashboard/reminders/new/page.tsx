@@ -1,51 +1,17 @@
 import { redirect } from 'next/navigation';
-import { createServerClient } from '@/lib/supabase/server';
-import { Header } from '@/components/dashboard/Header';
-import { ReminderForm } from '@/components/dashboard/ReminderForm';
-import { type CreateReminder } from '@/lib/validation';
 
-async function createReminder(data: CreateReminder) {
-  'use server';
-
-  const supabase = createServerClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
-
-  const { error } = await supabase.from('reminders').insert({
-    user_id: user.id,
-    plate_number: data.plate_number,
-    reminder_type: data.reminder_type,
-    expiry_date: data.expiry_date.toISOString(),
-    notification_intervals: data.notification_intervals,
-    notification_channels: data.notification_channels,
-    guest_phone: data.guest_phone,
-    guest_name: data.guest_name,
-    source: 'web',
-    consent_given: true,
-    consent_timestamp: new Date().toISOString(),
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  redirect('/dashboard/reminders');
-}
-
-export default function NewReminderPage() {
-  return (
-    <div>
-      <Header title="Adaugă reminder nou" description="Creează un reminder pentru vehiculul tău" />
-
-      <div className="p-6 max-w-3xl mx-auto">
-        <ReminderForm onSubmit={createReminder} />
-      </div>
-    </div>
-  );
+/**
+ * Redirecționare către pagina canonică de adăugare.
+ *
+ * Aici a existat un al doilea formular de creare a scadențelor, complet
+ * funcțional dar nelegat din nicio pagină. Scria direct în `reminders` cu
+ * propriul server action, ocolind ruta `/api/reminders` — deci și validarea, și
+ * deduplicarea, și coloanele de consimțământ pe care le completează aceasta.
+ * Două căi de scriere care diverg în tăcere sunt mai rele decât una: multi-
+ * scadența s-a implementat doar pe cea folosită.
+ *
+ * Nu ștergem adresa, ca un eventual link salvat de cineva să nu ducă în gol.
+ */
+export default function NewReminderRedirect() {
+  redirect('/dashboard/add-vehicle');
 }

@@ -18,6 +18,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/service';
 import { authenticatePartner, touchPartnerKey, PartnerAuthError } from '@/lib/partner/keys';
+import { syncStationRole } from '@/lib/auth/sync-station-role';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -268,6 +269,10 @@ export async function POST(req: NextRequest) {
           } as never,
           { onConflict: 'station_id,user_id' }
         );
+
+        // Același motiv ca la provisionare: fără rolul de platformă, membrul
+        // nou e trimis la `/stations` și respins de middleware.
+        await syncStationRole(supabase, member.userId, role);
 
         handled = true;
         result = { role };

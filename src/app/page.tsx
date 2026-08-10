@@ -24,6 +24,33 @@ import { ArrowRight, Bell, AlertTriangle } from 'lucide-react';
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      {/* Bara de navigare.
+          Pagina principală nu avea niciuna: doar butoane de conversie. Efectul
+          era că directorul public de stații și pagina pentru stații existau,
+          dar nu se putea ajunge la ele decât tastând adresa. */}
+      <nav className="border-b bg-card/60 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
+          <Link href="/" className="font-bold">
+            uitdeITP
+          </Link>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Link href="/statii">
+              <Button variant="ghost" size="sm">
+                Stații ITP
+              </Button>
+            </Link>
+            <Link href="/pentru-statii">
+              <Button variant="ghost" size="sm">
+                Pentru stații
+              </Button>
+            </Link>
+            <Link href="/auth/login">
+              <Button size="sm">Contul meu</Button>
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       {/* Hero Section - Maximum Visual Impact */}
       <section className="relative overflow-hidden border-b bg-card/50 backdrop-blur-sm">
         {/* Background Pattern */}
@@ -209,6 +236,16 @@ export default function HomePage() {
                 <li>
                   <Link href="/auth/register" className="text-muted-foreground hover:text-primary">
                     Înregistrare
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/statii" className="text-muted-foreground hover:text-primary">
+                    Caută o stație ITP
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/pentru-statii" className="text-muted-foreground hover:text-primary">
+                    Pentru stații ITP
                   </Link>
                 </li>
                 <li>
