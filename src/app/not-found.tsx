@@ -5,23 +5,26 @@ import { FileQuestion } from 'lucide-react';
 /**
  * Pagina de 404 a aplicației.
  *
- * Există în primul rând pentru `robots: noindex`, și motivul merită scris.
+ * **Misterul „`notFound()` întoarce 200" a fost rezolvat: cauza era
+ * `src/app/loading.tsx` de la rădăcină.** Un `loading.tsx` pe segmentul rădăcină
+ * pune întreaga aplicație într-un Suspense care se transmite în flux: Next
+ * trimite shell-ul — și odată cu el statusul 200 — *înainte* să ruleze
+ * componenta paginii. Când `notFound()` sau `redirect()` se declanșează după
+ * aceea, statusul e deja plecat pe fir. Next se descurcă cum poate: servește
+ * conținutul de 404 cu 200, iar pentru redirect bagă un
+ * `<meta http-equiv="refresh">` în locul unui 3xx real.
  *
- * **`notFound()` întoarce status 200 în aplicația asta.** Măsurat pe producție
- * și reprodus local, inclusiv pe o rută trivială cu un singur `notFound()` în
- * corp. Am eliminat pe rând: Vercel (se reproduce local), middleware-ul
- * (paginile publice îl ocolesc acum, fără nicio schimbare), `revalidate`,
- * `dynamic`, segmentele dinamice și Sentry (dezactivat temporar, tot 200).
- * Cauza rămâne negăsită — Next 14.2.33.
+ * De-asta ancheta dinainte nu găsea nimic: se reproducea și local, și pe o rută
+ * trivială, și fără middleware, și fără Sentry — pentru că `loading.tsx` de la
+ * rădăcină se aplică la *toate* rutele. Simptomul a apărut la `/admin`, unde
+ * `requireAdmin()` întorcea 200 cu meta-refresh către login în loc de 307.
  *
- * Dauna concretă nu e statusul în sine, ci indexarea: un director public în
- * care `/statii/zz` răspunde 200 cu conținut de 404 înseamnă „soft 404", iar
- * Google ar indexa pagini goale generate tastând coduri la întâmplare. Exact
- * ce încercam să prevenim validând codul de județ.
+ * Probat prin eliminare: fără fișierul acela, `/statii/zz` → 404 și `/admin`
+ * neautentificat → 307.
  *
- * `noindex` închide dauna fără să depindă de rezolvarea misterului. Când
- * statusul se repară, meta rămâne corect oricum — un 404 real nu trebuie
- * indexat nici el.
+ * `noindex` rămâne. Nu mai e cârjă, ci ce trebuie: un 404 real nu se indexează
+ * nici el. Iar dacă cineva reintroduce vreodată un `loading.tsx` care acoperă
+ * rute cu `notFound()`, meta-ul ăsta limitează dauna până se observă.
  */
 export const metadata: Metadata = {
   title: 'Pagina nu există | uitdeITP',

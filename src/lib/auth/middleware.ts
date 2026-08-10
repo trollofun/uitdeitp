@@ -85,8 +85,16 @@ export async function updateSession(request: NextRequest) {
   const authPaths = ['/auth/login', '/auth/register', '/auth/forgot-password'];
   const isAuthRoute = authPaths.some((path) => request.nextUrl.pathname.startsWith(path));
 
-  // Redirect logic
-  if (isProtectedRoute && !user) {
+  // Redirect logic.
+  //
+  // `/admin` și `/stations` intră aici, nu doar în verificarea de rol de mai
+  // jos: aceea rulează numai când `user` există, deci un vizitator anonim
+  // ajungea până în layout, unde `requireAdmin()` chema `redirect()`. Un
+  // redirect din layout e corect ca intenție, dar mai fragil ca mecanism —
+  // exact el s-a transformat în `<meta refresh>` cu status 200 cât timp exista
+  // `loading.tsx` la rădăcină. Oprit din marginea aplicației, e un 307 real,
+  // fără randare inutilă.
+  if ((isProtectedRoute || isAdminRoute || isStationManagerRoute) && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/auth/login';
     redirectUrl.searchParams.set('redirectTo', request.nextUrl.pathname);

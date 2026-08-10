@@ -24,16 +24,17 @@ import { shortUrl, isShortPath } from '@/lib/config/short-url';
 /**
  * Pagini publice care nu au nevoie de sesiune.
  *
- * Nu sunt doar o optimizare. `updateSession` întoarce
- * `NextResponse.next({ request: { headers } })`, iar cu forma aceea orice
- * pagină care cheamă `notFound()` ajunge servită cu status **200** în loc de
- * 404 — „soft 404". Măsurat: `/statii/zz`, `/programare/nu-exista` și
- * `/kiosk/nu-exista` întorceau toate 200 cu conținut de 404, în timp ce o cale
- * complet inexistentă întorcea corect 404.
+ * **Corectură.** Comentariul de aici a susținut o vreme că forma
+ * `NextResponse.next({ request: { headers } })` din `updateSession` e cea care
+ * transformă `notFound()` în 200. Nu era adevărat, iar acum e probat: cu
+ * bypass-ul scos, deci trecând prin `updateSession`, `/statii/zz` întoarce 404
+ * curat. Vinovatul era `src/app/loading.tsx` de la rădăcină — vezi
+ * `not-found.tsx`.
  *
- * Pentru un director public, asta înseamnă că Google ar indexa `/statii/zz` ca
- * pagină validă — exact ce încercam să prevenim validând codul de județ.
- * Kiosk-ul avea deja problema, dinaintea acestor pagini.
+ * Bypass-ul rămâne, dar pentru motivul lui adevărat, care e mai modest:
+ * economisește un drum la Supabase (`auth.getUser`) pe fiecare vizitare a unei
+ * pagini publice. Pentru un director indexat de motoare de căutare, unde
+ * majoritatea traficului e anonim, merită.
  */
 const PUBLIC_PREFIXES = ['/statii', '/programare', '/kiosk', '/o', '/r', '/a', '/p/'];
 
