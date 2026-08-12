@@ -35,6 +35,41 @@ function dlrCallbackUrl(): string | null {
   return `${base}/api/webhooks/notifyhub`;
 }
 
+/**
+ * Lista albă de destinatari, pentru mediile care nu sunt producție.
+ *
+ * Problema, formulată de Academy pentru staging-ul lor și valabilă identic la
+ * noi: Preview-ul de pe Vercel primește **aceleași** variabile ca producția —
+ * aceeași bază Supabase, aceeași cheie NotifyHub. Deci un deployment de probă
+ * vede numerele reale ale clienților și are dreptul să le scrie. Un singur test
+ * declanșat din greșeală ajunge la un om adevărat.
+ *
+ * `SMS_ALLOWLIST` rezolvă asta prin inversarea implicitului: cât timp variabila
+ * e setată, **numai** numerele din ea primesc mesaje, orice altceva e refuzat
+ * înainte de rețea. Nesetată — cazul producției — nu schimbă nimic.
+ *
+ * Deliberat aici, în clientul de NotifyHub, nu în procesorul de remindere:
+ * ăsta e singurul loc prin care pleacă un SMS, indiferent dacă vine din cron,
+ * din kiosk, din OTP sau dintr-un test manual. O gardă pusă mai sus s-ar putea
+ * ocoli fără să-și dea nimeni seama.
+ */
+function allowlistedRecipients(): string[] | null {
+  const raw = process.env.SMS_ALLOWLIST?.trim();
+  if (!raw) return null;
+  const list = raw
+    .split(',')
+    .map((n) => n.replace(/[\s-]/g, ''))
+    .filter(Boolean);
+  return list.length > 0 ? list : null;
+}
+
+function isAllowedRecipient(to: string): boolean {
+  const allowlist = allowlistedRecipients();
+  if (!allowlist) return true;
+  const normalised = to.replace(/[\s-]/g, '');
+  return allowlist.includes(normalised);
+}
+
 interface SendSmsRequest {
   to: string;
   message: string;
@@ -125,6 +160,20 @@ class NotifyHubClient {
     const maxRetries = 3;
     const apiKey = options.apiKey || this.apiKey;
     let lastError: SendSmsResponse | null = null;
+
+    if (!isAllowedRecipient(request.to)) {
+      // Forma răspunsului e cea a unui 4xx obișnuit, ca apelantul să-l trateze
+      // ca pe orice refuz — fără reîncercare și fără cale specială de eroare.
+      console.warn('[NotifyHub] destinatar în afara SMS_ALLOWLIST, nu trimit', {
+        to: `${request.to.slice(0, 6)}…`,
+      });
+      return {
+        success: false,
+        error: 'Destinatar în afara listei albe a mediului (SMS_ALLOWLIST)',
+        code: 'RECIPIENT_NOT_ALLOWLISTED',
+        httpStatus: 403,
+      };
+    }
 
     const callbackUrl = request.callbackUrl ?? dlrCallbackUrl();
     const payload: SendSmsRequest = {

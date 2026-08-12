@@ -21,6 +21,7 @@ import { authenticatePartner, touchPartnerKey, PartnerAuthError } from '@/lib/pa
 import { generateIngestKey } from '@/lib/integrations/station-keys';
 import { provisionStationNotifyHubKey } from '@/lib/services/station-credits';
 import { syncStationRole } from '@/lib/auth/sync-station-role';
+import { checkRarNamespace } from '@/lib/partner/test-namespace';
 import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 import { appUrl } from '@/lib/config/app-url';
 import { flags } from '@/lib/config/flags';
@@ -106,6 +107,16 @@ export async function POST(req: NextRequest) {
   }
 
   const { academy_station_id, rar_code, name, tier, inspector_email, rotate } = parsed.data;
+
+  // Spațiul de test și cel real nu se amestecă, în nicio direcție. Verificat
+  // aici, înainte de orice scriere: un refuz e ieftin, o stație de test rămasă
+  // în producție costă o curățenie manuală, iar o stație reală ștearsă la
+  // curățenie costă mult mai mult.
+  const namespaceViolation = checkRarNamespace(partner.label, rar_code);
+  if (namespaceViolation) {
+    return fail(namespaceViolation.code, 422, namespaceViolation.message);
+  }
+
   const supabase = createServiceClient();
 
   try {
