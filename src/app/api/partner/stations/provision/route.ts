@@ -21,7 +21,7 @@ import { authenticatePartner, touchPartnerKey, PartnerAuthError } from '@/lib/pa
 import { generateIngestKey } from '@/lib/integrations/station-keys';
 import { provisionStationNotifyHubKey } from '@/lib/services/station-credits';
 import { syncStationRole } from '@/lib/auth/sync-station-role';
-import { checkRarNamespace } from '@/lib/partner/test-namespace';
+import { checkRarNamespace, isTestRarCode } from '@/lib/partner/test-namespace';
 import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 import { appUrl } from '@/lib/config/app-url';
 import { flags } from '@/lib/config/flags';
@@ -323,11 +323,21 @@ export async function POST(req: NextRequest) {
     // funcționează (cade pe cheia platformei); o stație fără cheie de ingest
     // nu funcționează deloc. Se raportează în răspuns ca să nu treacă neobservat
     // și se poate relua din admin.
-    const notifyhub = await provisionStationNotifyHubKey({
-      id: stationId,
-      name: stationName,
-      rar_code,
-    });
+    //
+    // Stațiile din spațiul de test nu primesc cheie NotifyHub. Probat pe
+    // 12.08.2026: `POST /api/admin/keys` acceptă `allowed_prefixes` în corp,
+    // răspunde 201 și **îl ignoră în tăcere** — rândul rezultat rămâne pe
+    // implicitul `['+40']`. Adică o stație de test ar căpăta o cheie live care
+    // poate scrie oricărui număr din România. Cât timp nu putem îngrădi cheia
+    // la emitere, nu o emitem: e singura variantă în care garanția nu depinde
+    // de o configurare pe care cineva poate uita s-o pună.
+    const notifyhub = isTestRarCode(rar_code)
+      ? ({ ok: false as const, reason: 'test_station', detail: undefined })
+      : await provisionStationNotifyHubKey({
+          id: stationId,
+          name: stationName,
+          rar_code,
+        });
 
     if (!notifyhub.ok) {
       console.warn('[Provision] NotifyHub key not issued', {
