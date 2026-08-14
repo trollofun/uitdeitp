@@ -117,11 +117,26 @@ export type ProvisionKeyResult =
  * decizie separată (§154 din documentul de arhitectură), iar o stație nou
  * provisionată nu trebuie să se trezească blocată pe sold zero.
  */
-export async function provisionStationNotifyHubKey(station: {
-  id: string;
-  name: string;
-  rar_code: string | null;
-}): Promise<ProvisionKeyResult> {
+export async function provisionStationNotifyHubKey(
+  station: {
+    id: string;
+    name: string;
+    rar_code: string | null;
+  },
+  /**
+   * Pentru stațiile din spațiul de test. Pe 12.08 am oprit cu totul emiterea
+   * lor, fiindcă `POST /api/admin/keys` accepta `allowed_prefixes` și îl
+   * ignora în tăcere — deci o stație de test primea o cheie live care putea
+   * scrie oricărui număr din România. NotifyHub a reparat pe 14.08: câmpul se
+   * stochează, răspunsul îl citește din bază, iar `delivery_mode: 'sandbox'`
+   * rulează tot fluxul fără să apeleze vreodată providerul.
+   *
+   * Deci centură dublă, cum au propus și ei: sandbox **și** listă albă. Chiar
+   * dacă sandbox-ul ar avea vreodată un bug, prefixul dur oprește orice număr
+   * real — verificat: 403 `BLOCKED_PREFIX`.
+   */
+  options: { sandbox?: boolean; allowedPrefixes?: string[] } = {}
+): Promise<ProvisionKeyResult> {
   // `.trim()` nu e cosmetic: NotifyHub compară valoarea **trimmed** cu ce
   // trimitem noi, iar un `\n` lipit accidental la copiere în Vercel n-ar
   // schimba lungimea destul cât să pice verificarea de 32 de caractere — ar
@@ -164,6 +179,8 @@ export async function provisionStationNotifyHubKey(station: {
         label: `uitdeITP — ${station.name}`,
         owner_ref: station.rar_code,
         billing_mode: 'postpaid',
+        ...(options.sandbox ? { delivery_mode: 'sandbox' } : {}),
+        ...(options.allowedPrefixes ? { allowed_prefixes: options.allowedPrefixes } : {}),
       }),
       signal: AbortSignal.timeout(8000),
     });

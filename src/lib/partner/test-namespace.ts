@@ -70,3 +70,16 @@ export function checkRarNamespace(
 
   return null;
 }
+
+/**
+ * Prefixele către care are voie să trimită o stație de test.
+ *
+ * `+40700000` e intervalul folosit deja de cheia de staging a Academy, stabilit
+ * de NotifyHub — îl refolosim ca să existe un singur interval de test în
+ * ecosistem, nu trei care se contrazic.
+ *
+ * E a doua centură, nu prima: cheia stațiilor de test e oricum `sandbox`, deci
+ * providerul nu e apelat niciodată. Prefixul dur acoperă cazul în care
+ * sandbox-ul ar avea vreodată un defect.
+ */
+export const TEST_SMS_PREFIXES = ['+40700000'];

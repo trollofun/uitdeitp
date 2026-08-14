@@ -21,7 +21,7 @@ import { authenticatePartner, touchPartnerKey, PartnerAuthError } from '@/lib/pa
 import { generateIngestKey } from '@/lib/integrations/station-keys';
 import { provisionStationNotifyHubKey } from '@/lib/services/station-credits';
 import { syncStationRole } from '@/lib/auth/sync-station-role';
-import { checkRarNamespace, isTestRarCode } from '@/lib/partner/test-namespace';
+import { checkRarNamespace, isTestRarCode, TEST_SMS_PREFIXES } from '@/lib/partner/test-namespace';
 import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 import { appUrl } from '@/lib/config/app-url';
 import { flags } from '@/lib/config/flags';
@@ -324,20 +324,19 @@ export async function POST(req: NextRequest) {
     // nu funcționează deloc. Se raportează în răspuns ca să nu treacă neobservat
     // și se poate relua din admin.
     //
-    // Stațiile din spațiul de test nu primesc cheie NotifyHub. Probat pe
-    // 12.08.2026: `POST /api/admin/keys` acceptă `allowed_prefixes` în corp,
-    // răspunde 201 și **îl ignoră în tăcere** — rândul rezultat rămâne pe
-    // implicitul `['+40']`. Adică o stație de test ar căpăta o cheie live care
-    // poate scrie oricărui număr din România. Cât timp nu putem îngrădi cheia
-    // la emitere, nu o emitem: e singura variantă în care garanția nu depinde
-    // de o configurare pe care cineva poate uita s-o pună.
-    const notifyhub = isTestRarCode(rar_code)
-      ? ({ ok: false as const, reason: 'test_station', detail: undefined })
-      : await provisionStationNotifyHubKey({
-          id: stationId,
-          name: stationName,
-          rar_code,
-        });
+    // Stațiile din spațiul de test primesc cheie **sandbox**, cu listă albă pe
+    // numerele de probă. Pe 12.08 nu primeau nimic: endpoint-ul accepta
+    // `allowed_prefixes` și îl ignora tăcut, deci singura garanție posibilă era
+    // să nu emitem deloc. NotifyHub a reparat pe 14.08 — câmpul se stochează,
+    // răspunsul îl citește din bază, iar sandbox-ul nu apelează providerul.
+    // Verificat cap-coadă: număr din listă → `sandbox: true`, fără SMS real;
+    // număr real → 403 `BLOCKED_PREFIX`.
+    const notifyhub = await provisionStationNotifyHubKey(
+      { id: stationId, name: stationName, rar_code },
+      isTestRarCode(rar_code)
+        ? { sandbox: true, allowedPrefixes: TEST_SMS_PREFIXES }
+        : {}
+    );
 
     if (!notifyhub.ok) {
       console.warn('[Provision] NotifyHub key not issued', {
