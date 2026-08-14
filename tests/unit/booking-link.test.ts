@@ -67,3 +67,21 @@ describe('{booking_link} în șabloane', () => {
     expect(segmentSms(out).encoding).toBe('GSM-7');
   });
 });
+
+describe('{opt_out_link}', () => {
+  it('se înlocuiește când există', () => {
+    const out = renderSmsTemplate('Test.\nStop: {opt_out_link}', {
+      ...(base as object),
+      opt_out_link: 'https://www.uitdeitp.ro/o?t=bq8x4k',
+    } as never);
+    expect(out).toBe('Test.\nStop: https://www.uitdeitp.ro/o?t=bq8x4k');
+  });
+
+  it('dispare cu etichetă cu tot când lipsește', () => {
+    // Un placeholder rămas literal arată a defect și tot nu oferă o cale de
+    // dezabonare — aceeași regulă ca la {booking_link}.
+    const out = renderSmsTemplate('Test.\nStop: {opt_out_link}', base);
+    expect(out).toBe('Test.');
+    expect(out).not.toContain('{opt_out_link}');
+  });
+});

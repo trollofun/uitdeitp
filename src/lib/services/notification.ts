@@ -75,9 +75,13 @@ function renderTemplateWith(
     rendered = rendered.replace(/{app_url}/g, v(data.app_url));
   }
 
-  if (data.opt_out_link) {
-    rendered = rendered.replace(/{opt_out_link}/g, v(data.opt_out_link));
-  }
+  // Ca la `{booking_link}`: fie se înlocuiește, fie dispare cu etichetă cu tot.
+  // Un `{opt_out_link}` rămas literal într-un SMS e mai rău decât lipsa lui —
+  // arată a defect și tot nu oferă nicio cale de dezabonare. Cazul apare doar
+  // pe o cale fără telefon, unde tokenul nici n-ar avea din ce se construi.
+  rendered = data.opt_out_link
+    ? rendered.replace(/{opt_out_link}/g, v(data.opt_out_link))
+    : rendered.replace(/\s*[A-Za-zĂÂÎȘȚăâîșț]*:?\s*{opt_out_link}\.?/g, '');
 
   // `{booking_link}` dispare cu totul când stația n-are programări pornite, nu
   // rămâne ca text literal și nici nu lasă în urmă „Programare: ." — se curăță
@@ -152,11 +156,11 @@ export function truncateSms(message: string, maxParts: number = 3): string {
  * `tests/unit/template-longest-type.test.ts` verifică toate combinațiile.
  */
 export const DEFAULT_SMS_TEMPLATES = {
-  '7d': 'Buna {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date}).\n\nProgramare: {station_phone}. Online: {booking_link}',
-  '3d': 'ATENTIE {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date})!\n\nProgramare: {station_phone}. Online: {booking_link}',
-  '1d': 'URGENT: {name}, {tip} pentru {plate} expira MAINE ({date})!\n\nProgramare: {station_phone}. Online: {booking_link}',
+  '7d': 'Buna {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date}).\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
+  '3d': 'ATENTIE {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date})!\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
+  '1d': 'URGENT: {name}, {tip} pentru {plate} expira MAINE ({date})!\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
   expired:
-    'ATENTIE: {name}, {tip} pentru {plate} a EXPIRAT pe {date}.\n\nProgramare: {station_phone}. Online: {booking_link}',
+    'ATENTIE: {name}, {tip} pentru {plate} a EXPIRAT pe {date}.\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
 };
 
 /**
