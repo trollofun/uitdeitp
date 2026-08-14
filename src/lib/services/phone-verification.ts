@@ -90,9 +90,17 @@ async function checkRateLimit(phone: string): Promise<boolean> {
 /**
  * Send SMS verification code via NotifyHub
  */
-async function sendSMS(phone: string, code: string): Promise<boolean> {
+async function sendSMS(
+  phone: string,
+  code: string,
+  verificationId?: string
+): Promise<boolean> {
   try {
     const result = await notifyHub.sendVerificationCode(phone, code, undefined, {
+      // A doua cale de OTP, aceeași problemă ca la `verification/send`: fără
+      // cheie, o reîncercare după un timeout de rețea trimite al doilea SMS cu
+      // același cod. Rândul de verificare e identificatorul stabil.
+      ...(verificationId ? { idempotencyKey: `otp:${verificationId}` } : {}),
       message: `Cod ${code} pentru uitdeITP\n\nCodul expiră în ${CODE_EXPIRY_MINUTES} minute.`,
       templateId: 'phone_verification',
       metadata: {
@@ -167,7 +175,7 @@ export async function sendVerificationCode(
     }
 
     // Send SMS via NotifyHub
-    const smsSent = await sendSMS(normalizedPhone, code);
+    const smsSent = await sendSMS(normalizedPhone, code, (verification as { id?: string })?.id);
 
     if (!smsSent) {
       // Delete verification record if SMS failed

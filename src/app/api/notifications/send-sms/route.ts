@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { handleApiError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
 import { notifyHub } from '@/lib/services/notifyhub';
+import { todayInRomania } from '@/lib/config/timezone';
 import { logSms } from '@/lib/services/notification-log';
 import { z } from 'zod';
 import { checkDurableRateLimit } from '@/lib/api/rate-limit';
@@ -137,16 +138,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const smsResult = await notifyHub.sendSms({
-      to: phone_number,
-      message,
-      metadata: {
-        reminder_id,
-        plate_number: reminder.plate_number,
-        reminder_type: reminder.reminder_type,
-        source: 'manual',
+    const smsResult = await notifyHub.sendSms(
+      {
+        to: phone_number,
+        message,
+        metadata: {
+          reminder_id,
+          plate_number: reminder.plate_number,
+          reminder_type: reminder.reminder_type,
+          source: 'manual',
+        },
       },
-    });
+      {
+        // Trimitere pornită de un om dintr-un buton, deci exact locul unde un
+        // dublu-clic sau un refresh nervos produce două SMS-uri. Cheia leagă
+        // reminderul de ziua curentă: retrimiterea de mâine e legitimă și
+        // trece, a doua apăsare de acum nu.
+        idempotencyKey: `manual:${reminder_id}:${todayInRomania()}`,
+      }
+    );
 
     await logSms({
       reminderId: reminder_id,

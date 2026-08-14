@@ -187,7 +187,7 @@ export async function processReviewRequestsForToday(): Promise<ReviewPassResult>
           status: 'scheduled',
           consent_version: reminder.consent_version,
         } as never)
-        .select('token')
+        .select('id, token')
         .single();
 
       if (claimError || !claimed) {
@@ -221,7 +221,13 @@ export async function processReviewRequestsForToday(): Promise<ReviewPassResult>
         message,
         undefined,
         undefined,
-        apiKey ? { apiKey } : undefined
+        {
+          ...(apiKey ? { apiKey } : {}),
+          // `review_requests` are unique(reminder_id), deci id-ul cererii e
+          // deja unic pe client și pe rundă — exact ce trebuie ca o reluare a
+          // procesorului să nu ceară de două ori aceeași recenzie.
+          idempotencyKey: `review:${(claimed as { id: string }).id}`,
+        }
       );
 
       await logSms({

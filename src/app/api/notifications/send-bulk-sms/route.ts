@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { handleApiError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
 import { notifyHub } from '@/lib/services/notifyhub';
+import { todayInRomania } from '@/lib/config/timezone';
 import { logSms } from '@/lib/services/notification-log';
 import { z } from 'zod';
 
@@ -137,17 +138,24 @@ export async function POST(req: NextRequest) {
           `ITP pentru ${reminder.plate_number} expira pe ${new Date(reminder.expiry_date).toLocaleDateString('ro-RO')}. Programeaza inspectia!`;
 
         // Send SMS
-        const smsResult = await notifyHub.sendSms({
-          to: reminder.guest_phone!,
-          message,
-          metadata: {
-            reminder_id: reminder.id,
-            plate_number: reminder.plate_number,
-            reminder_type: reminder.reminder_type,
-            source: 'bulk',
-            sent_by: user.id,
+        const smsResult = await notifyHub.sendSms(
+          {
+            to: reminder.guest_phone!,
+            message,
+            metadata: {
+              reminder_id: reminder.id,
+              plate_number: reminder.plate_number,
+              reminder_type: reminder.reminder_type,
+              source: 'bulk',
+              sent_by: user.id,
+            },
           },
-        });
+          {
+            // Un lot retrimis din greșeală e cea mai scumpă greșeală posibilă
+            // aici: se înmulțește cu numărul de destinatari.
+            idempotencyKey: `bulk:${reminder.id}:${todayInRomania()}`,
+          }
+        );
 
         await logSms({
           reminderId: reminder.id,
