@@ -22,6 +22,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { handleNotifyHubAlert, type NotifyHubAlert } from '@/lib/services/notifyhub-alert';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   applyDlr,
@@ -75,6 +76,17 @@ export async function POST(req: Request) {
   // Azi trimit doar 'dlr'; un tip nou de eveniment nu trebuie să producă
   // 404/500 la ei — confirmăm primirea și mergem mai departe.
   const event = payload.event ?? req.headers.get('x-notifyhub-event');
+
+  // Alertele intră pe același endpoint, varianta (a) cerută de ei: aceeași
+  // semnătură, același secret, aceeași verificare de vechime. Un al doilea
+  // endpoint ar fi dublat codul de securitate fără să cumpere nimic.
+  if (event === 'alert') {
+    const result = await handleNotifyHubAlert(payload as NotifyHubAlert);
+    // 200 chiar dacă emailul a picat: reîncercarea lor s-ar lovi de aceeași
+    // problemă de opt ori, iar alerta e deja în jurnal.
+    return NextResponse.json({ received: true, ...result }, { status: 200 });
+  }
+
   if (event !== 'dlr') {
     console.warn('[NotifyHub DLR] eveniment ignorat:', event);
     return NextResponse.json({ received: true, ignored: 'unknown_event' }, { status: 200 });

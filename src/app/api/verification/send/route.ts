@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
     console.log('[Verification] Generated code (dev only):', process.env.NODE_ENV === 'development' ? code : '***');
 
     // Store in database (use correct column names)
-    const { error: insertError } = await supabase
+    const { data: verificationRow, error: insertError } = await supabase
       .from('phone_verifications')
       .insert({
         phone_number: formattedPhone,
@@ -212,7 +212,9 @@ export async function POST(req: NextRequest) {
         attempts: 0,      // Required by RLS policy
         ip_address: clientIp !== 'unknown' ? clientIp : null,
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-      });
+      })
+      .select('id')
+      .single();
 
     console.log('[Verification] Database insert result:', {
       success: !insertError,
@@ -233,6 +235,16 @@ export async function POST(req: NextRequest) {
     try {
       const smsResult = await notifyHub.sendVerificationCode(formattedPhone, code, undefined, {
         message: `Codul tău de verificare: ${code}\n\nCodul expiră în 10 minute.\n\nuitdeitp.ro`,
+        // Calea asta trimitea fără cheie de idempotență, iar NotifyHub o umplea
+        // server-side cu un UUID — adică deloc. Dovada a venit de la ei: două
+        // trimiteri din 13 august cu UUID pur, marcate `MISSING_IDEMPOTENCY_KEY`.
+        // Efectul: dacă rețeaua cădea după ce mesajul plecase, reîncercarea
+        // noastră trimitea al doilea SMS cu același cod.
+        //
+        // Rândul de verificare e cheia potrivită: unic pe cerere, stabil la
+        // reîncercare, și nu scurge codul în jurnalele altcuiva — mesajul îl
+        // conține oricum, dar cheia n-are de ce să-l mai repete.
+        idempotencyKey: verificationRow?.id ? `otp:${verificationRow.id}` : undefined,
       });
 
       // OTP sends now land in notification_log too — they consume the same

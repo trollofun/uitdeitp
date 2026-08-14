@@ -427,10 +427,16 @@ export async function processReminder(
         ? await getStationSendKey(stationCredit)
         : undefined;
 
-      // One key per reminder per interval: sendSms retries 3× on 5xx/timeout,
-      // and the daily cron can re-run, so without this a response lost on the
-      // wire becomes a second real SMS to the client.
-      const idempotencyKey = `${reminder.id}:${daysUntilExpiry}`;
+      // One key per reminder per scheduled day: sendSms retries 3× on
+      // 5xx/timeout, and the daily cron can re-run, so without this a response
+      // lost on the wire becomes a second real SMS to the client.
+      //
+      // Ziua programată, nu zilele rămase. Semnalasem chiar noi cazul-limită,
+      // iar NotifyHub a recomandat aceeași formă: dacă o trimitere eșuează și
+      // se reia a doua zi, `zile_rămase` s-a schimbat între timp, deci vechea
+      // cheie devenea alta și dedupe-ul nu mai prindea nimic — exact în ziua
+      // în care conta. Data e stabilă prin construcție.
+      const idempotencyKey = `${reminder.id}:${todayInRomania()}`;
 
       const smsResponse = await sendSms(
         phoneNumber,
