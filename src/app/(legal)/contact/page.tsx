@@ -69,8 +69,8 @@ export default function ContactPage() {
           <Ban className="h-5 w-5 text-primary" />
           <h3 className="mt-3 font-semibold">Oprirea mesajelor</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Nu e nevoie să ne scrii: folosește linkul de dezabonare din SMS sau răspunde cu{' '}
-            <strong>STOP</strong>. Se aplică imediat.
+            Nu e nevoie să ne scrii: folosește linkul de dezabonare din fiecare SMS. Se
+            aplică imediat.
           </p>
         </div>
       </div>

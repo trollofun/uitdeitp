@@ -49,12 +49,31 @@ export default function PoliticaConfidentialitatePage() {
         <a href={`mailto:${LEGAL_PRIVACY_EMAIL}`}>{LEGAL_PRIVACY_EMAIL}</a>. Răspundem în cel
         mult 30 de zile, termenul din art. 12 GDPR.
       </p>
+      <h3>Cine răspunde pentru ce</h3>
       <p>
-        <strong>Când stația este operator, iar noi împuternicit.</strong> Dacă datele tale
-        au ajuns la noi prin stația unde ți-ai făcut inspecția, stația decide scopul
-        prelucrării, iar noi le procesăm în numele ei. În practică nu-ți schimbă nimic:
-        drepturile de mai jos se exercită la fel, la aceeași adresă, iar noi le transmitem
-        mai departe unde e cazul.
+        Rolul depinde de calea pe care au ajuns datele la noi, iar diferența e reală, nu
+        formală:
+      </p>
+      <ul>
+        <li>
+          <strong>Datele venite de la o stație ITP</strong> — de la terminalul din stație,
+          din programul ei de gestiune sau dintr-o listă transmisă de ea. Aici{' '}
+          <strong>stația este operatorul</strong>: ea a strâns datele, ea ți-a cerut
+          acordul și ea decide de ce te contactează. Noi suntem doar împuternicitul care
+          execută, pe baza contractului cu ea. Stația ne garantează contractual că are
+          consimțământul tău; <strong>răspunderea pentru temeiul prelucrării și pentru
+          corectitudinea datelor îi aparține</strong>.
+        </li>
+        <li>
+          <strong>Datele pe care ni le dai direct</strong>, când îți faci cont pe
+          uitdeITP. Aici nu e nicio stație la mijloc, deci{' '}
+          <strong>operatorul suntem noi</strong> și răspundem ca atare.
+        </li>
+      </ul>
+      <p>
+        În practică nu-ți schimbă nimic din ce poți cere: scrie-ne la adresa de mai sus
+        indiferent de caz. Dacă cererea privește date pentru care operatorul e stația, o
+        transmitem mai departe către ea și îți spunem cui.
       </p>
 
       <h2>2. De unde avem datele</h2>
@@ -185,9 +204,8 @@ export default function PoliticaConfidentialitatePage() {
       </p>
       <ul>
         <li>
-          <strong>Oprirea mesajelor, imediat</strong>: linkul de dezabonare din fiecare SMS,
-          sau răspunzi cu <strong>STOP</strong>. Se aplică pe loc, fără să fie nevoie de
-          cont.
+          <strong>Oprirea mesajelor, imediat</strong>: linkul de dezabonare din fiecare
+          SMS. Se aplică pe loc, fără să fie nevoie de cont și fără să ne scrii.
         </li>
         <li>
           <strong>Copia datelor tale</strong>: din cont, secțiunea{' '}

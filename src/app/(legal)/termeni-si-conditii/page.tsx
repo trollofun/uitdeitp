@@ -5,9 +5,18 @@ import { legalEntity, LEGAL_CONTACT_EMAIL } from '@/lib/config/legal';
 /**
  * Termenii serviciului.
  *
- * Punctul care contează cu adevărat e §4: un SMS de reamintire nu e o garanție
- * legală, iar responsabilitatea inspecției rămâne a proprietarului. Fără el,
+ * Două puncte poartă greutatea. §4: un SMS de reamintire nu e o garanție
+ * legală, iar responsabilitatea inspecției rămâne a proprietarului — fără el,
  * un client căruia i-a picat un mesaj ar putea susține că amenda e a noastră.
+ * §6: pentru datele venite de la o stație, stația e operatorul și răspunde
+ * pentru temeiul prelucrării, cu despăgubire dacă lipsește.
+ *
+ * Delimitarea din §6 merge până unde poate merge, și nu mai departe. Pentru
+ * conturile create direct pe site nu există nicio stație la mijloc: acolo noi
+ * stabilim scopul, deci noi suntem operatorul, oricât ne-ar conveni altfel. O
+ * declinare scrisă peste realitatea asta n-ar rezista la prima verificare și ar
+ * slăbi-o și pe cea reală.
+ *
  * Restul e cadrul obișnuit — dar formulat pe ce face aplicația, nu pe un șablon.
  */
 export const metadata: Metadata = {
@@ -93,12 +102,64 @@ export default function TermeniPage() {
 
       <h2>5. Mesajele și dezabonarea</h2>
       <p>
-        Îți scriem doar dacă ți-ai dat acordul. Fiecare SMS conține un link de dezabonare,
-        iar dacă răspunzi cu <strong>STOP</strong> ne oprim imediat și definitiv. Nu trimitem
-        publicitate pentru terți.
+        Îți scriem doar dacă ți-ai dat acordul — al tău direct, sau cel dat stației care
+        ne-a transmis datele. Fiecare SMS conține un link de dezabonare, iar folosirea lui
+        ne oprește imediat și definitiv. Nu trimitem publicitate pentru terți.
       </p>
 
-      <h2>6. Ce nu ai voie</h2>
+      <h2>6. Stațiile partenere — cine răspunde pentru datele clienților</h2>
+      <p>
+        Punctul acesta privește stațiile ITP care folosesc platforma, nu șoferii. Îl scriem
+        aici fiindcă delimitarea îi interesează pe amândoi.
+      </p>
+      <p>
+        <strong>
+          Pentru datele pe care ni le transmite, stația este operatorul, iar uitdeITP
+          împuternicitul care execută instrucțiunile ei.
+        </strong>{' '}
+        Se aplică indiferent de cale: terminalul din stație, programul propriu de gestiune
+        sau o listă încărcată manual.
+      </p>
+      <p>Prin folosirea platformei, stația garantează și își asumă că:</p>
+      <ul>
+        <li>
+          a obținut, înainte de transmitere, consimțământul valabil al fiecărei persoane
+          pentru a fi contactată prin SMS, și poate dovedi acest lucru;
+        </li>
+        <li>
+          datele transmise sunt corecte, actuale și obținute legal, iar numerele de telefon
+          aparțin persoanelor indicate;
+        </li>
+        <li>
+          nu încarcă liste cumpărate, colectate din surse publice sau preluate de la terți
+          fără temei;
+        </li>
+        <li>
+          ne anunță fără întârziere despre orice retragere de consimțământ ajunsă direct la
+          ea;
+        </li>
+        <li>
+          textele pe care le personalizează în șabloane respectă legea și nu transformă
+          reamintirea în publicitate nesolicitată.
+        </li>
+      </ul>
+      <p>
+        <strong>
+          Răspunderea pentru temeiul prelucrării acestor date aparține stației.
+        </strong>{' '}
+        Dacă o autoritate ne sancționează sau o persoană ne cheamă în judecată din cauza
+        unor date transmise fără temei de o stație, stația ne despăgubește integral,
+        inclusiv cheltuielile de apărare. Putem suspenda imediat trimiterile unei stații
+        când avem indicii temeinice că această clauză e încălcată — și o facem, fiindcă
+        alternativa e ca mesajele ei să ajungă la oameni care n-au cerut nimic.
+      </p>
+      <p>
+        Ce rămâne în sarcina noastră: securitatea platformei, respectarea instrucțiunilor
+        stației, dezabonarea funcțională în fiecare mesaj și transmiterea către stație a
+        cererilor pe care le primim de la persoanele vizate.
+      </p>
+
+      <h2>7. Ce nu ai voie</h2>
       <ul>
         <li>Să introduci datele altcuiva fără acordul acelei persoane.</li>
         <li>
@@ -114,27 +175,27 @@ export default function TermeniPage() {
         aflăm de la tine.
       </p>
 
-      <h2>7. Disponibilitate</h2>
+      <h2>8. Disponibilitate</h2>
       <p>
         Ne străduim ca serviciul să meargă continuu, dar pot exista întreruperi pentru
         mentenanță sau din cauze independente de noi. Putem modifica ori închide funcții,
         cu anunț prealabil când schimbarea e importantă.
       </p>
 
-      <h2>8. Proprietate intelectuală</h2>
+      <h2>9. Proprietate intelectuală</h2>
       <p>
         Platforma, numele și conținutul ei ne aparțin. Datele pe care le introduci rămân ale
         tale; ne dai doar dreptul de a le folosi pentru a-ți furniza serviciul.
       </p>
 
-      <h2>9. Modificarea termenilor</h2>
+      <h2>10. Modificarea termenilor</h2>
       <p>
         Îi putem actualiza. Dacă schimbarea e semnificativă, te anunțăm din timp. Continuarea
         folosirii după notificare înseamnă acceptare; dacă nu ești de acord, poți închide
         contul.
       </p>
 
-      <h2>10. Legea aplicabilă</h2>
+      <h2>11. Legea aplicabilă</h2>
       <p>
         Se aplică legea română. Neînțelegerile le rezolvăm întâi pe cale amiabilă; dacă nu
         reușim, competente sunt instanțele din România. Ca și consumator, îți păstrezi toate
