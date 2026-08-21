@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { handleApiError } from '@/lib/api/errors';
@@ -40,8 +41,15 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Verify password before deletion (security measure)
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    // Verify password before deletion (security measure).
+    // Deliberately on a throwaway client, NOT the cookie-bound server client:
+    // signInWithPassword on that one rewrites the session cookie as a side effect.
+    const verifyClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    const { error: signInError } = await verifyClient.auth.signInWithPassword({
       email: user.email!,
       password: confirm_password,
     });
@@ -100,9 +108,9 @@ export async function DELETE(req: NextRequest) {
       throw new Error('Eroare la ștergerea profilului');
     }
 
-    // 4. Delete auth.users (requires service role key)
-    // Note: This must be done via admin API with service role
-    const { error: authDeleteError } = await supabase.auth.admin.deleteUser(
+    // 4. Delete auth.users — auth.admin.* requires the service-role client;
+    // on the anon server client it fails 403 and the auth user survives orphaned.
+    const { error: authDeleteError } = await createAdminClient().auth.admin.deleteUser(
       user.id
     );
 

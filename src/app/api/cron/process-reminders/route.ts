@@ -4,7 +4,12 @@
  * Triggered daily at 07:00 UTC (09:00 Romanian time) by Vercel Cron
  * Replaces: Supabase Edge Function + pg_cron
  *
- * Security: Verifies x-vercel-cron header (automatically set by Vercel Cron)
+ * Security: requires `Authorization: Bearer ${CRON_SECRET}`. When CRON_SECRET
+ * is set in the project env, Vercel Cron sends exactly this header with every
+ * scheduled invocation, so the scheduled run and manual triggers share one
+ * cryptographic check. The old `x-vercel-cron` fallback is gone on purpose:
+ * the header's mere presence was accepted (`!!cronHeader`), and any external
+ * client can type it — that path authenticated nothing.
  * Timeout: 60s (Vercel Pro)
  */
 
@@ -32,29 +37,34 @@ export const dynamic = 'force-dynamic';
  */
 export const fetchCache = 'force-no-store';
 
-export async function POST(req: NextRequest) {
-  const startTime = Date.now();
-
-  console.log('[Cron] Starting daily reminder processing...');
-
-  // Verify request comes from Vercel Cron
-  // Vercel automatically sets x-vercel-cron header for scheduled cron jobs
-  const cronHeader = req.headers.get('x-vercel-cron');
-
-  if (!cronHeader) {
-    console.warn('[Cron] Unauthorized access attempt - missing x-vercel-cron header');
+function authorize(req: NextRequest): NextResponse | null {
+  if (!process.env.CRON_SECRET) {
+    console.error('[Cron] CRON_SECRET not configured in environment variables');
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Unauthorized',
-        message: 'This endpoint can only be accessed by Vercel Cron'
-      },
+      { success: false, error: 'Server misconfiguration', message: 'CRON_SECRET not set' },
+      { status: 500 }
+    );
+  }
+
+  const authHeader = req.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    console.warn('[Cron] Unauthorized access attempt - invalid or missing CRON_SECRET');
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', message: 'Invalid or missing CRON_SECRET' },
       { status: 401 }
     );
   }
 
-  console.log('[Cron] Verified Vercel Cron request');
-  console.log('[Cron] x-vercel-cron header:', cronHeader);
+  return null;
+}
+
+async function runCron(req: NextRequest): Promise<NextResponse> {
+  const startTime = Date.now();
+
+  const denied = authorize(req);
+  if (denied) return denied;
+
+  console.log('[Cron] Starting daily reminder processing...');
 
   try {
     // Process all reminders due for today
@@ -131,113 +141,10 @@ export async function POST(req: NextRequest) {
  * GET /api/cron/process-reminders
  */
 export async function GET(req: NextRequest) {
-  const startTime = Date.now();
+  return runCron(req);
+}
 
-  console.log('[Cron] Starting daily reminder processing (GET)...');
-
-  // Dual verification: CRON_SECRET (Authorization header) OR x-vercel-cron header
-  const authHeader = req.headers.get('authorization');
-  const cronHeader = req.headers.get('x-vercel-cron');
-
-  // Check if CRON_SECRET is configured
-  if (!process.env.CRON_SECRET) {
-    console.error('[Cron] CRON_SECRET not configured in environment variables');
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Server misconfiguration',
-        message: 'CRON_SECRET not set'
-      },
-      { status: 500 }
-    );
-  }
-
-  // Verify either Authorization header OR x-vercel-cron header
-  const hasValidAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
-  const hasValidCronHeader = !!cronHeader;
-
-  if (!hasValidAuth && !hasValidCronHeader) {
-    console.warn('[Cron] Unauthorized access attempt - missing both CRON_SECRET and x-vercel-cron header');
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Unauthorized',
-        message: 'Invalid or missing CRON_SECRET / x-vercel-cron header'
-      },
-      { status: 401 }
-    );
-  }
-
-  console.log('[Cron] Verified cron request (GET)');
-  console.log('[Cron] Auth method:', hasValidAuth ? 'CRON_SECRET' : 'x-vercel-cron');
-  if (cronHeader) console.log('[Cron] x-vercel-cron header:', cronHeader);
-
-  try {
-    // Process all reminders due for today
-    const result = await processRemindersForToday();
-
-    // Post-inspection review requests. Isolated on purpose: a failure here must
-    // never affect ITP reminders.
-    let reviewResult: unknown = { skipped: 'not_run' };
-    try {
-      reviewResult = await processReviewRequestsForToday();
-      console.log('[Cron] Review pass:', reviewResult);
-    } catch (reviewError) {
-      console.warn('[Cron] Review pass failed (reminders unaffected):', reviewError);
-    }
-
-    // Housekeeping: drop rate-limit events older than 7 days (non-fatal)
-    try {
-      await createServiceClient().rpc('cleanup_rate_limit_events');
-    } catch (cleanupError) {
-      console.warn('[Cron] rate_limit_events cleanup failed:', cleanupError);
-    }
-
-    const executionTime = Date.now() - startTime;
-
-    console.log(`[Cron] Processing complete in ${executionTime}ms:`, result.stats);
-
-    // Send heartbeat signal for monitoring (don't fail if heartbeat fails)
-    try {
-      const heartbeatUrl = appPath('/api/cron/heartbeat');
-      await fetch(heartbeatUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.CRON_SECRET}`,
-        },
-        body: JSON.stringify({
-          stats: result.stats,
-          executionTime: `${executionTime}ms`,
-        }),
-      });
-      console.log('[Cron] Heartbeat sent successfully');
-    } catch (heartbeatError) {
-      console.warn('[Cron] Failed to send heartbeat:', heartbeatError);
-      // Don't fail the cron job if heartbeat fails
-    }
-
-    // Return execution stats
-    return NextResponse.json({
-      success: true,
-      message: result.message,
-      stats: result.stats,
-      executionTime: `${executionTime}ms`,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    const executionTime = Date.now() - startTime;
-
-    console.error('[Cron] Processing failed:', error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        executionTime: `${executionTime}ms`,
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 }
-    );
-  }
+// Manual/external triggers (same auth as GET)
+export async function POST(req: NextRequest) {
+  return runCron(req);
 }
