@@ -87,7 +87,7 @@ Are o justificare — o rotire în care cheia nouă n-a ajuns încă la agent n-
 trebui să oprească stația. Dar nu există niciun pas care să o revoce pe cea
 veche **după** ce cea nouă e confirmată. Deci cheile se adună.
 
-Nu e teoretic. Pe CT060, azi:
+Nu e teoretic. Pe CT0xx, azi:
 
 | Cheie | Stare | Ultima folosire |
 |---|---|---|
@@ -162,7 +162,7 @@ Idempotency-Key: <event_id de la voi>
 {
   "type": "installation.deactivated",
   "academy_station_id": "…",
-  "rar_code": "CT060",
+  "rar_code": "CT0xx",
   "occurred_at": "2026-08-09T10:00:00Z",
   "data": { … }
 }

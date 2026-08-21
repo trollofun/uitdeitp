@@ -69,14 +69,14 @@ Câmpul e stocat de acum, dar **nu livrează nimic** până aprindem
 ## 3. Trecerea `NOTIFYHUB_API_KEY` pe cheia stației
 
 `NOTIFYHUB_API_KEY` la voi are ~277 de zile — aproape sigur secretul global
-vechi (`API_KEY_SECRET`), nu o cheie per-tenant. Cheia stației CT060, emisă de
+vechi (`API_KEY_SECRET`), nu o cheie per-tenant. Cheia stației CT0xx, emisă de
 noi pe 7 august (prefix `nh_live_VhNj`, o aveți), trebuie să-l înlocuiască
 pentru trafic real de stație.
 
 Ambele funcționează în paralel — dublă acceptare pe partea noastră, deci zero
 fereastră de întrerupere la comutare. Dar **soldul și consumul din
 `GET /api/account` sunt per cheie**: cu secretul vechi vedeți contul legacy
-(platformă), nu contul stației CT060. Dacă nu treceți pe cheia nouă, orice
+(platformă), nu contul stației CT0xx. Dacă nu treceți pe cheia nouă, orice
 dashboard care citește `/api/account` la voi arată date greșite fără să pice.
 
 ## 4. Decizia pe idempotency_key (cazul-limită semnalat de voi)

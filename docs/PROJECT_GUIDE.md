@@ -339,8 +339,8 @@ All 42 Romanian counties (județe) + București mapped correctly:
 - Explicit consent checkbox (required)
 - Consent timestamp tracking
 - Global opt-out management
-- Data export endpoint (`/api/user/export`)
-- Data deletion endpoint (`/api/user/delete`)
+- Data export endpoint (`/api/account/export`)
+- Data deletion endpoint (`/api/account/delete`)
 - Privacy policy link in all forms
 - Opt-out link in all SMS messages
 
@@ -827,7 +827,7 @@ SELECT EXISTS (
 
 **3. Data Export:**
 ```typescript
-// GET /api/user/export
+// GET /api/account/export
 export async function GET(request: Request) {
   const user = await getUser();
   const data = {
@@ -846,7 +846,7 @@ export async function GET(request: Request) {
 
 **4. Data Deletion:**
 ```typescript
-// DELETE /api/user/delete
+// DELETE /api/account/delete
 export async function DELETE(request: Request) {
   const user = await getUser();
 
@@ -884,7 +884,7 @@ export async function DELETE(request: Request) {
 ### Running Tests
 
 ```bash
-# Unit tests (Jest + React Testing Library)
+# Unit tests (Vitest + React Testing Library)
 npm run test:unit
 
 # Integration tests

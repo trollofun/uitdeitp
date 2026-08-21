@@ -27,7 +27,7 @@ const stationSchema = z.object({
   // them here every new station needed a hand-written UPDATE.
   rar_code: z
     .string()
-    .regex(/^[A-Z]{2}[0-9]{3}$/, 'Format cod RAR invalid (ex: CT060)')
+    .regex(/^[A-Z]{2}[0-9]{3}$/, 'Format cod RAR invalid (ex: CT123)')
     .optional()
     .or(z.literal('')),
   default_intervals: z
@@ -287,7 +287,7 @@ export function StationForm({ station }: StationFormProps) {
             <label className="block text-sm font-medium mb-2">Cod RAR</label>
             <Input
               {...register('rar_code')}
-              placeholder="CT060"
+              placeholder="CT123"
               error={errors.rar_code?.message}
             />
             <p className="text-sm text-muted-foreground mt-1">

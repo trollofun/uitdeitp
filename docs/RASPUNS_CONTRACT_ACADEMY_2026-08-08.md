@@ -71,7 +71,7 @@ prin suprapunere se potrivește exact: și la noi suprapunerea e permisă, din a
 
 **Secretul HMAC e revocabil — și e per _cheie_, mai fin decât ați cerut.** Fiecare rând
 din `station_api_keys` are propriul `hmac_secret_id`. Revocarea cheii (`revoked_at`) omoară
-Bearer-ul și HMAC-ul într-un singur act. Verificat live ieri pe stația CT060: cheie
+Bearer-ul și HMAC-ul într-un singur act. Verificat live ieri pe stația CT0xx: cheie
 revocată → `403`, imediat, fără repornire.
 
 **O cheie de ingest nu poate scrie datele altei stații.** Tenantul se rezolvă exclusiv din
@@ -101,7 +101,7 @@ Content-Type: application/json
 ```json
 {
   "academy_station_id": "0cf48f17-1431-4d87-b3a0-1178303a7f02",
-  "rar_code": "CT060",
+  "rar_code": "CT0xx",
   "name": "Service Popescu",
   "tier": "lite",
   "inspector_email": "ion@exemplu.ro",
@@ -119,7 +119,7 @@ Content-Type: application/json
   "data": {
     "station": {
       "id": "c0000000-0000-0000-0000-000000000001",
-      "rar_code": "CT060",
+      "rar_code": "CT0xx",
       "name": "Euro Auto Service ITP",
       "created": true
     },

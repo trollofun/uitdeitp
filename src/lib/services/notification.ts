@@ -138,7 +138,8 @@ export function truncateSms(message: string, maxParts: number = 3): string {
  * Default Romanian SMS templates
  * NOTE: Now uses {days_until} dynamic variable for accurate day counts
  * Works perfectly with custom notification intervals (e.g., 10, 6, 2 days)
- * {station_phone} will fallback to Euro Auto Service (+40729440127) if no station assigned
+ * {station_phone} has NO cross-station fallback: a missing value renders empty,
+ * never another station's number (see reminder-processor).
  */
 /**
  * Scrise **fără diacritice**, deliberat: un singur „ă" mută mesajul pe UCS-2, unde

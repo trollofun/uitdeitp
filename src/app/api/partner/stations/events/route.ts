@@ -33,7 +33,7 @@ const eventSchema = z.object({
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z]{1,2}[0-9]{2,4}$/, 'Cod RAR invalid (ex. CT060)')
+    .regex(/^[A-Z]{1,2}[0-9]{2,4}$/, 'Cod RAR invalid (ex. CT123)')
     .optional(),
   occurred_at: z.string().datetime().optional(),
   data: z.record(z.unknown()).default({}),

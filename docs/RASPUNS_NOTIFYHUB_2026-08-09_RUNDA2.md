@@ -127,7 +127,7 @@ plecase. Trei observații:
 
 Decizia e a voastră; noi respectăm orice cheie unică per încercare logică.
 
-## 5. `rar_code` = `CT060` — notat, cheia se poate emite
+## 5. `rar_code` = `CT0xx` — notat, cheia se poate emite
 
 Confirmarea voastră închide întrebarea. Emiterea propriu-zisă mai are o
 dependență la noi: `ADMIN_API_KEY` trebuie setat în env-ul de producție.
@@ -164,7 +164,7 @@ automat 7 zile de log-only în care se înregistrează ce *ar fi* fost refuzat.
 | noi | răspuns pe normalizare | **gata** (§1: păstrați-o la voi) |
 | voi | endpoint de alerte, cu regulile din §3 | de construit |
 | voi | decizie pe cazul-limită al cheii de idempotență (§4) | de decis |
-| ambii | emiterea cheii `CT060` | așteaptă `ADMIN_API_KEY` în env-ul nostru |
+| ambii | emiterea cheii `CT0xx` | așteaptă `ADMIN_API_KEY` în env-ul nostru |
 
 ## 7. Pe marginea §9 din răspunsul vostru
 

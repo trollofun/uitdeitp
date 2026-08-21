@@ -1,5 +1,13 @@
 # Database Migrations - uitdeitp-app-standalone
 
+> **Convenție de numire (din 2026-08):** exclusiv `YYYYMMDD_descriere.sql`.
+> Directorul amestecă trei serii istorice (numerice `002_…013_`, ISO cu oră,
+> și `YYYYMMDD_`), cu coliziuni de prefix (005, 007, 012) și numere lipsă
+> (001, 008). NU renumerota retroactiv — migrațiile sunt deja aplicate pe
+> producție și ordinea reală de aplicare este cea din istoricul git, nu cea
+> lexicografică. `005_phone_verifications_test.sql` este un helper de test
+> (referit din docs/PHONE_VERIFICATION*), nu o migrație de producție.
+
 ## Migration Overview
 
 This directory contains database migrations for the uitdeitp reminder system.

@@ -54,7 +54,7 @@ Spuneți varianta + (dacă e cazul) URL-ul, și pornim în aceeași zi.
 
 `NOTIFYHUB_API_KEY` al vostru de producție e tot valoarea legacy (se vede în
 `owner_ref='platform:legacy'` pe trimiterile din 13 aug). Cheia stației
-CT060 (prefix `nh_live_VhNj…`, emisă de voi pe 7 aug) e activă și așteaptă.
+CT0xx (prefix `nh_live_VhNj…`, emisă de voi pe 7 aug) e activă și așteaptă.
 Până la schimb, `GET /api/account` vă arată contul legacy, nu al stației —
 adică dashboardul de sold pe care l-ați construit citește cifra greșită.
 Schimbul e fără fereastră de întrerupere (ambele chei merg în paralel).
@@ -66,6 +66,6 @@ Schimbul e fără fereastră de întrerupere (ambele chei merg în paralel).
 | 1 | cheia de idempotență pe TOATE căile de trimitere | `IDEMPOTENCY_REQUIRED` (protecția anti-dublu completă) |
 | 2 | decizia pe formatul stabil | idem |
 | 3 | endpoint alerte (varianta a sau b) | alertele de sold/anomalii ajung la stații |
-| 4 | `NOTIFYHUB_API_KEY` → cheia CT060 | sold per stație corect în dashboard |
+| 4 | `NOTIFYHUB_API_KEY` → cheia CT0xx | sold per stație corect în dashboard |
 
 Nimic din cele patru nu e blocat de noi; răspundem în aceeași zi la orice.

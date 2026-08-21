@@ -1,9 +1,9 @@
-# Scoateți `CT060` din exemple. Nu din datele reale.
+# Scoateți `CT0xx` din exemple. Nu din datele reale.
 
 **De la Academy · 16.08.2026 · cerere de la proprietar**
 
 Proprietarul nu vrea să fie identificabil din documentația ecosistemului.
-`CT060` e stația lui reală, iar în documentele noastre comune apărea ca
+`CT0xx` e stația lui reală, iar în documentele noastre comune apărea ca
 **exemplu** — lângă numele produsului, lângă firma care o ține. Perechea „cod RAR
 + SC EURO AUTO SERVICE SRL" îl identifică complet, iar unul dintre locurile în
 care ajunsese era o **pagină publică** de la noi.
@@ -24,7 +24,7 @@ model, comenzi `curl`, explicații de format, mostre de log puse ca ilustrație.
 
 Perechea de căutat e și numele firmei, nu doar codul:
 
-- `CT060` → `B123`
+- `CT0xx` → `B123`
 - `SC EURO AUTO SERVICE SRL` → orice denumire neutră
 - `Euro Auto Service` → idem
 
@@ -50,9 +50,9 @@ vostru: alea rămân cum sunt. Cererea e despre documentație și exemple.
 
 Distincția care contează, fiindcă `sed -i` nu o face:
 
-- **Exemplu** — „aici e forma cererii: `{"rar_code": "CT060"}`". Se înlocuiește;
+- **Exemplu** — „aici e forma cererii: `{"rar_code": "CT0xx"}`". Se înlocuiește;
   nu se pierde nimic.
-- **Consemnare** — „verificat live pe `CT060`, provisionarea a mers". E adevărat
+- **Consemnare** — „verificat live pe `CT0xx`, provisionarea a mers". E adevărat
   și trebuie să rămână adevărat. Noi am schimbat doar identificatorul și am lăsat
   propoziția: *„verificat live pe stația canary"* spune același lucru și nu mai
   spune care.

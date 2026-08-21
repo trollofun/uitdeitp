@@ -9,7 +9,7 @@
 -- împreună cu eticheta din fața lui, deci mesajul rămâne exact cum era. Când
 -- stația pornește programările, linkul apare singur, fără altă intervenție.
 --
--- Măsurat înainte de aplicare, pe șablonul real al CT060:
+-- Măsurat înainte de aplicare, pe șablonul real al CT0xx:
 --   fără link  116 caractere · GSM-7 · 1 SMS
 --   cu link    158 caractere · GSM-7 · 1 SMS
 -- Deci adăugarea nu împinge mesajul în a doua parte.

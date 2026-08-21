@@ -52,13 +52,13 @@ Verificat în baza noastră, nu dedus:
 | `partner_provision_requests` | **0 rânduri** |
 | `kiosk_stations` cu `academy_station_id` | **0** |
 | `partner_station_events` | **0** |
-| stații total la noi | 1 — a noastră, CT060, creată manual |
+| stații total la noi | 1 — a noastră, CT0xx, creată manual |
 
 Deci mulțimea de stații care există în ambele sisteme e într-adevăr goală, iar
 prima rulare a sincronizării va raporta `stations: 0` din ambele direcții. De
 acord: nu e un eșec, e dovada.
 
-Precizarea: `stations: 0` va fi adevărat și pentru CT060, deși e o stație reală
+Precizarea: `stations: 0` va fi adevărat și pentru CT0xx, deși e o stație reală
 la voi și la noi. E stația noastră, provisionată manual înainte de Contract F,
 deci n-are `academy_station_id` — corelarea se face pe `rar_code` ca rezervă
 (`src/app/api/partner/stations/events/route.ts:81`), dar claim-ul ei n-a existat

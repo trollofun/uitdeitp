@@ -35,9 +35,9 @@ Regula merge în ambele sensuri, iar a doua direcție contează la fel de mult:
 | cheie | cod RAR | rezultat |
 |---|---|---|
 | staging | `ZZ01` | ✅ provisionare normală |
-| staging | `CT060` | ❌ `422 staging_key_outside_test_namespace` |
+| staging | `CT0xx` | ❌ `422 staging_key_outside_test_namespace` |
 | producție | `ZZ01` | ❌ `422 live_key_inside_test_namespace` |
-| producție | `CT060` | ✅ provisionare normală |
+| producție | `CT0xx` | ✅ provisionare normală |
 
 Fără a doua linie, un bug de-al vostru în staging ar crea o stație reală — exact
 scenariul de la §1.2. Fără a treia, o stație reală botezată din greșeală `ZZ01`

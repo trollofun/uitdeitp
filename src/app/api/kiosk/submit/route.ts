@@ -31,10 +31,19 @@ const KIOSK_CONSENT_VERSION = 'kiosk-reminder-v1';
  */
 const KIOSK_IP_LIMIT = 30;
 
-const ALLOWED_ORIGINS = new Set([
-  'https://euroautoservice.ro',
-  'https://www.euroautoservice.ro',
-]);
+/**
+ * Kiosk-ul servit de pe uitdeitp.ro e same-origin și nu are nevoie de CORS;
+ * lista e pentru site-urile stațiilor care încorporează formularul. Env-driven
+ * ca să nu fie nevoie de deploy la fiecare stație nouă — valorile implicite
+ * păstrează singura integrare existentă (Euro Auto Service).
+ */
+const ALLOWED_ORIGINS = new Set(
+  (process.env.KIOSK_ALLOWED_ORIGINS ??
+    'https://euroautoservice.ro,https://www.euroautoservice.ro')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
 
 function corsHeaders(req: NextRequest): Record<string, string> {
   const origin = req.headers.get('origin');

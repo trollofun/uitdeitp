@@ -103,7 +103,7 @@ POST https://www.uitdeitp.ro/api/partner/stations/events
 Authorization: Bearer <cheia M2M>
 Idempotency-Key: <id-ul evenimentului nostru>
 
-{ "type": "...", "academy_station_id": "...", "rar_code": "CT060",
+{ "type": "...", "academy_station_id": "...", "rar_code": "CT0xx",
   "occurred_at": "...", "data": { ... } }
 ```
 

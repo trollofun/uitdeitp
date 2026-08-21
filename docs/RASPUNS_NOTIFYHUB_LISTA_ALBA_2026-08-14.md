@@ -89,4 +89,4 @@ Antetele: `X-NotifyHub-Timestamp`, `X-NotifyHub-Signature` (HMAC pe
   drumul (`ALERT_WEBHOOK_URL` la noi e încă gol);
 - decizia pe **`idempotency_key` stabil** (`{reminder_id}:{data}` vs zile
   rămase);
-- trecerea `NOTIFYHUB_API_KEY` de producție pe **cheia stației CT060**.
+- trecerea `NOTIFYHUB_API_KEY` de producție pe **cheia stației CT0xx**.

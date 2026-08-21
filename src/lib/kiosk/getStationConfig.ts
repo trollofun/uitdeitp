@@ -46,11 +46,13 @@ export async function getStationConfig(
     station_name: data.name,
     station_slug: data.slug,
     station_phone: data.station_phone,
-    station_email: null, // Not in schema
+    // owner_email exists but is the owner's private contact, not a public
+    // station address — deliberately not surfaced on the kiosk.
+    station_email: null,
     logo_url: data.logo_url,
     primary_color: data.primary_color || '#2563eb', // Default blue
     address: data.station_address,
-    city: null, // Not in schema
+    city: (data as { city?: string | null }).city ?? null,
     kiosk_enabled: data.is_active,
     owner_id: data.owner_id
   };

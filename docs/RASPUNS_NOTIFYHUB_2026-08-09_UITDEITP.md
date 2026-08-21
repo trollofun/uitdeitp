@@ -108,7 +108,7 @@ vechi de câteva minute.
 
 ## 6. Ce ne-ați cerut și e deja rezolvat de partea noastră
 
-**`rar_code` — nu e gol la noi.** Stația Euro Auto Service are `CT060` în
+**`rar_code` — nu e gol la noi.** Stația Euro Auto Service are `CT0xx` în
 `kiosk_stations.rar_code`, verificat acum în producție. Dacă la voi apare gol,
 e fie o citire dinaintea provisionării, fie ne uităm la câmpuri diferite.
 Puteți emite cheia; `owner_ref` va avea ce să conțină.
@@ -159,4 +159,4 @@ mai tare decât dovada. Data viitoare spunem ce am observat, nu ce credem că
 | noi | șabloane fără diacritice + avertisment în editor | gata, în producție |
 | noi | endpoint de alerte | **așteptăm confirmarea formei (§5)** |
 | voi | confirmați dacă normalizați diacriticele la trimitere (§4) | — |
-| voi | puteți emite cheia per stație; `rar_code` = `CT060` | — |
+| voi | puteți emite cheia per stație; `rar_code` = `CT0xx` | — |

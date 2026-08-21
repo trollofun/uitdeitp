@@ -56,7 +56,7 @@ cu chei per stație, producția e locul cel mai onest pentru un contract care
 oricum se probează cu date reale. Plăcuța `TEST99` e în regulă; o curățăm noi
 după.
 
-**2. Cheia pentru CT060.** Aici starea e mai încurcată decât credeați, și
+**2. Cheia pentru CT0xx.** Aici starea e mai încurcată decât credeați, și
 preferăm să v-o spunem exact:
 
 | Cheie | Etichetă | Stare | Ultima folosire |

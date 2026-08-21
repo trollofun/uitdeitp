@@ -38,7 +38,7 @@ FUTURE=$(date -d '+11 months' +%Y-%m-%d)
 LITE=$(cat <<JSON
 {"payload_variant":"lite","plate_number":"CT99XYZ","expiry_date":"$FUTURE",
  "destinatar":{"telefon":"0712345678","consimtamant_la":"$(date -Iseconds)","consimtamant_versiune":"v1","nume":"Client Test"},
- "statie_ref":{"rar_code":"CT060"}}
+ "statie_ref":{"rar_code":"CT0xx"}}
 JSON
 )
 

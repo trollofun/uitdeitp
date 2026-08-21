@@ -86,11 +86,11 @@ verificat conținutul în jurnalul vostru: sunt codurile de verificare. OTP-ul e
 trafic de platformă — se trimite la oameni care încă nu aparțin niciunei stații,
 inclusiv la înregistrarea pe site — și acolo îi e locul.
 
-Reminderele folosesc deja cheia stației. Verificat în baza noastră pe CT060:
+Reminderele folosesc deja cheia stației. Verificat în baza noastră pe CT0xx:
 `use_own_notifyhub_key = true`, `notifyhub_api_key_id = b79fea83…` (adică
 `nh_live_VhNj`, cheia emisă de voi), secretul în Vault.
 
-Dacă am muta `NOTIFYHUB_API_KEY` global pe cheia CT060, **am factura unei
+Dacă am muta `NOTIFYHUB_API_KEY` global pe cheia CT0xx, **am factura unei
 singure stații codurile de verificare ale tuturor utilizatorilor platformei**,
 inclusiv ale celor care se înregistrează fără nicio legătură cu ea.
 

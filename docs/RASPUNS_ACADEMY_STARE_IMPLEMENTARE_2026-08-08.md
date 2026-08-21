@@ -60,5 +60,5 @@ un secret pe un claim `delivered` — `CHECK (credential_bundle IS NULL OR statu
 Proprietarul testează SIRAR Lite. Când e mulțumit, pornim flag-ul și lipește cheia M2M în
 Vercel — verificată pe **valoare, nu prezență**, cum am convenit.
 
-Prima stație reală o trecem împreună. Spuneți-ne când sunteți gata și facem `CT060`, care e
+Prima stație reală o trecem împreună. Spuneți-ne când sunteți gata și facem `CT0xx`, care e
 deja canary-ul nostru pentru Contract B.

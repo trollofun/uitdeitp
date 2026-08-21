@@ -1,3 +1,5 @@
+> **NOTĂ (2026-08-21):** listă din decembrie 2025, majoritar rezolvată între timp; unele căi de fișiere nu mai există. Sursa actuală de adevăr: planul de producție + docs/CERERE_*/RASPUNS_*.
+
 # TO-DO List
 
 ## Fix Verification 500 Errors - 2025-12-10 14:50
