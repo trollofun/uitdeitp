@@ -71,6 +71,10 @@ export async function POST(req: NextRequest) {
         sent_by: user.id,
         sent_at: new Date().toISOString(),
       },
+    }, {
+      // Găleată pe minut: un dublu-click sau un retry de rețea nu plătește
+      // două SMS-uri; un test nou peste un minut trece.
+      idempotencyKey: `test:${user.id}:${Math.floor(Date.now() / 60000)}`,
     });
 
     // The canonical client resolves instead of throwing; keep this route's

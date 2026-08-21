@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Store in database (use correct column names)
-    const { error: insertError } = await supabase
+    const { data: verificationRow, error: insertError } = await supabase
       .from('phone_verifications')
       .insert({
         phone_number: formattedPhone,
@@ -128,7 +128,9 @@ export async function POST(req: NextRequest) {
         attempts: 0,      // Required by RLS policy
         ip_address: clientIp !== 'unknown' ? clientIp : null,
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-      });
+      })
+      .select('id')
+      .single();
 
     if (insertError) {
       console.error('Database error:', insertError);
@@ -142,6 +144,9 @@ export async function POST(req: NextRequest) {
     try {
       const smsResult = await notifyHub.sendVerificationCode(formattedPhone, code, undefined, {
         message: `Codul tău de verificare: ${code}\n\nCodul expiră în 10 minute.\n\nuitdeitp.ro`,
+        // Aceeași regulă ca la /verification/send: fără cheie, o reîncercare
+        // de rețea după un send reușit trimite al doilea SMS cu același cod.
+        idempotencyKey: verificationRow?.id ? `otp:${verificationRow.id}` : undefined,
       });
 
       await logSms({
