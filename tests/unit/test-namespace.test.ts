@@ -8,7 +8,7 @@ describe('checkRarNamespace', () => {
   it('cheia de staging nu poate crea o stație reală', () => {
     // Ăsta e scenariul de care se temea Academy: un bug în staging-ul lor
     // provisionează o stație adevărată, fiindcă baza e comună.
-    expect(checkRarNamespace(STAGING, 'CT060')?.code).toBe(
+    expect(checkRarNamespace(STAGING, 'CT0xx')?.code).toBe(
       'staging_key_outside_test_namespace'
     );
   });
@@ -20,7 +20,7 @@ describe('checkRarNamespace', () => {
   });
 
   it('lasă în pace perechile corecte', () => {
-    expect(checkRarNamespace(LIVE, 'CT060')).toBeNull();
+    expect(checkRarNamespace(LIVE, 'CT0xx')).toBeNull();
     expect(checkRarNamespace(STAGING, 'ZZ01')).toBeNull();
   });
 

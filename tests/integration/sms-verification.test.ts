@@ -3,6 +3,7 @@
  * Tests end-to-end SMS delivery via NotifyHub
  */
 
+import { describe, it, expect } from 'vitest';
 import { notifyHub } from '@/lib/services/notifyhub';
 import { describeWithBackend } from '../helpers/live-backend';
 

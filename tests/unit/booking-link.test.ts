@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { NotificationData } from '@/types';
 import { renderSmsTemplate } from '@/lib/services/notification';
 import { segmentSms } from '@/lib/services/sms-encoding';
 
@@ -19,7 +20,7 @@ const base = {
   date: '2026-08-11',
   days_until: 3,
   station_phone: '0729440127',
-} as never;
+} as NotificationData;
 
 describe('{booking_link} în șabloane', () => {
   it('se înlocuiește când stația are programări', () => {
@@ -73,7 +74,7 @@ describe('{opt_out_link}', () => {
     const out = renderSmsTemplate('Test.\nStop: {opt_out_link}', {
       ...(base as object),
       opt_out_link: 'https://www.uitdeitp.ro/o?t=bq8x4k',
-    } as never);
+    } as NotificationData);
     expect(out).toBe('Test.\nStop: https://www.uitdeitp.ro/o?t=bq8x4k');
   });
 

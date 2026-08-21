@@ -14,7 +14,7 @@ describe('Notification Service', () => {
   const mockData: NotificationData = {
     name: 'Ion Popescu',
     plate: 'B-123-ABC',
-    date: new Date('2025-12-31'),
+    date: '2025-12-31',
     station_name: 'ITP Service Center',
     station_phone: '0712345678',
   };
@@ -69,7 +69,7 @@ describe('Notification Service', () => {
       const dataWithoutOptional = {
         name: 'Ion Popescu',
         plate: 'B-123-ABC',
-        date: new Date('2025-12-31'),
+        date: '2025-12-31',
       };
       const template = 'Bună {name}! Placa: {plate}';
       const result = renderSmsTemplate(template, dataWithoutOptional);

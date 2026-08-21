@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { NotificationData } from '@/types';
 import { renderSmsTemplate, DEFAULT_SMS_TEMPLATES } from '@/lib/services/notification';
 import { reminderTypeLabel, REMINDER_TYPES } from '@/lib/services/reminder-type';
 import { segmentSms } from '@/lib/services/sms-encoding';
@@ -19,7 +20,7 @@ describe('șabloanele încap într-un SMS pentru ORICE tip', () => {
     days_until: 3,
     station_phone: '0729440127',
     booking_link: 'https://itp.vin/p/euro-auto-service',
-  } as never;
+  } as NotificationData;
 
   it('„Rovinieta" e cel mai lung tip — de el depinde limita', () => {
     const lengths = REMINDER_TYPES.map((t) => reminderTypeLabel(t).length);

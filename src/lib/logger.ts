@@ -4,6 +4,8 @@
  * In production, should integrate with Sentry, LogRocket, or similar
  */
 
+import * as Sentry from '@sentry/nextjs';
+
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 interface LogContext {
@@ -32,16 +34,23 @@ class Logger {
   }
 
   /**
-   * Log error message (always logged, sent to service in production)
+   * Log error message (always logged; reported to Sentry outside development)
    */
   error(message: string, error?: unknown, context?: LogContext): void {
     if (this.isDevelopment) {
       console.error(`[ERROR] ${message}`, error, context || '');
-    } else {
-      // TODO: Send to Sentry or other error tracking service
-      // Example:
-      // Sentry.captureException(error, { extra: { message, ...context } });
-      console.error(`[ERROR] ${message}`);
+      return;
+    }
+
+    console.error(`[ERROR] ${message}`, context || '');
+    try {
+      if (error instanceof Error) {
+        Sentry.captureException(error, { extra: { message, ...context } });
+      } else {
+        Sentry.captureMessage(message, { level: 'error', extra: { error, ...context } });
+      }
+    } catch {
+      // Reporting must never take down the caller.
     }
   }
 

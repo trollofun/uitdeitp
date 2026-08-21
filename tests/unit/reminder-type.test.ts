@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { NotificationData } from '@/types';
 import {
   normaliseReminderType,
   reminderTypeLabel,
@@ -59,7 +60,7 @@ describe('{tip} în șabloane', () => {
     date: '2026-08-11',
     days_until: 3,
     station_phone: '0729440127',
-  } as never;
+  } as NotificationData;
 
   it('pune eticheta corectă', () => {
     const out = renderSmsTemplate('{tip} pentru {plate} expira', { ...base, tip: 'RCA' });

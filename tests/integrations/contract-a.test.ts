@@ -65,7 +65,7 @@ describe('parseContractA — variant inference', () => {
 describe('parseContractA — validation', () => {
   it('accepts the legacy `statie` string alongside the new statie_ref (P0.5)', () => {
     expect(() =>
-      parseContractA(fullPayload({ statie: 'Euro Auto Service', statie_ref: { rar_code: 'CT060' } }))
+      parseContractA(fullPayload({ statie: 'Euro Auto Service', statie_ref: { rar_code: 'CT0xx' } }))
     ).not.toThrow();
   });
 

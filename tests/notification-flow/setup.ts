@@ -61,14 +61,14 @@ export const mockNotifyHubError = {
 };
 
 // Database cleanup functions
-export async function cleanupTestReminders(supabase: ReturnType<typeof createClient>) {
+export async function cleanupTestReminders(supabase: ReturnType<typeof createTestSupabaseClient>) {
   await supabase
     .from('reminders')
     .delete()
     .like('plate_number', 'B-TEST-%');
 }
 
-export async function cleanupTestNotificationLogs(supabase: ReturnType<typeof createClient>) {
+export async function cleanupTestNotificationLogs(supabase: ReturnType<typeof createTestSupabaseClient>) {
   // Get test reminder IDs
   const { data: testReminders } = await supabase
     .from('reminders')
@@ -85,7 +85,7 @@ export async function cleanupTestNotificationLogs(supabase: ReturnType<typeof cr
   }
 }
 
-export async function cleanupTestOptOuts(supabase: ReturnType<typeof createClient>) {
+export async function cleanupTestOptOuts(supabase: ReturnType<typeof createTestSupabaseClient>) {
   await supabase
     .from('global_opt_outs')
     .delete()

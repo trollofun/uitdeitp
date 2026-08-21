@@ -68,7 +68,7 @@ test.describe('Reminder Creation Flow', () => {
     // Enter invalid phone
     await page.fill('[name="guest_phone"]', '0712345678');
     await page.fill('[name="plate_number"]', 'B-123-ABC');
-    await page.blur('[name="guest_phone"]');
+    await page.locator('[name="guest_phone"]').blur();
 
     // Verify error message
     await expect(page.locator('text=format +40')).toBeVisible();
@@ -79,7 +79,7 @@ test.describe('Reminder Creation Flow', () => {
 
     await page.fill('[name="plate_number"]', 'B-123-ABC');
     await page.fill('[name="expiry_date"]', '2020-01-01');
-    await page.blur('[name="expiry_date"]');
+    await page.locator('[name="expiry_date"]').blur();
 
     await expect(page.locator('text=în viitor')).toBeVisible();
   });
@@ -326,8 +326,12 @@ test.describe('Mobile Responsiveness', () => {
   test('should handle touch gestures', async ({ page }) => {
     await page.goto('/dashboard');
 
-    // Swipe gesture
-    await page.touchscreen.swipe({ x: 0, y: 0 }, { x: 200, y: 0 });
+    // Swipe gesture — Playwright's Touchscreen has no swipe(); emulate the
+    // drag with mouse events, which the sidebar's gesture handler also accepts.
+    await page.mouse.move(0, 100);
+    await page.mouse.down();
+    await page.mouse.move(200, 100, { steps: 10 });
+    await page.mouse.up();
 
     await expect(page.locator('[data-testid="sidebar"]')).toBeVisible();
   });

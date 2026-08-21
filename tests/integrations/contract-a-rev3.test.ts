@@ -22,7 +22,7 @@ const rev3 = {
   telemetrie: { durata_totala_s: 610 },
   vehicul_extins: { cilindree: 1598, putere_kw: 85, co2_wltp: 120 },
   destinatar: { telefon: '0729440127', consimtamant_la: '2026-08-01T10:00:00Z' },
-  statie_ref: { rar_code: 'CT060' },
+  statie_ref: { rar_code: 'CT0xx' },
 };
 
 describe('Contract A — payload revizia 3 de la SIRAR', () => {

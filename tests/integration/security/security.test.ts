@@ -294,7 +294,7 @@ describe('Security Tests', () => {
 
   describe('Timing Attack Prevention', () => {
     it('should use constant-time comparison for codes', () => {
-      const storedCode = '123456';
+      const storedCode: string = '123456';
       const providedCode1 = '123456'; // Correct
       const providedCode2 = '654321'; // Wrong
 
