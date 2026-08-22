@@ -244,6 +244,35 @@ describe('processGumroadSale', () => {
     expect(purchases[0]?.status).toBe('failed');
   });
 
+  it('resolves the package from ANY of Gumroad\'s permalink shapes (real 22.08 sale)', async () => {
+    // Forma reală: API-ul de vânzări întoarce ID-UL SCURT în product_permalink
+    // („lypzqp"), Ping-ul are slug-ul în `permalink` și URL-ul complet în
+    // `product_permalink`. Vânzarea reală a picat maparea pe forma asta.
+    const sale = makeSale({ product_permalink: 'lypzqp', id: 'sale-real-shape' });
+    const result = await processGumroadSale({
+      sale,
+      payload: {
+        sale_id: 'sale-real-shape',
+        permalink: PERMALINK,
+        product_permalink: `https://uitdeitp.gumroad.com/l/${PERMALINK}`,
+        short_product_id: 'lypzqp',
+        refunded: 'false',
+      },
+      source: 'webhook',
+    });
+
+    expect(result.outcome).toBe('credited');
+    expect(topupStation).toHaveBeenCalledWith(expect.objectContaining({ amountParts: 500 }));
+  });
+
+  it('resolves from the full URL alone (reconcile shape without payload)', async () => {
+    const sale = makeSale({
+      product_permalink: `https://uitdeitp.gumroad.com/l/${PERMALINK}`,
+    });
+    const result = await processGumroadSale({ sale, source: 'reconcile' });
+    expect(result.outcome).toBe('credited');
+  });
+
   it('a seller TEST purchase (price 0 / test flag) never credits real credits', async () => {
     const byFlag = await processGumroadSale({
       sale: makeSale(),

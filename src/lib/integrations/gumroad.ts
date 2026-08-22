@@ -88,6 +88,8 @@ export function buildCheckoutUrl(stationId: string, permalink: string): string {
 
 export interface GumroadSale {
   id: string;
+  product_id?: string;
+  short_product_id?: string;
   product_permalink?: string;
   price?: number;
   currency?: string;
@@ -153,6 +155,54 @@ export async function verifySaleWithGumroad(saleId: string): Promise<SaleVerific
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Harta de aliasuri produs → slug canonic, construită din GET /v2/products.
+ *
+ * API-ul de vânzări NU întoarce slug-ul custom: `product_permalink` de acolo
+ * e ID-UL SCURT intern (ex. „lypzqp" — dovedit pe vânzarea din 22.08).
+ * Reconcilierea are nevoie de maparea short_id/product_id → slug-ul din
+ * GUMROAD_PRODUCTS ca să recunoască vânzările; o construim la fiecare rulare
+ * de cron, ca produse noi sau redenumite să nu ceară deploy.
+ */
+export async function fetchProductAliasMap(): Promise<Record<string, string>> {
+  const token = process.env.GUMROAD_ACCESS_TOKEN;
+  const aliases: Record<string, string> = {};
+  if (!token) return aliases;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(
+      `https://api.gumroad.com/v2/products?access_token=${encodeURIComponent(token)}`,
+      { signal: controller.signal }
+    );
+    if (!res.ok) return aliases;
+
+    const json = await res.json();
+    if (!json?.success || !Array.isArray(json.products)) return aliases;
+
+    for (const product of json.products as Array<Record<string, unknown>>) {
+      const custom = typeof product.custom_permalink === 'string' ? product.custom_permalink : null;
+      const shortUrl = typeof product.short_url === 'string' ? product.short_url : '';
+      const shortId = shortUrl.slice(shortUrl.lastIndexOf('/') + 1);
+      const canonical =
+        (custom && GUMROAD_PRODUCTS[custom] && custom) ||
+        (shortId && GUMROAD_PRODUCTS[shortId] && shortId) ||
+        null;
+      if (!canonical) continue;
+
+      if (typeof product.id === 'string') aliases[product.id] = canonical;
+      if (shortId) aliases[shortId] = canonical;
+      if (custom) aliases[custom] = canonical;
+    }
+  } catch {
+    // Fără aliasuri, reconcilierea recunoaște doar slug-urile directe.
+  } finally {
+    clearTimeout(timer);
+  }
+  return aliases;
 }
 
 /**

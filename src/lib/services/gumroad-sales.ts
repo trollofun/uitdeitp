@@ -32,6 +32,14 @@ export function isFlagTrue(value: unknown): boolean {
   return String(value ?? '').toLowerCase() === 'true';
 }
 
+/** „https://x.gumroad.com/l/slug" → „slug"; lasă neatins ce nu e URL/cale. */
+function lastPathSegment(value: string | undefined | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.replace(/\/+$/, '');
+  const segment = trimmed.slice(trimmed.lastIndexOf('/') + 1);
+  return segment || undefined;
+}
+
 export type SaleOutcome =
   | { outcome: 'credited'; stationId: string; paymentRef: string }
   | { outcome: 'pending'; stationId: string; paymentRef: string; reason?: string }
@@ -40,20 +48,49 @@ export type SaleOutcome =
   | { outcome: 'skipped_reversal_without_purchase'; paymentRef: string }
   | { outcome: 'test_purchase_ignored'; paymentRef: string };
 
+/** Toate formele sub care poate apărea produsul, în ordinea încrederii. */
+export function packageCandidates(
+  sale: GumroadSale,
+  payload?: Record<string, string>
+): Array<string | undefined> {
+  return [
+    payload?.permalink,
+    lastPathSegment(payload?.product_permalink),
+    lastPathSegment(sale.product_permalink),
+    sale.product_permalink,
+    sale.short_product_id ?? payload?.short_product_id,
+    sale.product_id ?? payload?.product_id,
+  ];
+}
+
 export async function processGumroadSale({
   sale,
   payload,
   source,
+  aliases,
 }: {
   sale: GumroadSale;
   /** Raw Ping form fields, when the trigger was the webhook. */
   payload?: Record<string, string>;
   source: 'webhook' | 'reconcile';
+  /** short_id/product_id → slug canonic (fetchProductAliasMap), pentru reconcile. */
+  aliases?: Record<string, string>;
 }): Promise<SaleOutcome> {
   const supabase = createServiceClient();
   const saleId = sale.id;
 
-  const permalink = sale.product_permalink ?? payload?.permalink;
+  // Gumroad numește produsul diferit în fiecare câmp: Ping-ul trimite slug-ul
+  // custom în `permalink` și URL-ul complet în `product_permalink`, iar API-ul
+  // de vânzări întoarce în `product_permalink` ID-UL SCURT intern (ex.
+  // „lypzqp") — dovedit pe vânzarea reală din 22.08, care a picat maparea deși
+  // slug-ul era corect. Încercăm toate formele, în ordinea încrederii, plus
+  // harta de aliasuri din /v2/products când vine de la reconcile.
+  const candidates = packageCandidates(sale, payload);
+  const permalink =
+    candidates.find((c) => c && GUMROAD_PRODUCTS[c]) ??
+    candidates.map((c) => (c ? aliases?.[c] : undefined)).find((c) => c && GUMROAD_PRODUCTS[c]) ??
+    lastPathSegment(sale.product_permalink) ??
+    payload?.permalink;
   const pkg = permalink ? GUMROAD_PRODUCTS[permalink] : undefined;
 
   // Reversal detection BEFORE the sale path — a refund processed as a purchase

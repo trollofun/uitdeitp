@@ -17,8 +17,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { flags } from '@/lib/config/flags';
-import { fetchRecentSales, GUMROAD_PRODUCTS } from '@/lib/integrations/gumroad';
-import { processGumroadSale, retryPendingTopups } from '@/lib/services/gumroad-sales';
+import {
+  fetchProductAliasMap,
+  fetchRecentSales,
+  GUMROAD_PRODUCTS,
+} from '@/lib/integrations/gumroad';
+import {
+  packageCandidates,
+  processGumroadSale,
+  retryPendingTopups,
+} from '@/lib/services/gumroad-sales';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -58,9 +66,12 @@ export async function GET(req: NextRequest) {
     }
 
     // Only sales for our credit products; the Gumroad account may sell more.
-    const relevant = sales.filter(
-      (s) => s.product_permalink && GUMROAD_PRODUCTS[s.product_permalink]
-    );
+    // API-ul de vânzări identifică produsul prin ID-UL SCURT, nu prin slug —
+    // aliasurile din /v2/products fac traducerea.
+    const aliases = await fetchProductAliasMap();
+    const isOurs = (s: (typeof sales)[number]) =>
+      packageCandidates(s).some((c) => c && (GUMROAD_PRODUCTS[c] || aliases[c]));
+    const relevant = sales.filter(isOurs);
 
     // Expected ledger rows: the purchase, plus the reversal when Gumroad says so.
     const expectedRefs = relevant.flatMap((s) => {
@@ -98,13 +109,14 @@ export async function GET(req: NextRequest) {
         const purchase = await processGumroadSale({
           sale: { ...sale, refunded: false, disputed: false },
           source: 'reconcile',
+          aliases,
         });
         outcomes[purchase.outcome] = (outcomes[purchase.outcome] ?? 0) + 1;
         processed += 1;
       }
 
       if (reversal && !known.has(`${sale.id}:${reversal}`)) {
-        const reversed = await processGumroadSale({ sale, source: 'reconcile' });
+        const reversed = await processGumroadSale({ sale, source: 'reconcile', aliases });
         outcomes[reversed.outcome] = (outcomes[reversed.outcome] ?? 0) + 1;
         processed += 1;
       }
