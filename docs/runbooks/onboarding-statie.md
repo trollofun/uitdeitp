@@ -8,10 +8,13 @@ Corelarea între toate sistemele se face pe **`rar_code`** (ex. `CT0xx`).
 - Flag-uri aprinse în Vercel (proiectul `uitdeitp`): `STATION_DASHBOARD_ENABLED`,
   `STATION_CREDITS_ENABLED`, `GUMROAD_TOPUP_ENABLED` (vezi `src/lib/config/flags.ts`).
 - `NOTIFYHUB_ADMIN_KEY` setat (≥32 caractere, fără newline la coadă).
-- Produsele de credite există în Gumroad cu **Ping URL** setat per produs către
-  `https://uitdeitp.ro/api/webhooks/gumroad?secret=<GUMROAD_WEBHOOK_SECRET>`
-  (câmpul „Ping URL", NU „Redirect URI" — vezi incidentul din Academy,
-  `GUMROAD_WEBHOOK_SETUP_CRITICAL.md`).
+- Produsele de credite există în Gumroad, iar **Ping endpoint-ul** (GLOBAL per
+  cont, în Settings → Advanced → Ping — nu per produs) e setat la
+  `https://uitdeitp.ro/api/webhooks/gumroad?secret=<GUMROAD_WEBHOOK_SECRET>`.
+  Câmpul „Redirect URI" de la Applications e altceva (OAuth) — nu pune
+  webhook-ul acolo (incidentul din Academy, `GUMROAD_WEBHOOK_SETUP_CRITICAL.md`).
+  „Send test ping" răspunde 400 `missing_sale_id` când totul e corect
+  (503 = flag-ul GUMROAD_TOPUP_ENABLED e încă stins).
 
 ## 1. Crearea stației
 
