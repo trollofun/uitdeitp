@@ -42,10 +42,10 @@ beforeEach(() => {
 });
 
 describe('creditsForParts', () => {
-  it('mapează 1→2, 2→3, 3→5 și refuză restul', () => {
-    expect(creditsForParts(1)).toBe(2);
-    expect(creditsForParts(2)).toBe(3);
-    expect(creditsForParts(3)).toBe(5);
+  it('mapează 1→1, 2→2, 3→3 (1 credit per segment) și refuză restul', () => {
+    expect(creditsForParts(1)).toBe(1);
+    expect(creditsForParts(2)).toBe(2);
+    expect(creditsForParts(3)).toBe(3);
     expect(creditsForParts(4)).toBeNull();
     expect(creditsForParts(0)).toBeNull();
     expect(creditsForParts(null)).toBeNull();
@@ -59,7 +59,7 @@ describe('chargeSmsSend', () => {
     expect(rpcCalls).toHaveLength(1);
     expect(rpcCalls[0].args).toMatchObject({
       p_station_id: 's1',
-      p_delta: -3,
+      p_delta: -2,
       p_motiv: 'send_sms',
       p_referinta: 'log-1',
     });

@@ -6,23 +6,29 @@
  * client/server pe același mesaj este bug de severitate maximă — suita de
  * teste comună din tests/unit/sms-cost.test.ts o pinează.
  *
- * Modelul (PRD §3.2):
- *   1 segment  → 2 credite   (GSM-7 ≤160  sau UCS-2 ≤70)
- *   2 segmente → 3 credite   (GSM-7 ≤306  sau UCS-2 ≤134)
- *   3 segmente → 5 credite   (GSM-7 ≤459  sau UCS-2 ≤201)
+ * Modelul (rebazat 2026-08-23, decizia „A1": 1 credit = 1 SMS standard):
+ *   1 segment  → 1 credit    (GSM-7 ≤160  sau UCS-2 ≤70)
+ *   2 segmente → 2 credite   (GSM-7 ≤306  sau UCS-2 ≤134)
+ *   3 segmente → 3 credite   (GSM-7 ≤459  sau UCS-2 ≤201)
  *   4+         → BLOCAT      (mesajul trebuie scurtat)
  *
- * 1 credit = 0,05 € + TVA. E-mailul nu trece niciodată pe aici — e gratuit și
- * nu atinge ledgerul (PRD criteriul de acceptanță #5).
+ * 1 credit = 0,10 € + TVA. Modelul inițial din PRD (2/3/5 la 0,05 €) vindea
+ * multipart-ul sub cost relativ (marja cădea de la 65% la 53% pe 2 segmente)
+ * și rupea modelul mental al stației („de ce 2 credite pentru UN SMS?").
+ * Acum prețul urmărește liniar costul Calisero per parte: marjă uniformă,
+ * iar excepția (mesaj lung/diacritice) e cea care plătește în plus.
+ *
+ * E-mailul nu trece niciodată pe aici — e gratuit și nu atinge ledgerul
+ * (PRD criteriul de acceptanță #5).
  */
 
 import { segmentSms, toGsm7 } from '@/lib/services/sms-encoding';
 
-export const CREDIT_UNIT_EUR = 0.05;
+export const CREDIT_UNIT_EUR = 0.1;
 export const MAX_SEGMENTS = 3;
 
-/** parts → credite. Orice peste MAX_SEGMENTS e blocat, nu tarifat. */
-export const CREDITS_BY_SEGMENTS: Record<number, number> = { 1: 2, 2: 3, 3: 5 };
+/** parts → credite: 1 credit per segment. Peste MAX_SEGMENTS e blocat, nu tarifat. */
+export const CREDITS_BY_SEGMENTS: Record<number, number> = { 1: 1, 2: 2, 3: 3 };
 
 export type TriggerKind =
   /** Caracter în afara GSM-7 (diacritice, emoji, ghilimele tipografice) — comută tot mesajul pe UCS-2 (70/segment). */

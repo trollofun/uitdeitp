@@ -193,7 +193,7 @@ export function SmsCostHint({ rendered, template, onFix }: SmsCostHintProps) {
 
 /**
  * Eticheta de cost pentru biblioteca de template-uri (PRD §4.4):
- * „🟢 2 credite garantat", recalculată la fiecare editare.
+ * „🟢 1 credit garantat", recalculată la fiecare editare.
  */
 export function SmsCostBadge({ text }: { text: string }) {
   const cost = useMemo(() => computeSmsCost(text), [text]);

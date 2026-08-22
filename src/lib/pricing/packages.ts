@@ -17,16 +17,20 @@ export interface CreditPackage {
   /** Preț în EUR, fără TVA. */
   priceEur: number;
   credits: number;
-  /** ~SMS-uri standard (1 segment = 2 credite). */
+  /** SMS-uri standard — egal cu `credits` după rebazarea A1 (1 SMS = 1 credit). */
   approxSms: number;
   recommended?: boolean;
 }
 
-/** Fără pachete sub 25 € — comisionul fix Gumroad le face neprofitabile. */
+/**
+ * Fără pachete sub 25 € — comisionul fix Gumroad le face neprofitabile.
+ * După rebazarea A1 (1 credit = 1 SMS standard = 0,10 €), numărul de credite
+ * ESTE numărul de SMS-uri standard — fără tildă, fără asterisc.
+ */
 export const CREDIT_PACKAGES: CreditPackage[] = [
-  { key: 'start', name: 'Start', priceEur: 25, credits: 500, approxSms: 250 },
-  { key: 'standard', name: 'Standard', priceEur: 50, credits: 1000, approxSms: 500, recommended: true },
-  { key: 'pro', name: 'Pro', priceEur: 100, credits: 2000, approxSms: 1000 },
+  { key: 'start', name: 'Start', priceEur: 25, credits: 250, approxSms: 250 },
+  { key: 'standard', name: 'Standard', priceEur: 50, credits: 500, approxSms: 500, recommended: true },
+  { key: 'pro', name: 'Pro', priceEur: 100, credits: 1000, approxSms: 1000 },
 ];
 
 export interface EstimatorParams {
@@ -47,7 +51,8 @@ export interface EstimatorParams {
 export const DEFAULT_ESTIMATOR_PARAMS: EstimatorParams = {
   consentRate: 0.65,
   smsPerClient: 2,
-  creditsPerSms: 2,
+  // 1 după rebazarea A1: un SMS standard (template prevalidat) = 1 credit.
+  creditsPerSms: 1,
   seasonalityBand: 0.25,
 };
 

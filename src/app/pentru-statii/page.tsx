@@ -70,7 +70,7 @@ export default function PentruStatiiPage() {
       <section className="mx-auto max-w-5xl px-4 pb-20">
         <h2 className="text-center text-2xl font-semibold">Pachete de credite</h2>
         <p className="mt-3 text-center text-gray-600">
-          Un SMS obișnuit costă 2 credite. E-mailurile sunt <strong>gratuite, nelimitate</strong>.
+          <strong>1 credit = 1 SMS.</strong> E-mailurile sunt <strong>gratuite, nelimitate</strong>.
           Creditele sunt valabile 12 luni de la achiziție.
         </p>
 
@@ -87,7 +87,7 @@ export default function PentruStatiiPage() {
                 {pkg.credits.toLocaleString('ro-RO')} credite
               </p>
               <p className="mt-1 text-lg text-gray-700">{pkg.priceEur} € + TVA</p>
-              <p className="text-sm text-gray-500">~{pkg.approxSms} SMS-uri standard</p>
+              <p className="text-sm text-gray-500">= {pkg.approxSms} SMS-uri standard</p>
               <ul className="mt-4 space-y-2 text-sm text-gray-600">
                 <li className="flex gap-2">
                   <Check className="h-4 w-4 flex-shrink-0 text-green-600" />

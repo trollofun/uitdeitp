@@ -20,17 +20,17 @@ const ucs = (n: number) => 'ă' + 'a'.repeat(n - 1); // un singur „ă" comută
 describe('computeSmsCost — praguri exacte (criteriul #8)', () => {
   it.each([
     // [text, segments, credits, encoding]
-    [gsm(1), 1, 2, 'GSM-7'],
-    [gsm(160), 1, 2, 'GSM-7'],
-    [gsm(161), 2, 3, 'GSM-7'],
-    [gsm(306), 2, 3, 'GSM-7'],
-    [gsm(307), 3, 5, 'GSM-7'],
-    [gsm(459), 3, 5, 'GSM-7'],
-    [ucs(70), 1, 2, 'UCS-2'],
-    [ucs(71), 2, 3, 'UCS-2'],
-    [ucs(134), 2, 3, 'UCS-2'],
-    [ucs(135), 3, 5, 'UCS-2'],
-    [ucs(201), 3, 5, 'UCS-2'],
+    [gsm(1), 1, 1, 'GSM-7'],
+    [gsm(160), 1, 1, 'GSM-7'],
+    [gsm(161), 2, 2, 'GSM-7'],
+    [gsm(306), 2, 2, 'GSM-7'],
+    [gsm(307), 3, 3, 'GSM-7'],
+    [gsm(459), 3, 3, 'GSM-7'],
+    [ucs(70), 1, 1, 'UCS-2'],
+    [ucs(71), 2, 2, 'UCS-2'],
+    [ucs(134), 2, 2, 'UCS-2'],
+    [ucs(135), 3, 3, 'UCS-2'],
+    [ucs(201), 3, 3, 'UCS-2'],
   ] as const)('lungime %#: %s segmente / %s credite', (text, segments, credits, encoding) => {
     const cost = computeSmsCost(text);
     expect(cost.segments).toBe(segments);
@@ -49,7 +49,7 @@ describe('computeSmsCost — praguri exacte (criteriul #8)', () => {
     expect(computeSmsCost(ucs(202)).blocked).toBe(true);
   });
 
-  it('mesaj gol → 1 segment, 2 credite (validarea de gol e în altă parte)', () => {
+  it('mesaj gol → 1 segment, 1 credit (validarea de gol e în altă parte)', () => {
     const cost = computeSmsCost('');
     expect(cost.segments).toBe(1);
     expect(cost.blocked).toBe(false);
@@ -57,13 +57,13 @@ describe('computeSmsCost — praguri exacte (criteriul #8)', () => {
 });
 
 describe('computeSmsCost — declanșatori (criteriul #1)', () => {
-  it('un singur „ă" într-un mesaj de 96 comută pe UCS-2: 1→2 SMS, 2→3 credite', () => {
+  it('un singur „ă" într-un mesaj de 96 comută pe UCS-2: 1→2 SMS, 1→2 credite', () => {
     const clean = gsm(96);
     const withDiacritic = 'ă' + gsm(95);
 
-    expect(computeSmsCost(clean)).toMatchObject({ segments: 1, credits: 2 });
+    expect(computeSmsCost(clean)).toMatchObject({ segments: 1, credits: 1 });
     const after = computeSmsCost(withDiacritic);
-    expect(after).toMatchObject({ segments: 2, credits: 3, encoding: 'UCS-2' });
+    expect(after).toMatchObject({ segments: 2, credits: 2, encoding: 'UCS-2' });
 
     // Declanșatorul e numit și poziționat, pentru evidențierea inline.
     expect(after.triggers).toEqual([{ char: 'ă', kind: 'ucs2', positions: [0] }]);
@@ -101,10 +101,10 @@ describe('transliterarea (criteriul #2 — butonul „Scrie fără diacritice")'
     expect(stripToGsm7('ăâîșț ĂÂÎȘȚ')).toBe('aaist AAIST');
   });
 
-  it('reduce costul: mesajul de 96 cu diacritice revine la 1 SMS / 2 credite', () => {
+  it('reduce costul: mesajul de 96 cu diacritice revine la 1 SMS / 1 credit', () => {
     const expensive = 'ă' + gsm(95);
-    expect(computeSmsCost(expensive).credits).toBe(3);
-    expect(computeSmsCost(stripToGsm7(expensive)).credits).toBe(2);
+    expect(computeSmsCost(expensive).credits).toBe(2);
+    expect(computeSmsCost(stripToGsm7(expensive)).credits).toBe(1);
   });
 
   it('ghilimelele tipografice și liniuțele lungi se transliterează și ele', () => {
@@ -113,38 +113,40 @@ describe('transliterarea (criteriul #2 — butonul „Scrie fără diacritice")'
 });
 
 describe('computeCostForMessages — defalcarea per destinatar (criteriul #3)', () => {
-  it('139 × 1 segment + 4 × 2 segmente = 278 + 12 = 290 credite', () => {
+  it('139 × 1 segment + 4 × 2 segmente = 139 + 8 = 147 credite', () => {
     const messages = [
       ...Array.from({ length: 139 }, () => gsm(100)),
       ...Array.from({ length: 4 }, () => gsm(200)),
     ];
     const breakdown = computeCostForMessages(messages);
 
-    expect(breakdown.byCredits.get(2)).toBe(139);
-    expect(breakdown.byCredits.get(3)).toBe(4);
-    expect(breakdown.totalCredits).toBe(290);
+    expect(breakdown.byCredits.get(1)).toBe(139);
+    expect(breakdown.byCredits.get(2)).toBe(4);
+    expect(breakdown.totalCredits).toBe(147);
     expect(breakdown.blockedRecipients).toEqual([]);
   });
 
   it('destinatarii blocați sunt numiți, nu tarifați', () => {
     const breakdown = computeCostForMessages([gsm(100), gsm(500), gsm(100)]);
     expect(breakdown.blockedRecipients).toEqual([1]);
-    expect(breakdown.totalCredits).toBe(4);
+    expect(breakdown.totalCredits).toBe(2);
   });
 });
 
 describe('valoarea creditului', () => {
-  it('1 credit = 0,05 € — maparea 2/3/5 dă 0,10 / 0,15 / 0,25 €', () => {
+  it('1 credit = 0,10 € — maparea 1/2/3 dă 0,10 / 0,20 / 0,30 €', () => {
+    // Rebazarea A1: 1 SMS standard costă exact la fel ca înainte (0,10 €);
+    // multipart-ul urmărește liniar costul per parte, nu mai e subvenționat.
     expect(creditsToEur(CREDITS_BY_SEGMENTS[1])).toBe(0.1);
-    expect(creditsToEur(CREDITS_BY_SEGMENTS[2])).toBe(0.15);
-    expect(creditsToEur(CREDITS_BY_SEGMENTS[3])).toBe(0.25);
+    expect(creditsToEur(CREDITS_BY_SEGMENTS[2])).toBe(0.2);
+    expect(creditsToEur(CREDITS_BY_SEGMENTS[3])).toBe(0.3);
   });
 });
 
 describe('estimatorul (PRD §5, criteriul #7)', () => {
-  it('100 inspecții/lună → 260 credite/lună, recomandă Standard, durată în 4–6 luni', () => {
+  it('100 inspecții/lună → 130 credite/lună, recomandă Standard, durată în 4–6 luni', () => {
     const e = estimateConsumption(100, DEFAULT_ESTIMATOR_PARAMS);
-    expect(e.monthlyCredits).toBe(260);
+    expect(e.monthlyCredits).toBe(130);
     expect(e.recommended.key).toBe('standard');
     expect(e.durationMonths.min).toBeGreaterThanOrEqual(4);
     expect(e.durationMonths.max).toBeLessThanOrEqual(6);
