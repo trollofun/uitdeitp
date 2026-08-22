@@ -114,7 +114,7 @@ vi.mock('@/lib/services/station-credits', () => ({
 }));
 
 import { processGumroadSale, isFlagTrue } from '@/lib/services/gumroad-sales';
-import { verifySaleWithGumroad } from '@/lib/integrations/gumroad';
+import { verifySaleWithGumroad, buildCheckoutUrl } from '@/lib/integrations/gumroad';
 
 const PERMALINK = 'uitp-credite-start'; // 500 credits in the default package map
 
@@ -244,6 +244,21 @@ describe('processGumroadSale', () => {
     expect(purchases[0]?.status).toBe('failed');
   });
 
+  it('a seller TEST purchase (price 0 / test flag) never credits real credits', async () => {
+    const byFlag = await processGumroadSale({
+      sale: makeSale(),
+      payload: { sale_id: 'x', test: 'true' },
+      source: 'webhook',
+    });
+    expect(byFlag.outcome).toBe('test_purchase_ignored');
+
+    const byPrice = await processGumroadSale({ sale: makeSale({ price: 0 }), source: 'reconcile' });
+    expect(byPrice.outcome).toBe('test_purchase_ignored');
+
+    expect(topupStation).not.toHaveBeenCalled();
+    expect(purchases).toHaveLength(0);
+  });
+
   it('a NotifyHub outage leaves the purchase pending for the reconcile retry', async () => {
     topupStation.mockResolvedValueOnce({ ok: false, reason: 'network_error' });
 
@@ -252,6 +267,21 @@ describe('processGumroadSale', () => {
 
     expect(result.outcome).toBe('pending');
     expect(purchases[0]?.status).toBe('pending');
+  });
+});
+
+describe('buildCheckoutUrl — tolerant la formele de GUMROAD_BASE_URL', () => {
+  it.each([
+    'https://uitdeitp.gumroad.com/l',
+    'https://uitdeitp.gumroad.com/l/',
+    'https://uitdeitp.gumroad.com',
+    'https://uitdeitp.gumroad.com/',
+  ])('cu env %s linkul rămâne …/l/<permalink>', (base) => {
+    process.env.GUMROAD_BASE_URL = base;
+    const url = buildCheckoutUrl('station-1', 'uitp-credite-start');
+    expect(url).toMatch(/^https:\/\/uitdeitp\.gumroad\.com\/l\/uitp-credite-start\?st=/);
+    expect(url).not.toContain('//uitp');
+    delete process.env.GUMROAD_BASE_URL;
   });
 });
 

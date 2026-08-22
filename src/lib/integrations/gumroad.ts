@@ -78,7 +78,11 @@ export function verifyStationRef(ref: string | undefined | null): string | null 
 }
 
 export function buildCheckoutUrl(stationId: string, permalink: string): string {
-  const base = process.env.GUMROAD_BASE_URL || 'https://uitdeitp.gumroad.com/l';
+  // Tolerant la ambele forme de configurare: cu sau fără `/l`, cu sau fără
+  // slash final. Auditul din 22.08 a găsit env-ul setat `…gumroad.com/` —
+  // fiecare link de checkout ar fi fost un 404 cu dublu slash.
+  let base = (process.env.GUMROAD_BASE_URL || 'https://uitdeitp.gumroad.com/l').replace(/\/+$/, '');
+  if (!base.endsWith('/l')) base += '/l';
   return `${base}/${permalink}?st=${encodeURIComponent(signStationRef(stationId))}`;
 }
 

@@ -37,7 +37,8 @@ export type SaleOutcome =
   | { outcome: 'pending'; stationId: string; paymentRef: string; reason?: string }
   | { outcome: 'duplicate'; paymentRef: string }
   | { outcome: 'unresolved'; paymentRef: string }
-  | { outcome: 'skipped_reversal_without_purchase'; paymentRef: string };
+  | { outcome: 'skipped_reversal_without_purchase'; paymentRef: string }
+  | { outcome: 'test_purchase_ignored'; paymentRef: string };
 
 export async function processGumroadSale({
   sale,
@@ -62,6 +63,16 @@ export async function processGumroadSale({
     (sale.disputed === true && sale.dispute_won !== true) || isFlagTrue(payload?.disputed);
   const reversal = refunded ? 'refund' : disputed ? 'dispute' : null;
   const paymentRef = reversal ? `${saleId}:${reversal}` : saleId;
+
+  // Achizițiile de test ale vânzătorului (butonul de test din Gumroad, preț 0)
+  // nu creditează niciodată credite reale — lecția Academy: „Test purchases
+  // (€0) are not allowed in production". Se răspunde succes ca Gumroad să nu
+  // reîncerce, fără niciun rând în ledger.
+  const isTest = isFlagTrue(payload?.test) || sale.price === 0;
+  if (isTest && !reversal) {
+    console.warn('[Gumroad] test purchase ignored (price 0 / test flag)', { saleId, source });
+    return { outcome: 'test_purchase_ignored', paymentRef };
+  }
 
   const stationId =
     verifyStationRef(sale.url_params?.st ?? payload?.['url_params[st]']) ??
