@@ -34,9 +34,11 @@ let rowCounter = 0;
 
 function creditPurchasesBuilder() {
   let pendingInsert: Record<string, unknown> | null = null;
-  let filterRef: string | null = null;
-  let filterId: string | null = null;
   let pendingUpdate: Record<string, unknown> | null = null;
+  let isDelete = false;
+  const filters: Array<[string, unknown]> = [];
+
+  const matches = (row: PurchaseRow) => filters.every(([col, val]) => row[col] === val);
 
   const finishInsert = () => {
     const row = pendingInsert as Record<string, unknown>;
@@ -48,35 +50,34 @@ function creditPurchasesBuilder() {
     return { data: { id: stored.id }, error: null };
   };
 
-  const resolve = () => {
+  const resolve = (single: boolean) => {
     if (pendingInsert) return finishInsert();
-    if (pendingUpdate && filterId) {
-      const row = purchases.find((p) => p.id === filterId);
-      if (row) Object.assign(row, pendingUpdate);
+    if (isDelete) {
+      for (let i = purchases.length - 1; i >= 0; i--) {
+        if (matches(purchases[i])) purchases.splice(i, 1);
+      }
       return { data: null, error: null };
     }
-    if (filterRef !== null) {
-      const row = purchases.find((p) => p.payment_ref === filterRef) ?? null;
-      return { data: row, error: null };
+    if (pendingUpdate) {
+      purchases.filter(matches).forEach((row) => Object.assign(row, pendingUpdate!));
+      return { data: null, error: null };
     }
-    return { data: null, error: null };
+    const rows = purchases.filter(matches);
+    return { data: single ? (rows[0] ?? null) : rows, error: null };
   };
 
   const chain: Record<string, unknown> = {
     insert: vi.fn((row: Record<string, unknown>) => { pendingInsert = row; return chain; }),
     update: vi.fn((patch: Record<string, unknown>) => { pendingUpdate = patch; return chain; }),
+    delete: vi.fn(() => { isDelete = true; return chain; }),
     select: vi.fn(() => chain),
-    eq: vi.fn((col: string, val: string) => {
-      if (col === 'payment_ref') filterRef = val;
-      if (col === 'id') filterId = val;
-      return chain;
-    }),
+    eq: vi.fn((col: string, val: unknown) => { filters.push([col, val]); return chain; }),
     not: vi.fn(() => chain),
     in: vi.fn(() => chain),
     order: vi.fn(() => chain),
     limit: vi.fn(() => chain),
-    maybeSingle: vi.fn(() => Promise.resolve(resolve())),
-    then: (cb: (v: unknown) => unknown) => Promise.resolve(resolve()).then(cb),
+    maybeSingle: vi.fn(() => Promise.resolve(resolve(true))),
+    then: (cb: (v: unknown) => unknown) => Promise.resolve(resolve(false)).then(cb),
   };
   return chain;
 }
@@ -113,7 +114,11 @@ vi.mock('@/lib/services/station-credits', () => ({
   topupStation: (args: TopupArgs) => topupStation(args),
 }));
 
-import { processGumroadSale, isFlagTrue } from '@/lib/services/gumroad-sales';
+import {
+  processGumroadSale,
+  isFlagTrue,
+  retryUnresolvedPurchases,
+} from '@/lib/services/gumroad-sales';
 import { verifySaleWithGumroad, buildCheckoutUrl } from '@/lib/integrations/gumroad';
 
 const PERMALINK = 'uitp-credite-start'; // 500 credits in the default package map
@@ -296,6 +301,63 @@ describe('processGumroadSale', () => {
 
     expect(result.outcome).toBe('pending');
     expect(purchases[0]?.status).toBe('pending');
+  });
+});
+
+describe('retryUnresolvedPurchases — auto-vindecarea rândurilor failed', () => {
+  it('reia o achiziție rămasă failed când produsul devine identificabil prin alias', async () => {
+    // Scenariul real din 22.08: Ping corect, dar API-ul identifică produsul
+    // prin id-ul scurt → rând failed cu 0 credite. După fix, cronul o vindecă.
+    const payload = {
+      sale_id: 'sale-stuck',
+      permalink: 'slug-neconfigurat',
+      email: 'owner@statia.ro',
+    };
+    purchases.push({
+      id: 'row-stuck',
+      payment_ref: 'sale-stuck',
+      station_id: 'station-42',
+      amount_parts: 0,
+      status: 'failed',
+      gumroad_payload: payload,
+    });
+
+    // Re-verificarea la Gumroad confirmă vânzarea, cu id-ul scurt ca produs
+    global.fetch = vi.fn(async () => ({
+      status: 200,
+      ok: true,
+      json: async () => ({
+        success: true,
+        sale: { id: 'sale-stuck', product_permalink: 'lypzqp', price: 128, email: 'owner@statia.ro' },
+      }),
+    } as Response));
+    process.env.GUMROAD_ACCESS_TOKEN = 'test-token';
+
+    const result = await retryUnresolvedPurchases({ lypzqp: PERMALINK });
+
+    expect(result.healed).toBe(1);
+    expect(topupStation).toHaveBeenCalledWith(expect.objectContaining({ amountParts: 500 }));
+    const healed = purchases.find((p) => p.payment_ref === 'sale-stuck');
+    expect(healed?.amount_parts).toBe(500);
+    expect(['credited', 'pending']).toContain(healed?.status);
+  });
+
+  it('nu atinge rândul când Gumroad nu confirmă vânzarea', async () => {
+    purchases.push({
+      id: 'row-x',
+      payment_ref: 'sale-x',
+      station_id: null,
+      amount_parts: 0,
+      status: 'failed',
+      gumroad_payload: { sale_id: 'sale-x' },
+    });
+    global.fetch = vi.fn(async () => ({ status: 503, ok: false } as Response));
+    process.env.GUMROAD_ACCESS_TOKEN = 'test-token';
+
+    const result = await retryUnresolvedPurchases({});
+
+    expect(result.healed).toBe(0);
+    expect(purchases.find((p) => p.payment_ref === 'sale-x')?.status).toBe('failed');
   });
 });
 

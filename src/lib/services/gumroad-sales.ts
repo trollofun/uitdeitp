@@ -15,7 +15,12 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/service';
-import { GUMROAD_PRODUCTS, verifyStationRef, type GumroadSale } from '@/lib/integrations/gumroad';
+import {
+  GUMROAD_PRODUCTS,
+  verifySaleWithGumroad,
+  verifyStationRef,
+  type GumroadSale,
+} from '@/lib/integrations/gumroad';
 import { topupStation } from '@/lib/services/station-credits';
 import {
   appendLedger,
@@ -275,6 +280,69 @@ export async function retryPendingTopups(limit = 25): Promise<{ retried: number;
   }
 
   return { retried: pending?.length ?? 0, credited };
+}
+
+/**
+ * Auto-vindecarea rândurilor `failed` nerezolvate (produs sau stație
+ * neidentificate la momentul Ping-ului). Rulează din cronul de reconciliere:
+ * dacă între timp maparea s-a reparat (alias nou, produs adăugat, cod nou),
+ * vânzarea se re-verifică la Gumroad, rândul-evidență se înlocuiește și
+ * creditarea se face pe aceeași cale unică. Fără intervenție manuală.
+ *
+ * Doar achizițiile (nu reversal-urile — acelea rămân la review uman) și doar
+ * după re-verificarea vânzării la API: rândul vechi se șterge exclusiv când
+ * Gumroad confirmă din nou vânzarea.
+ */
+export async function retryUnresolvedPurchases(
+  aliases?: Record<string, string>,
+  limit = 25
+): Promise<{ scanned: number; healed: number }> {
+  const supabase = createServiceClient();
+
+  const { data: rows } = await supabase
+    .from('credit_purchases')
+    .select('id, payment_ref, gumroad_payload')
+    .eq('status', 'failed')
+    .eq('amount_parts', 0)
+    .not('gumroad_payload', 'is', null)
+    .order('created_at', { ascending: true })
+    .limit(limit);
+
+  let healed = 0;
+
+  for (const row of rows ?? []) {
+    const paymentRef = row.payment_ref as string;
+    if (paymentRef.includes(':')) continue; // reversal-evidence stays human-reviewed
+
+    const payload = row.gumroad_payload as Record<string, string>;
+    const saleId = payload?.sale_id ?? paymentRef;
+
+    const verification = await verifySaleWithGumroad(saleId);
+    if (verification.verdict !== 'verified') continue;
+
+    const resolvable = packageCandidates(verification.sale, payload).some(
+      (c) => c && (GUMROAD_PRODUCTS[c] || (aliases?.[c] && GUMROAD_PRODUCTS[aliases[c]]))
+    );
+    if (!resolvable) continue;
+
+    // Evidence row out, real processing in — guarded by status so a
+    // concurrent fix cannot delete an already-credited row.
+    await supabase.from('credit_purchases').delete().eq('id', row.id).eq('status', 'failed');
+
+    const result = await processGumroadSale({
+      sale: verification.sale,
+      payload,
+      source: 'reconcile',
+      aliases,
+    });
+
+    if (result.outcome === 'credited' || result.outcome === 'pending') {
+      healed += 1;
+      console.log('[Gumroad reconcile] healed unresolved purchase', { saleId, outcome: result.outcome });
+    }
+  }
+
+  return { scanned: rows?.length ?? 0, healed };
 }
 
 export async function resolveStationByEmail(

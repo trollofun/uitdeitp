@@ -26,6 +26,7 @@ import {
   packageCandidates,
   processGumroadSale,
   retryPendingTopups,
+  retryUnresolvedPurchases,
 } from '@/lib/services/gumroad-sales';
 
 export const maxDuration = 60;
@@ -123,6 +124,7 @@ export async function GET(req: NextRequest) {
     }
 
     const pendingRetry = await retryPendingTopups();
+    const unresolvedRetry = await retryUnresolvedPurchases(aliases);
 
     const summary = {
       success: true,
@@ -132,11 +134,12 @@ export async function GET(req: NextRequest) {
       missing_processed: processed,
       outcomes,
       pending_retry: pendingRetry,
+      unresolved_retry: unresolvedRetry,
       executionTime: `${Date.now() - startTime}ms`,
       timestamp: new Date().toISOString(),
     };
 
-    if (processed > 0 || pendingRetry.credited > 0) {
+    if (processed > 0 || pendingRetry.credited > 0 || unresolvedRetry.healed > 0) {
       console.log('[Gumroad reconcile] recovered work:', summary);
     }
 
