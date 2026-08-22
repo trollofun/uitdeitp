@@ -125,7 +125,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         station_phone: station.station_phone || '',
         station_address: station.station_address || '',
         app_url: appUrl(),
-        opt_out_link: generateOptOutLink(reminder.guest_phone),
+        opt_out_link: await generateOptOutLink(reminder.guest_phone),
       });
 
     const smsResult = await notifyHub.sendSms(

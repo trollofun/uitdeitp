@@ -1,7 +1,7 @@
 import { updateSession } from '@/lib/auth/middleware';
 import { NextResponse, type NextRequest } from 'next/server';
 import { appUrl } from '@/lib/config/app-url';
-import { shortUrl, isShortPath } from '@/lib/config/short-url';
+import { shortUrl, isShortPath, bareOptOutToken } from '@/lib/config/short-url';
 
 /**
  * Next.js Middleware
@@ -59,6 +59,18 @@ export async function middleware(request: NextRequest) {
 
     if (isShortPath(pathname)) {
       return NextResponse.next();
+    }
+
+    // `itp.vin/xxxxxx` — linkul de opt-out în forma lui cea mai scurtă
+    // (14 caractere în SMS). Rewrite intern spre pagina existentă /o, fără
+    // redirect: pagina rămâne o singură implementare, iar clientul nu face
+    // un drum în plus pe conexiune mobilă.
+    const optOutToken = bareOptOutToken(pathname);
+    if (optOutToken) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/o';
+      url.search = `?t=${optOutToken}`;
+      return NextResponse.rewrite(url);
     }
 
     // Restul: domeniul scurt nu e o a doua copie a aplicației. Redirect

@@ -55,3 +55,36 @@ export function isShortPath(pathname: string): boolean {
     prefix.endsWith('/') ? pathname.startsWith(prefix) : pathname === prefix
   );
 }
+
+/** Hostul scurt fără schemă — forma care intră efectiv în SMS (`itp.vin`). */
+export function shortHost(): string {
+  return new URL(shortUrl()).host;
+}
+
+/**
+ * Rute reale ale aplicației care s-ar potrivi din greșeală pe forma unui token
+ * (6-12 caractere, doar litere mici și cifre). Pe hostul scurt ele ar fi
+ * oricum redirecționate spre domeniul canonic — denylist-ul păstrează exact
+ * comportamentul ăla în loc să le trateze ca tokenuri invalide.
+ */
+const TOKEN_DENYLIST = new Set([
+  'statii',
+  'programare',
+  'dashboard',
+  'stations',
+  'register',
+  'contact',
+  'unauthorized',
+  'sitemap',
+  'robots',
+]);
+
+/**
+ * `itp.vin/xxxxxx` — forma cea mai scurtă a linkului de opt-out din SMS
+ * (14 caractere). Întoarce tokenul dacă path-ul e exact un token, altfel null.
+ */
+export function bareOptOutToken(pathname: string): string | null {
+  const match = /^\/([a-z0-9]{6,12})$/.exec(pathname);
+  if (!match || TOKEN_DENYLIST.has(match[1])) return null;
+  return match[1];
+}

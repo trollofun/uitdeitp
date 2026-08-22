@@ -1,27 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/service';
-import { decodeOptOutToken } from '@/lib/utils/opt-out';
-import { formatPhoneNumber } from '@/lib/services/phone';
+import { resolvePhoneFromToken } from '@/lib/utils/opt-out';
+import { formatPhoneNumber, displayPhoneNumber } from '@/lib/services/phone';
+import { checkDurableRateLimit } from '@/lib/api/rate-limit';
+import { getClientIp } from '@/lib/api/middleware';
 
 const optOutSchema = z.object({
-  token: z.string().min(1),
+  token: z.string().min(1).max(32),
 });
+
+/**
+ * Rate-limit durabil pe ambele metode: tokenul legacy era telefonul codat
+ * reversibil, deci fără limită endpoint-ul permitea enumerarea numerelor
+ * reale. Log-only până la ENFORCE_RATE_LIMIT, ca tot restul.
+ */
+async function limited(req: NextRequest, bucket: string): Promise<boolean> {
+  const result = await checkDurableRateLimit({
+    bucket,
+    key: getClientIp(req),
+    limit: 30,
+    windowSeconds: 60 * 60,
+  });
+  return !result.allowed;
+}
+
+/**
+ * Numărul NU se mai întoarce în clar: pagina are nevoie doar de o confirmare
+ * lizibilă („se dezabonează 07xx xxx x78"), nu de numărul complet — iar un
+ * token ghicit nu mai valorează nimic.
+ */
+function maskPhone(phone: string): string {
+  const display = displayPhoneNumber(phone); // 0712 345 678
+  return display.replace(/^(\d{2})\d{2}( \d)\d{2}/, '$1xx$2xx');
+}
 
 /**
  * POST /api/opt-out
  * Opt out from SMS notifications (GDPR compliance)
  *
- * Body: { token: string } (base64url encoded phone number)
+ * Body: { token: string } — token opac din opt_out_tokens sau legacy base36
  * Returns: { success: true }
  */
 export async function POST(req: NextRequest) {
   try {
+    if (await limited(req, 'opt_out_post:ip')) {
+      return NextResponse.json(
+        { error: 'Prea multe încercări. Reîncearcă mai târziu.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { token } = optOutSchema.parse(body);
 
-    // Decode phone number from token
-    const phone = decodeOptOutToken(token);
+    const phone = await resolvePhoneFromToken(token);
 
     if (!phone) {
       return NextResponse.json(
@@ -81,13 +114,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Insert new opt-out
+    // Insert new opt-out. `source: 'web'` — clickul din link, nu răspuns SMS
+    // (default-ul tabelului e 'sms_reply' și falsifica statistica sursei).
     const { error: insertError } = await supabase
       .from('global_opt_outs')
       .insert({
         phone: formattedPhone,
         opted_out_at: new Date().toISOString(),
-      });
+        source: 'web',
+      } as never);
 
     if (insertError) {
       console.error('[OptOut] Error inserting opt-out:', insertError);
@@ -139,11 +174,17 @@ export async function POST(req: NextRequest) {
  * GET /api/opt-out?token=xxx
  * Check opt-out status for a phone number
  *
- * Query: ?token=base64url_encoded_phone
- * Returns: { optedOut: boolean, phone: string }
+ * Returns: { optedOut: boolean, phone: string (MASCAT), optedOutAt }
  */
 export async function GET(req: NextRequest) {
   try {
+    if (await limited(req, 'opt_out_get:ip')) {
+      return NextResponse.json(
+        { error: 'Prea multe încercări. Reîncearcă mai târziu.' },
+        { status: 429 }
+      );
+    }
+
     const token = req.nextUrl.searchParams.get('token');
 
     if (!token) {
@@ -153,8 +194,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Decode phone number from token
-    const phone = decodeOptOutToken(token);
+    const phone = await resolvePhoneFromToken(token);
 
     if (!phone) {
       return NextResponse.json(
@@ -187,7 +227,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       optedOut: !!optOut,
-      phone: formattedPhone,
+      phone: maskPhone(formattedPhone),
       optedOutAt: optOut?.opted_out_at || null,
     });
 

@@ -60,7 +60,7 @@ const SAMPLE_DATA = {
   station_phone: '+40712345678',
   station_address: 'Str. Exemplu Nr. 123, București',
   app_url: 'https://uitdeitp.ro',
-  opt_out_link: 'https://itp.vin/o?t=Ab3xK9mQz2Lp',
+  opt_out_link: 'itp.vin/ab3x9k',
   booking_link: 'https://itp.vin/p/statia-ta',
 };
 

@@ -250,11 +250,12 @@ export async function processReminder(
 
         if (picked.template) {
           // Dezabonarea cu token e legată de telefon; fără telefon, ducem
-          // clientul la pagina generică — linkul GDPR nu are voie să lipsească.
-          let emailOptOutLink = `${appUrl()}/unsubscribe`;
+          // clientul la pagina de confidențialitate (care explică dezabonarea)
+          // — vechiul `/unsubscribe` nu a existat niciodată ca rută: 404.
+          let emailOptOutLink = `${appUrl()}/politica-confidentialitate`;
           if (profile.phone) {
             try {
-              emailOptOutLink = generateOptOutLink(profile.phone);
+              emailOptOutLink = await generateOptOutLink(profile.phone);
             } catch {
               // Telefon într-un format neașteptat — rămâne pagina generică,
               // emailul tot pleacă.
@@ -395,7 +396,7 @@ export async function processReminder(
       console.log(`[Processor] Using ${smsSelection.source} SMS template (${smsSelection.key})`);
 
       // Generate opt-out link (GDPR required)
-      const optOutLink = generateOptOutLink(phoneNumber);
+      const optOutLink = await generateOptOutLink(phoneNumber);
 
       // Render template with all data
       const renderedMessage = renderSmsTemplate(smsTemplate, {
