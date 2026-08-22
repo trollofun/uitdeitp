@@ -18,6 +18,7 @@ import { appPath } from '@/lib/config/app-url';
 import { processRemindersForToday } from '@/lib/services/reminder-processor';
 import { createServiceClient } from '@/lib/supabase/service';
 import { processReviewRequestsForToday } from '@/lib/services/review-processor';
+import { expireCredits } from '@/lib/services/credit-ledger';
 
 // Vercel Pro: 60s timeout for cron jobs
 export const maxDuration = 60;
@@ -85,6 +86,17 @@ async function runCron(req: NextRequest): Promise<NextResponse> {
       await createServiceClient().rpc('cleanup_rate_limit_events');
     } catch (cleanupError) {
       console.warn('[Cron] rate_limit_events cleanup failed:', cleanupError);
+    }
+
+    // Expirarea FIFO a creditelor (12 luni de la achiziție) — no-op cât timp
+    // CREDIT_LEDGER_ENABLED e stins; non-fatal ca tot restul housekeeping-ului.
+    try {
+      const expired = await expireCredits();
+      if (expired && expired.expired_credits > 0) {
+        console.log('[Cron] credit expiry:', expired);
+      }
+    } catch (expiryError) {
+      console.warn('[Cron] credit expiry failed:', expiryError);
     }
 
     const executionTime = Date.now() - startTime;

@@ -36,10 +36,13 @@ export const GUMROAD_PRODUCTS: Record<string, CreditPackage> = (() => {
       console.warn('[Gumroad] GUMROAD_PRODUCTS_JSON is not valid JSON, using defaults');
     }
   }
+  // Pachetele PRD (§3.3): Start 25€/500, Standard 50€/1000, Pro 100€/2000.
+  // `parts` = CREDITE de ledger (1 credit = 0,05 € + TVA), nu segmente SMS.
+  // Permalink-urile reale se setează prin GUMROAD_PRODUCTS_JSON per mediu.
   return {
-    'itp-credite-100': { parts: 100, label: '100 SMS' },
-    'itp-credite-500': { parts: 500, label: '500 SMS' },
-    'itp-credite-2000': { parts: 2000, label: '2000 SMS' },
+    'uitp-credite-start': { parts: 500, label: 'Start — 500 credite' },
+    'uitp-credite-standard': { parts: 1000, label: 'Standard — 1.000 credite' },
+    'uitp-credite-pro': { parts: 2000, label: 'Pro — 2.000 credite' },
   };
 })();
 

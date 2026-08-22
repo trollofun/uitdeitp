@@ -116,7 +116,7 @@ vi.mock('@/lib/services/station-credits', () => ({
 import { processGumroadSale, isFlagTrue } from '@/lib/services/gumroad-sales';
 import { verifySaleWithGumroad } from '@/lib/integrations/gumroad';
 
-const PERMALINK = 'itp-credite-100'; // 100 parts in the default package map
+const PERMALINK = 'uitp-credite-start'; // 500 credits in the default package map
 
 function makeSale(overrides: Record<string, unknown> = {}) {
   return {
@@ -157,7 +157,7 @@ describe('processGumroadSale', () => {
 
     expect(result.outcome).toBe('credited');
     expect(topupStation).toHaveBeenCalledWith(
-      expect.objectContaining({ amountParts: 100, paymentRef: sale.id, stationId: 'station-42' })
+      expect.objectContaining({ amountParts: 500, paymentRef: sale.id, stationId: 'station-42' })
     );
   });
 
@@ -170,7 +170,7 @@ describe('processGumroadSale', () => {
     });
 
     const call = topupStation.mock.calls[0][0];
-    expect(call.amountParts).toBe(100); // positive = credit, not debit
+    expect(call.amountParts).toBe(500); // positive = credit, not debit
   });
 
   it('a replayed sale is a duplicate, never a second credit', async () => {
@@ -194,7 +194,7 @@ describe('processGumroadSale', () => {
 
     expect(refund.outcome).toBe('credited'); // the debit call succeeded
     const debit = topupStation.mock.calls[1][0];
-    expect(debit.amountParts).toBe(-100);
+    expect(debit.amountParts).toBe(-500);
     expect(debit.paymentRef).toBe(`${sale.id}:refund`);
   });
 

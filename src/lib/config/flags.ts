@@ -46,6 +46,14 @@ export const flags = {
   get gumroadTopupEnabled() {
     return envFlag('GUMROAD_TOPUP_ENABLED');
   },
+  /**
+   * Ledgerul local de credite (PRD credite §6.2): tarifare per segment la
+   * trimitere, refund automat la DLR failed, expirare FIFO la 12 luni.
+   * E-mailul rămâne gratuit indiferent de flag.
+   */
+  get creditLedgerEnabled() {
+    return envFlag('CREDIT_LEDGER_ENABLED');
+  },
   /** Post-inspection review SMS — stays OFF until the consent text is cleared legally */
   get reviewSmsEnabled() {
     return envFlag('REVIEW_SMS_ENABLED');

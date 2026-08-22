@@ -24,6 +24,7 @@
 import { NextResponse } from 'next/server';
 import { handleNotifyHubAlert, type NotifyHubAlert } from '@/lib/services/notifyhub-alert';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { creditLedgerEnabled, refundFailedSms } from '@/lib/services/credit-ledger';
 import {
   applyDlr,
   verifyNotifyHubSignature,
@@ -113,11 +114,36 @@ export async function POST(req: Request) {
       case 'not_found':
         return NextResponse.json({ error: 'message_not_found' }, { status: 404 });
 
-      default:
+      default: {
+        // PRD credite §3.5: SMS cu status final failed → creditele se întorc
+        // automat în sold. Idempotent pe id-ul rândului (unique în ledger),
+        // deci un DLR rejucat nu returnează de două ori. Izolat în try/catch:
+        // un refund ratat se repară din reconciliere, un 500 aici ar pune
+        // outbox-ul lor să rejoace un DLR deja aplicat.
+        if (
+          creditLedgerEnabled() &&
+          result.outcome === 'updated' &&
+          payload.status === 'failed'
+        ) {
+          try {
+            const { data: failedRows } = await createAdminClient()
+              .from('notification_log')
+              .select('id')
+              .eq('provider_message_id', payload.messageId)
+              .eq('status', 'failed');
+            for (const row of failedRows ?? []) {
+              await refundFailedSms(row.id);
+            }
+          } catch (refundError) {
+            console.error('[NotifyHub DLR] refund pass failed (DLR applied):', refundError);
+          }
+        }
+
         return NextResponse.json(
           { received: true, updated: result.outcome === 'updated' },
           { status: 200 }
         );
+      }
     }
   } catch (error) {
     // 500 e corect aici: o eroare de bază e tranzitorie, iar reîncercarea

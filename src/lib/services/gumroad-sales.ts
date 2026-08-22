@@ -17,6 +17,11 @@
 import { createServiceClient } from '@/lib/supabase/service';
 import { GUMROAD_PRODUCTS, verifyStationRef, type GumroadSale } from '@/lib/integrations/gumroad';
 import { topupStation } from '@/lib/services/station-credits';
+import {
+  appendLedger,
+  creditLedgerEnabled,
+  recordPurchase,
+} from '@/lib/services/credit-ledger';
 
 /**
  * Valorile din formData sunt întotdeauna string-uri: `payload.refunded` este
@@ -136,6 +141,28 @@ export async function processGumroadSale({
       return { outcome: 'duplicate', paymentRef };
     }
     throw insertError;
+  }
+
+  // Ledgerul local (PRD credite): creditează/debitează pachetul, idempotent pe
+  // paymentRef. Rulează independent de topup-ul NotifyHub — ledgerul e sursa
+  // de adevăr pentru sold în UI, NotifyHub rămâne transportul.
+  if (creditLedgerEnabled()) {
+    if (reversal) {
+      await appendLedger({
+        stationId,
+        delta: -pkg.parts,
+        motiv: 'refund_purchase',
+        referinta: paymentRef,
+        descriere: `-${pkg.parts} credite · ${reversal === 'refund' ? 'rambursare' : 'disputa'} Gumroad (${pkg.label})`,
+      });
+    } else {
+      await recordPurchase({
+        stationId,
+        credits: pkg.parts,
+        paymentRef,
+        packageLabel: pkg.label,
+      });
+    }
   }
 
   const topup = await topupStation({ stationId, amountParts, paymentRef });

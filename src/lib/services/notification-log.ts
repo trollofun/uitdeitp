@@ -12,6 +12,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { SendSmsResponse } from '@/lib/services/notifyhub';
+import { chargeSmsSend, creditLedgerEnabled } from '@/lib/services/credit-ledger';
 
 export interface LogSmsParams {
   /** null for OTP/verification sends, which are not tied to a reminder */
@@ -30,7 +31,7 @@ export async function logSms({
   result,
   metadata = {},
 }: LogSmsParams): Promise<void> {
-  const { error } = await createAdminClient()
+  const { data: inserted, error } = await createAdminClient()
     .from('notification_log')
     .insert({
       reminder_id: reminderId,
@@ -55,7 +56,9 @@ export async function logSms({
       parts: result.parts ?? null,
       error_message: result.success ? null : (result.error ?? null),
       metadata: metadata as never,
-    });
+    })
+    .select('id')
+    .maybeSingle();
 
   if (error) {
     console.warn('[RLS-AUDIT] notification_log insert failed', {
@@ -63,6 +66,26 @@ export async function logSms({
       metadata,
       code: error.code,
       message: error.message,
+    });
+  }
+
+  // Tarifarea (PRD credite): fiecare SMS trimis cu succes, atribuibil unei
+  // stații, debitează ledgerul EXACT pe segmentele raportate de provider.
+  // OTP-urile sunt cost de platformă, nu al stației. E-mailul nu ajunge
+  // niciodată aici — logSms e doar pentru SMS.
+  if (
+    creditLedgerEnabled() &&
+    result.success &&
+    inserted?.id &&
+    metadata.kind !== 'otp' &&
+    typeof metadata.station_id === 'string' &&
+    metadata.station_id
+  ) {
+    await chargeSmsSend({
+      stationId: metadata.station_id,
+      notificationLogId: inserted.id,
+      parts: result.parts,
+      recipientMasked: recipient.length > 6 ? `${recipient.slice(0, 6)}…` : undefined,
     });
   }
 }

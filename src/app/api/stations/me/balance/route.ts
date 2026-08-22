@@ -11,6 +11,7 @@ import { handleApiError, createSuccessResponse, ApiError, ApiErrorCode } from '@
 import { flags } from '@/lib/config/flags';
 import { requirePatron } from '@/lib/stations/me';
 import { getStationBalance } from '@/lib/services/station-credits';
+import { getLedgerBalance } from '@/lib/services/credit-ledger';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,16 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const station = await requirePatron(url.searchParams.get('station_id'));
+
+    // Ledgerul local e sursa de adevăr pentru sold când e aprins (PRD credite
+    // §6.2: „orice afișare de sold provine din ledger"); NotifyHub rămâne
+    // fallback-ul pentru stațiile de dinaintea migrării.
+    if (flags.creditLedgerEnabled) {
+      const parts = await getLedgerBalance(station.id);
+      if (parts !== null) {
+        return createSuccessResponse({ available: true, balance_parts: parts, source: 'ledger' });
+      }
+    }
 
     const balance = await getStationBalance(station.id);
 
