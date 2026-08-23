@@ -12,6 +12,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { claimStationsByEmail } from '@/lib/stations/claim';
 
 export type ContextKind = 'station' | 'personal' | 'platform';
 
@@ -73,6 +74,15 @@ export async function resolveLandingPath(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return '/dashboard';
+
+    // Auto-claim la login: dacă o stație îl așteaptă pe emailul lui
+    // (owner_email setat, owner_id gol), se leagă acum — primul login al unui
+    // patron nou aterizează direct pe dashboardul stației, fără pași manuali.
+    try {
+      await claimStationsByEmail(user.id, user.email);
+    } catch {
+      // Claim-ul nu are voie să strice un login bun.
+    }
 
     const [{ data: profile }, { data: stations }, { data: memberships }] = await Promise.all([
       supabase.from('user_profiles').select('role').eq('id', user.id).maybeSingle(),

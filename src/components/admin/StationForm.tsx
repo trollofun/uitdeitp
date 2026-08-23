@@ -27,7 +27,7 @@ const stationSchema = z.object({
   // them here every new station needed a hand-written UPDATE.
   rar_code: z
     .string()
-    .regex(/^[A-Z]{2}[0-9]{3}$/, 'Format cod RAR invalid (ex: CT123)')
+    .regex(/^[A-Z]{1,2}[0-9]{2,4}$/, 'Format cod RAR invalid (ex: CT123 sau ZZ01)')
     .optional()
     .or(z.literal('')),
   default_intervals: z
@@ -177,18 +177,21 @@ export function StationForm({ station }: StationFormProps) {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/stations/${station.id}`, {
+      // Ruta de admin decide singură, onest: stațiile de test (ZZ*) sau fără
+      // istoric se șterg definitiv; una reală cu remindere/plăți se
+      // dezactivează, ca evidența financiară și GDPR să rămână intactă.
+      const response = await fetch(`/api/admin/stations/${station.id}`, {
         method: 'DELETE',
       });
 
+      const result = await response.json();
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error?.message || 'Eroare la ștergere');
+        throw new Error(result.error?.message || result.error || 'Eroare la ștergere');
       }
 
       toast({
-        title: 'Stație ștearsă',
-        description: 'Stația a fost ștearsă cu succes',
+        title: result.deleted ? 'Stație ștearsă definitiv' : 'Stație dezactivată',
+        description: result.message,
         variant: 'success',
       });
 

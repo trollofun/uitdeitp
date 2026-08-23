@@ -169,14 +169,16 @@ export async function PATCH(
         }
 
         if (!ownerId) {
-          return NextResponse.json(
-            { error: `Nu există un cont cu adresa ${email}. Utilizatorul trebuie să se înregistreze întâi.` },
-            { status: 400 }
-          );
+          // Fără cont încă? Nu mai e o eroare: emailul rămâne pe stație ca
+          // promisiune, iar auto-claim-ul (src/lib/stations/claim.ts) o ține
+          // singur la primul login al persoanei. Adio „înregistrează-te întâi,
+          // apoi roagă adminul să reia legarea".
+          (updateData as Record<string, unknown>).owner_id = null;
+          (updateData as Record<string, unknown>).owner_email = email;
+        } else {
+          (updateData as Record<string, unknown>).owner_id = ownerId;
+          (updateData as Record<string, unknown>).owner_email = email;
         }
-
-        (updateData as Record<string, unknown>).owner_id = ownerId;
-        (updateData as Record<string, unknown>).owner_email = email;
       } else {
         (updateData as Record<string, unknown>).owner_id = null;
       }
@@ -252,6 +254,22 @@ export async function DELETE(
     }
 
     const { id } = params;
+
+    // Dezactivarea e admin-only, ca PATCH-ul pe is_active (ADMIN_ONLY_FIELDS):
+    // ruta asta lăsa un patron să-și stingă singur stația prin RLS, în timp ce
+    // PATCH-ul îi refuza explicit exact aceeași operație.
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profile?.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Doar administratorul platformei poate dezactiva stații' },
+        { status: 403 }
+      );
+    }
 
     // Soft delete by setting is_active to false
     const { data, error } = await supabase

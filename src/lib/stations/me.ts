@@ -14,6 +14,7 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { ApiError, ApiErrorCode } from '@/lib/api/errors';
+import { claimStationsByEmail } from '@/lib/stations/claim';
 
 export type StationRole = 'patron' | 'inspector';
 
@@ -94,6 +95,22 @@ export async function resolveMyStationAccess(
   const membership = memberships?.[0];
 
   if (!membership) {
+    // 3. Auto-claim pe email, înainte să refuzăm: dacă adminul sau Academy au
+    //    scris owner_email-ul acestui utilizator pe o stație fără owner,
+    //    primul lui acces o revendică automat — fără nicio operație manuală.
+    const claimed = await claimStationsByEmail(user.id, user.email);
+    if (claimed > 0) {
+      let claimedQuery = createServiceClient()
+        .from('kiosk_stations')
+        .select(STATION_FIELDS)
+        .eq('owner_id', user.id);
+      if (stationIdParam) claimedQuery = claimedQuery.eq('id', stationIdParam);
+      const { data: nowOwned } = await claimedQuery.order('name').limit(1);
+      if (nowOwned?.[0]) {
+        return { station: nowOwned[0] as unknown as MyStation, role: 'patron' };
+      }
+    }
+
     throw new ApiError(
       ApiErrorCode.AUTHORIZATION_ERROR,
       'Nu ai nicio stație asociată contului',
