@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import {
   Building2,
   Bell,
+  Coins,
   BarChart3,
   Settings,
   LogOut,
@@ -24,6 +25,7 @@ const navigation = [
   // doar dintr-un card de pe /admin.
   { name: 'Utilizatori', href: '/admin/users', icon: Users },
   { name: 'Reminder-uri', href: '/admin/reminders', icon: ListChecks },
+  { name: 'Credite', href: '/admin/credite', icon: Coins },
   { name: 'Notificări', href: '/admin/notifications', icon: Bell },
   { name: 'Analiză', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Setări', href: '/admin/settings', icon: Settings },

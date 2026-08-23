@@ -345,6 +345,106 @@ export async function retryUnresolvedPurchases(
   return { scanned: rows?.length ?? 0, healed };
 }
 
+export interface ReconcileSummary {
+  ok: boolean;
+  error?: string;
+  lookback_after?: string;
+  sales_seen?: number;
+  sales_relevant?: number;
+  missing_processed?: number;
+  outcomes?: Record<string, number>;
+  pending_retry?: { retried: number; credited: number };
+  unresolved_retry?: { scanned: number; healed: number };
+}
+
+/**
+ * Nucleul reconcilierii Gumroad — folosit de cronul de 15 minute ȘI de
+ * butonul „Rulează reconcilierea" din admin. O singură implementare: ce
+ * repară cronul repară și adminul, cu același raport.
+ */
+export async function reconcileGumroadSales(lookbackDays = 3): Promise<ReconcileSummary> {
+  const { fetchRecentSales, fetchProductAliasMap } = await import('@/lib/integrations/gumroad');
+
+  const after = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const sales = await fetchRecentSales(after);
+  if (sales === null) {
+    return { ok: false, error: 'gumroad_unreachable' };
+  }
+
+  // API-ul de vânzări identifică produsul prin ID-UL SCURT, nu prin slug —
+  // aliasurile din /v2/products fac traducerea.
+  const aliases = await fetchProductAliasMap();
+  const relevant = sales.filter((s) =>
+    packageCandidates(s).some((c) => c && (GUMROAD_PRODUCTS[c] || aliases[c]))
+  );
+
+  // Expected ledger rows: the purchase, plus the reversal when Gumroad says so.
+  const expectedRefs = relevant.flatMap((s) => {
+    const refs = [s.id];
+    if (s.refunded) refs.push(`${s.id}:refund`);
+    else if (s.disputed && s.dispute_won !== true) refs.push(`${s.id}:dispute`);
+    return refs;
+  });
+
+  const supabase = createServiceClient();
+  const known = new Set<string>();
+  if (expectedRefs.length > 0) {
+    const { data } = await supabase
+      .from('credit_purchases')
+      .select('payment_ref')
+      .in('payment_ref', expectedRefs);
+    for (const row of data ?? []) known.add(row.payment_ref as string);
+  }
+
+  const outcomes: Record<string, number> = {};
+  let processed = 0;
+
+  for (const sale of relevant) {
+    const reversal = sale.refunded
+      ? 'refund'
+      : sale.disputed && sale.dispute_won !== true
+        ? 'dispute'
+        : null;
+
+    // The purchase itself, if its Ping never landed. Reversed sales run
+    // through the sale-shape too: processGumroadSale derives the reversal
+    // from the sale flags, so we feed it a "clean" copy for the credit row
+    // and the flagged sale for the reversal row.
+    if (!known.has(sale.id)) {
+      const purchase = await processGumroadSale({
+        sale: { ...sale, refunded: false, disputed: false },
+        source: 'reconcile',
+        aliases,
+      });
+      outcomes[purchase.outcome] = (outcomes[purchase.outcome] ?? 0) + 1;
+      processed += 1;
+    }
+
+    if (reversal && !known.has(`${sale.id}:${reversal}`)) {
+      const reversed = await processGumroadSale({ sale, source: 'reconcile', aliases });
+      outcomes[reversed.outcome] = (outcomes[reversed.outcome] ?? 0) + 1;
+      processed += 1;
+    }
+  }
+
+  const pendingRetry = await retryPendingTopups();
+  const unresolvedRetry = await retryUnresolvedPurchases(aliases);
+
+  return {
+    ok: true,
+    lookback_after: after,
+    sales_seen: sales.length,
+    sales_relevant: relevant.length,
+    missing_processed: processed,
+    outcomes,
+    pending_retry: pendingRetry,
+    unresolved_retry: unresolvedRetry,
+  };
+}
+
 export async function resolveStationByEmail(
   supabase: ReturnType<typeof createServiceClient>,
   email?: string
