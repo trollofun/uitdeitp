@@ -153,6 +153,53 @@ export function CreditsAdminPanel() {
     }
   };
 
+  const manualSale = async (station: StationRow) => {
+    const creditsRaw = window.prompt(
+      `Vânzare manuală pentru „${station.name}" (plată prin virament/factură).\nCâte credite? (ex. 250 / 500 / 1000):`
+    );
+    if (!creditsRaw) return;
+    const credits = Number(creditsRaw);
+    if (!Number.isInteger(credits) || credits <= 0) {
+      toast({ title: 'Număr invalid', description: 'Credite: număr întreg pozitiv.', variant: 'destructive' });
+      return;
+    }
+    const paymentRef = window.prompt('Referința plății (nr. factură / OP) — obligatorie, previne dubla creditare:');
+    if (!paymentRef || paymentRef.trim().length < 3) {
+      toast({ title: 'Referință lipsă', description: 'Numărul facturii sau al OP-ului e obligatoriu.', variant: 'destructive' });
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin/credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'manual_sale',
+          station_id: station.id,
+          credits,
+          payment_ref: paymentRef.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Înregistrarea a eșuat');
+      toast({
+        title: data.duplicate ? 'Factura era deja înregistrată' : 'Vânzare înregistrată',
+        description: `„${station.name}": sold ${data.balance} credite. Creditele expiră la 12 luni, ca la Gumroad.`,
+        variant: 'success',
+      });
+      await load();
+    } catch (error) {
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Înregistrarea a eșuat',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const stationName = (id: string | null) =>
     stations.find((s) => s.id === id)?.name ?? (id ? `${id.slice(0, 8)}…` : '—');
 
@@ -192,9 +239,15 @@ export function CreditsAdminPanel() {
                   <td className="p-3 font-mono text-xs">{s.rar_code ?? '—'}</td>
                   <td className="p-3 text-right font-medium">{s.balance}</td>
                   <td className="p-3 text-right">
-                    <Button variant="outline" size="sm" onClick={() => adjust(s)} disabled={busy}>
-                      Ajustează
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      {/* Bani reali → purchase cu expirare 12 luni; corecție → adjust fără expirare */}
+                      <Button variant="default" size="sm" onClick={() => manualSale(s)} disabled={busy}>
+                        Vânzare manuală
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => adjust(s)} disabled={busy}>
+                        Ajustează
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -20,6 +20,21 @@ export const REMINDER_TYPES = ['itp', 'rca', 'rovinieta'] as const;
 
 export type ReminderType = (typeof REMINDER_TYPES)[number];
 
+/**
+ * Tipurile care se pot CREA acum (23.08: focus pe ITP). Lista completă
+ * REMINDER_TYPES rămâne pentru etichete și normalizare — reminderele
+ * RCA/Rovinieta existente se afișează și se procesează în continuare corect.
+ * Funcție, nu constantă: flag-ul se citește la apel, nu la încărcarea
+ * modulului (aceeași capcană ca la geolocation.ts).
+ */
+export function activeReminderTypes(): readonly ReminderType[] {
+  return process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS === 'true' ? REMINDER_TYPES : (['itp'] as const);
+}
+
+export function isActiveReminderType(type: string): type is ReminderType {
+  return (activeReminderTypes() as readonly string[]).includes(type);
+}
+
 /** Cum îl scriem în SMS și email. Fără diacritice — vezi `sms-encoding`. */
 const LABELS: Record<ReminderType, string> = {
   itp: 'ITP',

@@ -11,10 +11,26 @@
  * may use call resolveMyStation() and check `membership.role` themselves.
  */
 
+import { cookies } from 'next/headers';
 import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { ApiError, ApiErrorCode } from '@/lib/api/errors';
 import { claimStationsByEmail } from '@/lib/stations/claim';
+
+/**
+ * Contextul de stație ales din selector (cookie scris de middleware la
+ * ?station_id=). Fallback, nu autoritate: parametrul explicit câștigă, iar
+ * orice valoare din cookie trece tot prin filtrele owner/membership de mai
+ * jos — un id străin produce pur și simplu „nicio stație", nu acces.
+ */
+export function stationContextFromCookie(): string | null {
+  try {
+    const value = cookies().get('station_ctx')?.value;
+    return value && /^[0-9a-f-]{36}$/.test(value) ? value : null;
+  } catch {
+    return null; // în afara unui request context (teste)
+  }
+}
 
 export type StationRole = 'patron' | 'inspector';
 
@@ -50,6 +66,26 @@ const STATION_FIELDS =
  */
 export async function resolveMyStationAccess(
   stationIdParam?: string | null
+): Promise<MyStationAccess> {
+  // Parametrul explicit > contextul din cookie > prima stație (deterministic).
+  // Cookie-ul e doar o preferință: dacă arată spre o stație la care omul nu
+  // (mai) are acces, se ignoră și se cade pe stațiile lui reale — un context
+  // vechi nu are voie să-i ascundă stațiile valide.
+  if (!stationIdParam) {
+    const ctx = stationContextFromCookie();
+    if (ctx) {
+      try {
+        return await resolveAccessExact(ctx);
+      } catch (error) {
+        if (!(error instanceof ApiError && error.statusCode === 403)) throw error;
+      }
+    }
+  }
+  return resolveAccessExact(stationIdParam ?? null);
+}
+
+async function resolveAccessExact(
+  stationIdParam: string | null
 ): Promise<MyStationAccess> {
   const supabase = createServerClient();
 
@@ -132,6 +168,70 @@ export async function resolveMyStationAccess(
     station: station as unknown as MyStation,
     role: membership.role === 'patron' ? 'patron' : 'inspector',
   };
+}
+
+export interface MyStationSummary {
+  id: string;
+  name: string;
+  kind: 'station' | 'professional';
+  role: StationRole;
+}
+
+/**
+ * Toate stațiile la care lucrează utilizatorul, cu rolul per stație — baza
+ * selectorului de context (un om poate fi patron la contul lui profesional
+ * ȘI inspector la stația angajatorului, simultan). Ownership câștigă în fața
+ * unui membership pe aceeași stație.
+ */
+export async function listMyStations(): Promise<MyStationSummary[]> {
+  const supabase = createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const [{ data: owned }, { data: memberships }] = await Promise.all([
+    supabase
+      .from('kiosk_stations')
+      .select('id, name, kind')
+      .eq('owner_id', user.id)
+      .order('name'),
+    supabase
+      .from('station_members')
+      .select('station_id, role')
+      .eq('user_id', user.id)
+      .eq('status', 'active'),
+  ]);
+
+  const result: MyStationSummary[] = (owned ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    kind: ((s as { kind?: string }).kind === 'professional' ? 'professional' : 'station'),
+    role: 'patron',
+  }));
+  const ownedIds = new Set(result.map((s) => s.id));
+
+  const memberOnly = (memberships ?? []).filter((m) => !ownedIds.has(m.station_id));
+  if (memberOnly.length > 0) {
+    // Numele stațiilor unde e doar membru sunt în spatele RLS — service client.
+    const { data: stations } = await createServiceClient()
+      .from('kiosk_stations')
+      .select('id, name, kind')
+      .in('id', memberOnly.map((m) => m.station_id));
+
+    for (const m of memberOnly) {
+      const station = stations?.find((s) => s.id === m.station_id);
+      if (!station) continue;
+      result.push({
+        id: station.id,
+        name: station.name,
+        kind: ((station as { kind?: string }).kind === 'professional' ? 'professional' : 'station'),
+        role: m.role === 'patron' ? 'patron' : 'inspector',
+      });
+    }
+  }
+
+  return result;
 }
 
 /** Backwards-compatible shape for routes that do not care about the role. */

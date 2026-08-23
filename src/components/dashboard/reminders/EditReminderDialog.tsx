@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { activeReminderTypes } from '@/lib/services/reminder-type';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -131,7 +132,9 @@ export function EditReminderDialog({
             />
           </div>
 
-          {/* Reminder Type */}
+          {/* Selector doar când mai mult de un tip e activ (23.08: focus ITP);
+              tipul oricum nu se poate schimba prin API la editare */}
+          {activeReminderTypes().length > 1 && (
           <div className="space-y-2">
             <Label htmlFor="reminder_type" className="text-sm font-medium">
               Reminder Type *
@@ -156,6 +159,7 @@ export function EditReminderDialog({
               <p className="text-sm text-red-500">{errors.reminder_type.message}</p>
             )}
           </div>
+          )}
 
           {/* Expiry Date */}
           <div className="space-y-2">

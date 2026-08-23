@@ -47,6 +47,25 @@ export const flags = {
     return envFlag('GUMROAD_TOPUP_ENABLED');
   },
   /**
+   * RCA + Rovinieta la CREARE (decizia din 23.08: focus pe ITP și pe
+   * strângerea administratorilor de stație). Stins = doar ITP se poate crea;
+   * reminderele RCA/Rovinieta EXISTENTE se procesează în continuare normal.
+   * NEXT_PUBLIC ca selectoarele din client și validarea de pe server să
+   * citească aceeași valoare.
+   */
+  get multiTypeRemindersEnabled() {
+    return process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS === 'true';
+  },
+  /**
+   * Conturi profesionale de inspector (23.08): mini-stație personală, fără
+   * cod RAR/kiosk, cu clienții, creditele și șabloanele proprii. Baza e
+   * gratuită (ingest SIRAR + email); creditele plătesc doar SMS-ul.
+   * NEXT_PUBLIC: cardul din dashboard e componentă client.
+   */
+  get professionalAccountsEnabled() {
+    return process.env.NEXT_PUBLIC_PROFESSIONAL_ACCOUNTS === 'true';
+  },
+  /**
    * Ledgerul local de credite (PRD credite §6.2): tarifare per segment la
    * trimitere, refund automat la DLR failed, expirare FIFO la 12 luni.
    * E-mailul rămâne gratuit indiferent de flag.

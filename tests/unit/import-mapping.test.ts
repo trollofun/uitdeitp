@@ -142,9 +142,22 @@ describe('mapRows — tipul scadenței', () => {
     ['Rovinieta', 'rovinieta'],
     ['', 'itp'],
     ['altceva', 'itp'],
-  ])('„%s" → %s', (input, expected) => {
+  ])('cu multi-type aprins: „%s" → %s', (input, expected) => {
+    process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS = 'true';
     const result = mapRows([{ ...base, tip: input }], headers);
     expect(result.rows[0].reminderType).toBe(expected);
+    delete process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS;
+  });
+
+  it.each([
+    ['RCA', 'itp'],
+    ['Rovinieta', 'itp'],
+    ['ITP', 'itp'],
+  ])('implicit (focus ITP): „%s" se importă ca %s, fără să pice importul', (input, expected) => {
+    delete process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS;
+    const result = mapRows([{ ...base, tip: input }], headers);
+    expect(result.rows[0].reminderType).toBe(expected);
+    expect(result.rejected).toHaveLength(0);
   });
 });
 

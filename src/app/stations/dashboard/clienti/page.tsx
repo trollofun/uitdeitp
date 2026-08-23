@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { flags } from '@/lib/config/flags';
+import { stationContextFromCookie } from '@/lib/stations/me';
 import { StationClients } from '@/components/stations/dashboard/StationClients';
 import { ImportClients } from '@/components/stations/dashboard/ImportClients';
 import { RetentionReport } from '@/components/stations/dashboard/RetentionReport';
@@ -8,7 +9,11 @@ import { StationAgenda } from '@/components/stations/dashboard/StationAgenda';
 
 export const dynamic = 'force-dynamic';
 
-export default async function StationClientsPage() {
+export default async function StationClientsPage({
+  searchParams,
+}: {
+  searchParams?: { station_id?: string };
+}) {
   if (!flags.stationDashboardEnabled) {
     notFound();
   }
@@ -22,14 +27,18 @@ export default async function StationClientsPage() {
     redirect('/auth/login');
   }
 
+  const stationCtx = searchParams?.station_id ?? stationContextFromCookie();
+
   const { data: stations } = await supabase
     .from('kiosk_stations')
     .select('id, name')
     .eq('owner_id', user.id)
-    .order('name')
-    .limit(1);
+    .order('name');
 
-  const station = stations?.[0];
+  // Contextul din selector alege ÎNTRE stațiile deținute; un context
+  // vechi/străin cade pe prima, nu pe „nicio stație".
+  const station =
+    (stationCtx ? stations?.find((s) => s.id === stationCtx) : undefined) ?? stations?.[0];
 
   if (!station) {
     // Un inspector nu are acces la datele de contact ale clienților, deci nici

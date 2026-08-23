@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { reconcileGumroadSales } from '@/lib/services/gumroad-sales';
-import { appendLedger } from '@/lib/services/credit-ledger';
+import { appendLedger, recordPurchase } from '@/lib/services/credit-ledger';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -91,6 +91,20 @@ const actionSchema = z.discriminatedUnion('action', [
     delta: z.number().int().refine((n) => n !== 0, 'Delta nu poate fi zero'),
     descriere: z.string().min(5, 'Scrie motivul ajustării (minim 5 caractere)').max(300),
   }),
+  // Vânzare manuală = bani reali încasați direct (virament/factură), NU
+  // corecție: se înregistrează ca `purchase` cu expirare la 12 luni, exact ca
+  // o achiziție Gumroad — evidența comercială rămâne omogenă. Idempotentă pe
+  // payment_ref (numărul facturii), deci un dublu-click nu creditează de două ori.
+  z.object({
+    action: z.literal('manual_sale'),
+    station_id: z.string().uuid(),
+    credits: z.number().int().positive('Numărul de credite trebuie să fie pozitiv').max(100000),
+    payment_ref: z
+      .string()
+      .min(3, 'Referința plății e obligatorie (nr. factură / OP)')
+      .max(80),
+    descriere: z.string().max(200).optional(),
+  }),
 ]);
 
 export async function POST(req: NextRequest) {
@@ -103,6 +117,25 @@ export async function POST(req: NextRequest) {
     if (body.action === 'reconcile') {
       const result = await reconcileGumroadSales();
       return NextResponse.json(result, { status: result.ok ? 200 : 502 });
+    }
+
+    if (body.action === 'manual_sale') {
+      const result = await recordPurchase({
+        stationId: body.station_id,
+        credits: body.credits,
+        paymentRef: `manual:${body.payment_ref.trim()}`,
+        packageLabel: body.descriere?.trim() || `vanzare manuala (${body.payment_ref.trim()})`,
+      });
+
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error ?? 'Înregistrarea a eșuat' }, { status: 400 });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        balance: result.balance,
+        duplicate: result.duplicate ?? false,
+      });
     }
 
     // adjust: fiecare ajustare e o linie nouă, unică (timestamp în referință),

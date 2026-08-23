@@ -7,7 +7,7 @@ import { NextRequest } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { handleApiError, createSuccessResponse, ApiError, ApiErrorCode } from '@/lib/api/errors';
 import { flags } from '@/lib/config/flags';
-import { resolveMyStation } from '@/lib/stations/me';
+import { requirePatron } from '@/lib/stations/me';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +18,10 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url);
-    const station = await resolveMyStation(url.searchParams.get('station_id'));
+    // requirePatron, nu resolveMyStation: garda din get_station_statistics
+    // (owner/admin/service_role) aruncă oricum not_authorized pentru un
+    // inspector — mai bine un 403 lizibil aici decât un 500 acolo.
+    const station = await requirePatron(url.searchParams.get('station_id'));
     const supabase = createServerClient();
 
     const { data: stats, error: statsError } = await supabase.rpc('get_station_statistics', {

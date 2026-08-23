@@ -20,6 +20,7 @@ async function StationsData() {
     .select(`
       id,
       slug,
+      kind,
       name,
       logo_url,
       primary_color,

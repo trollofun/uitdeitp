@@ -124,19 +124,33 @@ export async function getUserContexts(
   const role = (profile?.role as string) ?? 'user';
   const contexts: AppContext[] = [];
 
+  const ownedIds = new Set((stations ?? []).map((s) => s.id));
+  const memberOnly = (memberships ?? []).filter((m) => !ownedIds.has(m.station_id));
+  // Un om poate avea mai multe contexte de stație (23.08: contul lui
+  // profesional + stația angajatorului). Cu mai multe, fiecare href poartă
+  // station_id — rutele /api/stations/me/* îl acceptau dintotdeauna, doar
+  // UI-ul nu-l trimitea.
+  const multiStation = (stations?.length ?? 0) + memberOnly.length > 1;
+
   for (const station of stations ?? []) {
     contexts.push({
       kind: 'station',
       label: station.name,
-      href: '/stations/dashboard',
+      href: multiStation ? `/stations/dashboard?station_id=${station.id}` : '/stations/dashboard',
     });
   }
 
   // The station's name lives behind RLS an inspector does not have, and one
   // extra service-role query per page render is not worth a label. "Stația"
-  // is honest and enough — they only ever work at one.
-  if (contexts.length === 0 && (memberships?.length ?? 0) > 0) {
-    contexts.push({ kind: 'station', label: 'Stația', href: '/stations/dashboard' });
+  // is honest and enough.
+  for (const membership of memberOnly) {
+    contexts.push({
+      kind: 'station',
+      label: contexts.some((c) => c.kind === 'station') ? 'Stația (angajat)' : 'Stația',
+      href: multiStation
+        ? `/stations/dashboard?station_id=${membership.station_id}`
+        : '/stations/dashboard',
+    });
   }
 
   contexts.push(PERSONAL);

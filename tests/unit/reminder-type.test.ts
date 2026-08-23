@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import type { NotificationData } from '@/types';
 import {
   normaliseReminderType,
@@ -92,5 +92,35 @@ describe('{tip} în șabloane', () => {
     );
     expect(out).toContain('uitdeITP');
     expect(out).toContain('RCA pentru');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+import { activeReminderTypes, isActiveReminderType } from '@/lib/services/reminder-type';
+
+describe('tipurile active (23.08: focus ITP)', () => {
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS;
+  });
+
+  it('implicit doar ITP se poate crea', () => {
+    delete process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS;
+    expect(activeReminderTypes()).toEqual(['itp']);
+    expect(isActiveReminderType('itp')).toBe(true);
+    expect(isActiveReminderType('rca')).toBe(false);
+    expect(isActiveReminderType('rovinieta')).toBe(false);
+  });
+
+  it('cu flag-ul aprins, toate trei redevin active', () => {
+    process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS = 'true';
+    expect(activeReminderTypes()).toEqual(['itp', 'rca', 'rovinieta']);
+    expect(isActiveReminderType('rovinieta')).toBe(true);
+  });
+
+  it('etichetele și normalizarea rămân complete indiferent de flag — reminderele vechi se afișează corect', () => {
+    delete process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS;
+    expect(reminderTypeLabel('rca')).toBe('RCA');
+    expect(reminderTypeLabel('rovinieta')).toBe('Rovinieta');
   });
 });

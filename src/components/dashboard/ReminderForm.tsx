@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { activeReminderTypes } from '@/lib/services/reminder-type';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -86,7 +87,9 @@ export function ReminderForm({ initialData, onSubmit, isEdit = false }: Reminder
             )}
           </div>
 
-          {/* Reminder Type */}
+          {/* Selector doar când mai mult de un tip e activ (23.08: focus ITP);
+              tipul oricum nu se poate schimba prin API la editare */}
+          {activeReminderTypes().length > 1 && (
           <div className="space-y-2">
             <Label htmlFor="reminder_type">Tip reminder *</Label>
             <Select
@@ -106,6 +109,7 @@ export function ReminderForm({ initialData, onSubmit, isEdit = false }: Reminder
               <p className="text-sm text-red-500">{errors.reminder_type.message}</p>
             )}
           </div>
+          )}
 
           {/* Expiry Date */}
           <div className="space-y-2">

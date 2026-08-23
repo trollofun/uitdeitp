@@ -86,7 +86,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  return await updateSession(request);
+  const response = await updateSession(request);
+
+  // Contextul de stație (23.08, multi-context): selectorul navighează cu
+  // ?station_id=, iar cookie-ul îl ține pentru TOATE cererile următoare —
+  // pagini și fetch-uri API deopotrivă. Așa niciuna din cele ~16 chemări
+  // fetch('/api/stations/me/…') din componente nu trebuie să-l care explicit.
+  // Un id străin e inofensiv: resolveMyStationAccess îl verifică contra
+  // stațiilor userului și îl ignoră dacă nu se potrivește.
+  if (pathname.startsWith('/stations')) {
+    const stationCtx = request.nextUrl.searchParams.get('station_id');
+    if (stationCtx && /^[0-9a-f-]{36}$/.test(stationCtx)) {
+      response.cookies.set('station_ctx', stationCtx, {
+        path: '/',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
+  }
+
+  return response;
 }
 
 export const config = {

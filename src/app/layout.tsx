@@ -4,7 +4,7 @@ import { QueryProvider } from '@/providers/query-provider';
 
 export const metadata: Metadata = {
   title: 'uitdeITP - Remindere ITP Inteligente',
-  description: 'Platform multi-modal pentru gestionarea reminder-elor ITP, RCA și Rovinieta',
+  description: 'Platforma inteligentă pentru reminder-e ITP — nu mai uita niciodată de inspecția tehnică',
 };
 
 export default function RootLayout({

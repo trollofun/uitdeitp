@@ -19,6 +19,7 @@ import {
 interface Station {
   id: string;
   slug: string;
+  kind?: string | null;
   name: string;
   logo_url: string | null;
   primary_color: string;
@@ -110,6 +111,9 @@ export function StationsTable({ stations }: StationsTableProps) {
                     <Badge variant={station.is_active ? 'default' : 'secondary'}>
                       {station.is_active ? 'Activ' : 'Inactiv'}
                     </Badge>
+                    {station.kind === 'professional' && (
+                      <Badge variant="outline" className="ml-1">Profesional</Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">

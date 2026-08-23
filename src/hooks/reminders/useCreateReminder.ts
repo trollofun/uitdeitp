@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, UseMutationOptions } from '@tanstack/react
 import { createBrowserClient } from '@/lib/supabase/client';
 import { Database } from '@/types';
 import { useToast } from '@/hooks/useToast';
+import { isActiveReminderType } from '@/lib/services/reminder-type';
 import { remindersKeys } from './useReminders';
 
 type ReminderInsert = Database['public']['Tables']['reminders']['Insert'];
@@ -86,7 +87,7 @@ export function useCreateReminder(
         guest_phone: input.guest_phone,
         guest_name: input.guest_name,
         plate_number: input.plate_number.toUpperCase().trim(),
-        reminder_type: input.reminder_type || 'itp',
+        reminder_type: isActiveReminderType(input.reminder_type ?? '') ? input.reminder_type! : 'itp',
         expiry_date: input.expiry_date,
         notification_intervals: input.notification_intervals || [5, 1],
         notification_channels: input.notification_channels || { sms: true, email: true },
@@ -207,7 +208,7 @@ export function useCreateReminders(
         guest_phone: input.guest_phone,
         guest_name: input.guest_name,
         plate_number: input.plate_number.toUpperCase().trim(),
-        reminder_type: input.reminder_type || 'itp',
+        reminder_type: isActiveReminderType(input.reminder_type ?? '') ? input.reminder_type! : 'itp',
         expiry_date: input.expiry_date,
         notification_intervals: input.notification_intervals || [5, 1],
         notification_channels: input.notification_channels || { sms: true, email: true },

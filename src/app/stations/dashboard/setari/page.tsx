@@ -1,11 +1,16 @@
 import { notFound, redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { flags } from '@/lib/config/flags';
+import { stationContextFromCookie } from '@/lib/stations/me';
 import { StationSettings } from '@/components/stations/dashboard/StationSettings';
 
 export const dynamic = 'force-dynamic';
 
-export default async function StationSettingsPage() {
+export default async function StationSettingsPage({
+  searchParams,
+}: {
+  searchParams?: { station_id?: string };
+}) {
   if (!flags.stationDashboardEnabled) {
     notFound();
   }
@@ -19,16 +24,20 @@ export default async function StationSettingsPage() {
     redirect('/auth/login');
   }
 
+  const stationCtx = searchParams?.station_id ?? stationContextFromCookie();
+
   const { data: stations } = await supabase
     .from('kiosk_stations')
     .select(
       'id, name, station_phone, station_address, review_link, review_sms_enabled, review_delay_days, sms_template_review'
     )
     .eq('owner_id', user.id)
-    .order('name')
-    .limit(1);
+    .order('name');
 
-  const station = stations?.[0];
+  // Contextul din selector alege ÎNTRE stațiile deținute; un context
+  // vechi/străin cade pe prima, nu pe „nicio stație".
+  const station =
+    (stationCtx ? stations?.find((s) => s.id === stationCtx) : undefined) ?? stations?.[0];
 
   if (!station) {
     // Un inspector nu are acces la datele de contact ale clienților, deci nici

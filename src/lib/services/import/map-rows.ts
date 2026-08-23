@@ -15,6 +15,7 @@
 import { normaliseHeader, type RawRow } from './parse-file';
 import { normalizeRoPhone } from '@/lib/validation';
 import { formatPlateNumber } from '@/lib/services/plate';
+import { isActiveReminderType } from '@/lib/services/reminder-type';
 
 export type ReminderType = 'itp' | 'rca' | 'rovinieta';
 
@@ -129,9 +130,12 @@ export function parseDate(input: string): string | null {
 
 function parseType(input: string | undefined): ReminderType {
   const value = normaliseHeader(input ?? '');
-  if (value.includes('rca') || value.includes('asigurare')) return 'rca';
-  if (value.includes('rovinieta') || value.includes('roviniet')) return 'rovinieta';
-  return 'itp';
+  let parsed: ReminderType = 'itp';
+  if (value.includes('rca') || value.includes('asigurare')) parsed = 'rca';
+  if (value.includes('rovinieta') || value.includes('roviniet')) parsed = 'rovinieta';
+  // Cu multi-type stins (23.08: focus ITP), coloana „Tip" non-ITP se importă
+  // ca ITP — importul nu pică, dar nici nu creează tipuri dezactivate.
+  return isActiveReminderType(parsed) ? parsed : 'itp';
 }
 
 export function mapRows(rows: RawRow[], headers: string[]): MappingResult {

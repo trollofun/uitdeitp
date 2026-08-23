@@ -121,7 +121,7 @@ export default function HomePage() {
               De ce uitdeITP?
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Sistemul tău personal de reminder-e ITP, RCA și Roviniete
+              Sistemul tău personal de reminder-e ITP
             </p>
           </div>
 
@@ -146,7 +146,7 @@ export default function HomePage() {
               <div className="text-4xl mb-4">🚗</div>
               <h3 className="text-xl font-semibold mb-3">Mai Multe Vehicule</h3>
               <p className="text-muted-foreground">
-                Adaugă <strong>câte mașini vrei</strong>. Configurare separată pentru ITP, RCA și Roviniete.
+                Adaugă <strong>câte mașini vrei</strong>. Fiecare cu reminderul ei de ITP.
               </p>
             </div>
 
@@ -222,7 +222,7 @@ export default function HomePage() {
             <div>
               <h3 className="font-semibold mb-3">uitdeITP</h3>
               <p className="text-sm text-muted-foreground">
-                Platforma inteligentă pentru reminder-e ITP, RCA și Roviniete
+                Platforma inteligentă pentru reminder-e ITP
               </p>
             </div>
             <div>

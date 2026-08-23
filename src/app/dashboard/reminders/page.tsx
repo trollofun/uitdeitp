@@ -2,7 +2,7 @@ import { RemindersManager } from '@/components/dashboard/reminders/RemindersMana
 
 export const metadata = {
   title: 'Remindere ITP | uitdeitp',
-  description: 'Gestionează reminder-ele tale pentru ITP, RCA și Rovinieta',
+  description: 'Gestionează reminder-ele tale de ITP',
 }
 
 export default function RemindersPage() {

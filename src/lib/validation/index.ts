@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isActiveReminderType } from '@/lib/services/reminder-type';
 
 // Romanian phone number validation (E.164 format)
 /**
@@ -75,9 +76,19 @@ export const userProfileUpdateSchema = userProfileSchema.partial().extend({
 // Reminder schemas
 export const reminderTypeSchema = z.enum(['itp', 'rca', 'rovinieta']);
 
+/**
+ * La CREARE se acceptă doar tipurile active (azi: doar ITP — decizia din
+ * 23.08). reminderTypeSchema complet rămâne pentru citire/afișare, ca
+ * reminderele RCA/Rovinieta existente să rămână valide.
+ */
+export const activeReminderTypeSchema = reminderTypeSchema.refine(
+  (t) => isActiveReminderType(t),
+  { message: 'Momentan se pot crea doar remindere ITP' }
+);
+
 export const createReminderSchema = z.object({
   plate_number: plateNumberSchema,
-  reminder_type: reminderTypeSchema.default('itp'),
+  reminder_type: activeReminderTypeSchema.default('itp'),
   expiry_date: z.coerce.date().refine(
     (date) => date > new Date(),
     'Data expirării trebuie să fie în viitor'

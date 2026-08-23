@@ -9,7 +9,7 @@
 import { addMonths } from 'date-fns';
 import { plateNumberSchema } from '@/lib/validation';
 import type { ContractAPayload } from './contract-a';
-import { normaliseReminderType, type ReminderType } from '@/lib/services/reminder-type';
+import { isActiveReminderType, normaliseReminderType, type ReminderType } from '@/lib/services/reminder-type';
 
 export interface MappingStation {
   id: string;
@@ -93,9 +93,12 @@ export function toReminderInsert(
     guest_phone: destinatar.telefon,
     plate_number: plateNumber,
     // Ce trimite sursa, sau `itp` — 149 din 149 de rânduri existente sunt ITP.
-    reminder_type: normaliseReminderType(
-      (payload as { reminder_type?: unknown }).reminder_type
-    ),
+    // Cu multi-type stins (23.08), un tip dezactivat se normalizează la itp:
+    // ingestul nu pică, dar nici nu creează tipuri pe care UI-ul nu le arată.
+    reminder_type: (() => {
+      const t = normaliseReminderType((payload as { reminder_type?: unknown }).reminder_type);
+      return isActiveReminderType(t) ? t : 'itp';
+    })(),
     expiry_date: toDateOnly(expiryDate),
     notification_intervals: intervalsOf(station),
     notification_channels: { sms: true, email: false },

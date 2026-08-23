@@ -235,13 +235,24 @@ describe('Validation Schemas', () => {
       expect(result.expiry_date).toBeInstanceOf(Date);
     });
 
-    it('should validate reminder types', () => {
+    it('should validate reminder types (toate, cu multi-type aprins)', () => {
+      // 23.08: la creare se acceptă doar tipurile ACTIVE. Cu flag-ul aprins,
+      // toate trei trec; testul de mai jos pinează comportamentul implicit.
+      process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS = 'true';
       const types = ['itp', 'rca', 'rovinieta'];
 
       types.forEach(type => {
         const reminder = { ...validReminder, reminder_type: type };
         expect(() => createReminderSchema.parse(reminder)).not.toThrow();
       });
+      delete process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS;
+    });
+
+    it('implicit (flag stins) doar ITP se poate crea — RCA/Rovinieta refuzate', () => {
+      delete process.env.NEXT_PUBLIC_MULTI_TYPE_REMINDERS;
+      expect(() => createReminderSchema.parse({ ...validReminder, reminder_type: 'itp' })).not.toThrow();
+      expect(() => createReminderSchema.parse({ ...validReminder, reminder_type: 'rca' })).toThrow();
+      expect(() => createReminderSchema.parse({ ...validReminder, reminder_type: 'rovinieta' })).toThrow();
     });
 
     it('should reject invalid reminder type', () => {
