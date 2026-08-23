@@ -20,6 +20,7 @@ import { logSms } from '@/lib/services/notification-log';
 import { renderSmsTemplate, getTemplateForDays, DEFAULT_SMS_TEMPLATES } from '@/lib/services/notification';
 import { generateOptOutLink } from '@/lib/utils/opt-out';
 import { getDaysUntilExpiry } from '@/lib/services/date';
+import { todayInRomania } from '@/lib/config/timezone';
 import { appUrl } from '@/lib/config/app-url';
 import { handleApiError, createSuccessResponse, ApiError, ApiErrorCode } from '@/lib/api/errors';
 import { flags } from '@/lib/config/flags';
@@ -141,9 +142,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         },
       },
       {
-        // One send per reminder per minute: a double-tap on a phone must not
-        // cost the station two messages.
-        idempotencyKey: `station-manual:${reminder.id}:${Math.floor(Date.now() / 60000)}`,
+        // O trimitere pe ZI per client (nu pe minut, cum era: cheia pe minut
+        // permitea 60 de mesaje/oră către același om dintr-un buton apăsat
+        // repetat — G4 din auditul anti-oboseală). Aceeași mașină, același
+        // expeditor, aceeași zi = un singur mesaj; NotifyHub întoarce replay
+        // idempotent la restul.
+        idempotencyKey: `station-manual:${reminder.id}:${todayInRomania()}`,
         messageType: 'reminder',
       }
     );

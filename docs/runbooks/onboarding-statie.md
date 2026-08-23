@@ -55,6 +55,13 @@ trebuie să trăiască aici pentru webhook-ul de topup.
 - Plasă de siguranță: cronul `/api/cron/reconcile-gumroad-sales` (15 min)
   prinde Ping-urile pierdute și reia topup-urile `pending`.
 
+## 4b. Promisiunea „zero spam" — garantată structural
+
+Stația nu poate spama nici dacă vrea: max 3 intervale per reminder, un singur
+mesaj pe zi pentru aceeași mașină, plasă de siguranță per telefon, link de
+dezabonare obligatoriu în orice șablon. Detalii:
+`docs/runbooks/anti-oboseala-notificari.md`.
+
 ## 5. Verificare finală
 
 1. `/api/stations/me/balance` întoarce sold pentru contul stației.

@@ -5,6 +5,15 @@ import { z } from 'zod';
 import { checkReviewLink } from '@/lib/services/review-link';
 import { ROMANIAN_COUNTIES } from '@/lib/services/plate';
 
+const smsTemplateSchema = z
+  .string()
+  .min(10)
+  .refine((t) => t.includes('{opt_out_link}'), {
+    message: 'Șablonul SMS trebuie să conțină {opt_out_link} — clientul are dreptul legal să se dezaboneze din orice mesaj',
+  })
+  .optional()
+  .nullable();
+
 const StationUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
@@ -33,17 +42,19 @@ const StationUpdateSchema = z.object({
   booking_enabled: z.boolean().optional(),
   slot_minutes: z.number().int().min(10).max(240).optional(),
   slot_capacity: z.number().int().min(1).max(20).optional(),
-  // SMS templates for different intervals
-  sms_template_5d: z.string().min(10).optional().nullable(),
-  sms_template_3d: z.string().min(10).optional().nullable(),
-  sms_template_1d: z.string().min(10).optional().nullable(),
+  // SMS templates for different intervals. {opt_out_link} e OBLIGATORIU:
+  // GDPR cere cale de dezabonare în fiecare mesaj, iar până acum era doar
+  // convenție — o stație putea salva un șablon fără el (audit 23.08).
+  sms_template_5d: smsTemplateSchema,
+  sms_template_3d: smsTemplateSchema,
+  sms_template_1d: smsTemplateSchema,
   // Email templates (to be added to DB)
   email_template_5d: z.string().optional().nullable(),
   email_template_3d: z.string().optional().nullable(),
   email_template_1d: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
   rar_code: z.string().min(2).max(16).optional(),
-  default_intervals: z.array(z.number().int().min(1).max(60)).min(1).max(4).optional(),
+  default_intervals: z.array(z.number().int().min(1).max(60)).min(1).max(3).optional(),
   ingest_enabled: z.boolean().optional(),
   hmac_mode: z.enum(['log', 'enforce']).optional(),
   // Post-inspection review request (F2.5). Owner-editable: the station's own

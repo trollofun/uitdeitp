@@ -1,7 +1,7 @@
 /**
  * Vercel Cron Job - Process Daily Reminders
  *
- * Triggered daily at 07:00 UTC (09:00 Romanian time) by Vercel Cron
+ * Triggered daily at 07:00 UTC (10:00 ora României vara, 09:00 iarna) by Vercel Cron
  * Replaces: Supabase Edge Function + pg_cron
  *
  * Security: requires `Authorization: Bearer ${CRON_SECRET}`. When CRON_SECRET

@@ -249,6 +249,8 @@ SENTRY_DSN=https://xxx@sentry.io/xxx
 - Opt-in for SMS notifications (critical reminders only)
 - Export personal data (GDPR compliance)
 
+**Politica anti-oboseală (23.08.2026):** aceeași mașină + același expeditor = max 1 SMS/zi; mașinile diferite se notifică TOATE (fără combinare/eșalonare); plasă anti-defect 10 SMS/zi/telefon (log-only→enforce); max 3 intervale; OTP/booking exceptate. Detalii: docs/runbooks/anti-oboseala-notificari.md.
+
 **Notification Strategy:**
 - **7 days before**: Email notification
 - **3 days before**: Email + SMS (if opted-in)

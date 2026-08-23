@@ -93,6 +93,33 @@ export default async function AdminNotificationsPage({ searchParams }: PageProps
 
   const totalCostToday = todayCost?.reduce((sum, n) => sum + (Number(n.estimated_cost) || 0), 0) || 0;
 
+  // Presiunea per destinatar (30 zile) — semnalul de avertizare timpurie al
+  // politicii anti-oboseală: cine primește prea multe mesaje se vede AICI
+  // înainte să se vadă în opt-out-uri. Agregat în JS: PostgREST n-are GROUP BY,
+  // iar volumul e mic; la volume mari devine un RPC.
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: recentSends } = await supabase
+    .from('notification_log')
+    .select('recipient, channel, sent_at')
+    .gte('sent_at', thirtyDaysAgo)
+    .in('status', ['sent', 'delivered'])
+    .not('recipient', 'is', null)
+    .limit(5000);
+
+  const byRecipient = new Map<string, { count: number; sms: number; last: string }>();
+  for (const row of recentSends ?? []) {
+    const key = row.recipient as string;
+    const entry = byRecipient.get(key) ?? { count: 0, sms: 0, last: '' };
+    entry.count += 1;
+    if (row.channel === 'sms') entry.sms += 1;
+    if (row.sent_at && row.sent_at > entry.last) entry.last = row.sent_at;
+    byRecipient.set(key, entry);
+  }
+  const topRecipients = [...byRecipient.entries()]
+    .map(([recipient, v]) => ({ recipient, ...v }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 15);
+
   const totalPages = count ? Math.ceil(count / perPage) : 1;
 
   return (
@@ -167,6 +194,43 @@ export default async function AdminNotificationsPage({ searchParams }: PageProps
         </div>
 
         {/* Notifications Table */}
+        {/* Presiunea per destinatar — politica anti-oboseală */}
+        <div className="bg-card border rounded-lg p-6 mb-8">
+          <h2 className="text-lg font-semibold">Top destinatari (30 zile)</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Cine primește cele mai multe mesaje. Un număr cu multe SMS-uri aici e un client pe
+            cale să se dezaboneze — verifică înainte să apară în opt-out-uri.
+          </p>
+          {topRecipients.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nicio trimitere cu destinatar în ultimele 30 de zile.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-muted-foreground">
+                  <tr>
+                    <th className="py-2 pr-4">Destinatar</th>
+                    <th className="py-2 pr-4 text-right">Mesaje</th>
+                    <th className="py-2 pr-4 text-right">din care SMS</th>
+                    <th className="py-2">Ultimul</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topRecipients.map((r) => (
+                    <tr key={r.recipient} className="border-t">
+                      <td className="py-2 pr-4 font-mono text-xs">{r.recipient}</td>
+                      <td className={`py-2 pr-4 text-right font-medium ${r.count >= 6 ? 'text-red-600' : r.count >= 3 ? 'text-amber-600' : ''}`}>
+                        {r.count}
+                      </td>
+                      <td className="py-2 pr-4 text-right">{r.sms}</td>
+                      <td className="py-2">{r.last ? new Date(r.last).toLocaleDateString('ro-RO') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         <NotificationsTable
           notifications={notifications || []}
           currentPage={page}

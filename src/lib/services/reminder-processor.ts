@@ -8,6 +8,7 @@
 // NOTE: Do NOT import createServerClient here - it requires cookies() which is not available in cron context
 // Instead, processRemindersForToday() creates a direct Supabase client with service role key
 import { notifyHub } from '@/lib/services/notifyhub';
+import { logSms } from '@/lib/services/notification-log';
 import { sendReminderEmail } from '@/lib/services/email';
 import { getDaysUntilExpiry, nextNotificationDateFor } from '@/lib/services/date';
 import { todayInRomania } from '@/lib/config/timezone';
@@ -230,7 +231,29 @@ export async function processReminder(
   let channel: 'email' | 'sms' | 'email+sms' = 'email';
 
   // Send email (for registered users who opted in)
-  if (shouldSendEmail) {
+  // Fair-use email (PRD credite §3.2, implementat abia la auditul din 23.08):
+  // e-mailul e gratuit, deci nemăsurat era și neplafonat — max 10 pe lună per
+  // adresă, ca „gratuit" să nu devină „spam". Devine măsurabil abia acum, după
+  // ce logurile au din nou destinatarul.
+  let emailFairUseExceeded = false;
+  if (shouldSendEmail && profile?.email) {
+    const { count: emailsThisMonth } = await supabase
+      .from('notification_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('channel', 'email')
+      .eq('recipient', profile.email)
+      .in('status', ['sent', 'delivered'])
+      .gte('sent_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+    if ((emailsThisMonth ?? 0) >= 10) {
+      emailFairUseExceeded = true;
+      console.warn('[Processor] email fair-use exceeded (10/30 zile) — skipping email', {
+        reminder_id: reminder.id,
+      });
+    }
+  }
+
+  if (shouldSendEmail && !emailFairUseExceeded) {
     if (profile?.email) {
       console.log(`[Processor] Sending email to ${profile.email}`);
 
@@ -283,6 +306,18 @@ export async function processReminder(
         }
       }
 
+      // Linkul real de dezabonare și în footer-ul emailului generic (G9):
+      // legat de telefonul clientului când există.
+      let emailFooterOptOut: string | undefined;
+      const footerPhone = profile.phone || reminder.guest_phone;
+      if (footerPhone) {
+        try {
+          emailFooterOptOut = await generateOptOutLink(footerPhone);
+        } catch {
+          // footer-ul cade pe pagina de confidențialitate
+        }
+      }
+
       emailResult = await sendReminderEmail({
         to: profile.email,
         plate: reminder.plate_number,
@@ -293,6 +328,7 @@ export async function processReminder(
         type: reminderTypeForEmail(reminder.reminder_type ?? reminder.type),
         reminderId: reminder.id,
         customBody,
+        optOutLink: emailFooterOptOut,
       });
 
       if (emailResult.success) {
@@ -459,29 +495,25 @@ export async function processReminder(
           cost: smsResponse.cost,
         };
 
-        const { error: logError } = await supabase.from('notification_log').insert({
-          reminder_id: reminder.id,
-          channel: 'sms',
-          type: 'sms',
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          provider_message_id: smsResult.messageId,
-          provider: smsResult.provider,
-          estimated_cost: smsResult.cost,
-          message_body: renderedMessage,  // Store actual message sent
+        // Prin logSms, nu insert direct — două motive descoperite la auditul
+        // anti-oboseală (23.08): (1) insertul de aici omitea `recipient`, deci
+        // 90% din log nu putea răspunde la „câte mesaje a primit numărul X";
+        // (2) tarifarea ledger trăiește în logSms — calea cronului, care e
+        // volumul principal, NU debita creditele stației.
+        await logSms({
+          reminderId: reminder.id,
+          recipient: phoneNumber,
+          messageBody: renderedMessage,
+          result: smsResponse,
           metadata: {
             days_until_expiry: daysUntilExpiry,
             // Sursa REALĂ a șablonului, nu doar „are stație": o stație fără
             // șabloane custom primește tot default — logul trebuie să spună asta.
             template_source: smsSelection.source,
             station_id: reminder.station_id,
+            route: 'cron/process-reminders',
           },
         });
-        if (logError) {
-          console.warn('[RLS-AUDIT] notification_log insert failed', {
-            site: 'processor-sms-sent', code: logError.code, message: logError.message,
-          });
-        }
         console.log(`[Processor] SMS sent successfully: ${smsResult.messageId}`);
 
         // A previously credit-blocked reminder is unblocked by a successful send
@@ -539,25 +571,23 @@ export async function processReminder(
           });
         }
 
-        const { error: logError } = await supabase.from('notification_log').insert({
-          reminder_id: reminder.id,
-          channel: 'sms',
-          type: 'sms',
-          status: 'failed',
-          sent_at: new Date().toISOString(),
-          error_message: creditBlocked ? 'insufficient_credits' : smsResult.error,
+        await logSms({
+          reminderId: reminder.id,
+          recipient: phoneNumber,
+          messageBody: renderedMessage,
+          result: {
+            ...smsResponse,
+            error: creditBlocked ? 'insufficient_credits' : smsResponse.error,
+          },
           metadata: {
             days_until_expiry: daysUntilExpiry,
             error: smsResult.error,
             blocked_reason: creditBlocked,
             template_source: smsSelection.source,
+            station_id: reminder.station_id,
+            route: 'cron/process-reminders',
           },
         });
-        if (logError) {
-          console.warn('[RLS-AUDIT] notification_log insert failed', {
-            site: 'processor-sms-failed', code: logError.code, message: logError.message,
-          });
-        }
       }
     } else {
       console.log(`[Processor] No phone number found for ${isRegisteredUser ? 'user' : 'guest'}`);

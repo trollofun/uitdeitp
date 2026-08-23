@@ -116,7 +116,10 @@ export const createReminderSchema = z.object({
         .max(60, 'Intervalul nu poate depăși 60 de zile')
     )
     .min(1, 'Trebuie să selectezi cel puțin 1 interval de notificare')
-    .max(4, 'Poți selecta maxim 4 intervale de notificare')
+    // 3, nu 4: homepage-ul promite public „maxim 3 remindere pe vehicul" —
+    // promisiunea anti-spam devine lege în validare (audit 23.08). Nicio dată
+    // existentă nu avea 4 intervale.
+    .max(3, 'Poți selecta maxim 3 intervale de notificare')
     .default([5]),
   notification_channels: z
     .object({
@@ -174,7 +177,7 @@ export const createStationSchema = z.object({
   email_template_1d: z.string().optional(),
   // Ecosystem / Contract A
   rar_code: z.string().min(2).max(16).optional().or(z.literal('')),
-  default_intervals: z.array(z.number().int().min(1).max(60)).min(1).max(4).optional(),
+  default_intervals: z.array(z.number().int().min(1).max(60)).min(1).max(3).optional(),
   ingest_enabled: z.boolean().optional(),
   hmac_mode: z.enum(['log', 'enforce']).optional(),
 });

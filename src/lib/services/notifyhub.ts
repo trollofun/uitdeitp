@@ -9,6 +9,7 @@
  */
 
 import { appUrl } from '@/lib/config/app-url';
+import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 
 /**
  * Sleep utility for retry delays
@@ -118,6 +119,13 @@ interface SendSmsResponse {
   httpStatus?: number;
 }
 
+/**
+ * Mesajele pe care clientul le-a CERUT chiar acum (OTP, confirmarea unei
+ * programări făcute de el, testul adminului) — exceptate de la plasa
+ * anti-defect: a le bloca ar strica exact interacțiunea în curs.
+ */
+const TRANSACTIONAL_MESSAGE_TYPES = new Set(['otp', 'verification', 'booking_confirmation', 'test']);
+
 interface SendSmsOptions {
   /**
    * Send on a specific tenant key instead of the platform key.
@@ -173,6 +181,38 @@ class NotifyHubClient {
         code: 'RECIPIENT_NOT_ALLOWLISTED',
         httpStatus: 403,
       };
+    }
+
+    // Plasa anti-defect per destinatar (auditul anti-oboseală, 23.08): max
+    // RECIPIENT_SMS_DAILY_CAP mesaje NON-tranzacționale pe zi către același
+    // telefon. NU e politică de produs — mașinile diferite ale unui client se
+    // notifică toate, iar plafonul (10) e cu mult peste orice flotă mică.
+    // Prinde exclusiv buclele, bug-urile și abuzul manual. Acesta e singurul
+    // punct prin care iese orice SMS, deci acoperă toate căile dintr-o dată.
+    // Log-only până la ENFORCE_RATE_LIMIT, ca toate limiterele durabile.
+    if (!TRANSACTIONAL_MESSAGE_TYPES.has(options.messageType ?? '')) {
+      const dailyCap = Number(process.env.RECIPIENT_SMS_DAILY_CAP ?? 10);
+      const capCheck = await checkDurableRateLimit({
+        bucket: 'sms_recipient:day',
+        key: request.to,
+        limit: dailyCap,
+        windowSeconds: 24 * 60 * 60,
+      });
+      if (!capCheck.allowed) {
+        console.error('[RecipientCap] daily SMS cap hit — refusing send', {
+          to: `${request.to.slice(0, 6)}…`,
+          cap: dailyCap,
+          messageType: options.messageType ?? 'unspecified',
+        });
+        // 429: apelanții existenți nu avansează programarea la eșec, deci
+        // reminderul se reia natural a doua zi.
+        return {
+          success: false,
+          error: `Plafonul zilnic de siguranță (${dailyCap} SMS/zi/destinatar) a fost atins`,
+          code: 'RECIPIENT_DAILY_CAP',
+          httpStatus: 429,
+        };
+      }
     }
 
     const callbackUrl = request.callbackUrl ?? dlrCallbackUrl();
@@ -335,7 +375,9 @@ class NotifyHubClient {
         },
         ...(metadata ? { metadata } : {}),
       },
-      sendOptions
+      // OTP e tranzacțional prin natură: message_type implicit, ca plasa
+      // anti-defect per destinatar să nu poată bloca un cod cerut de client.
+      { messageType: 'otp', ...sendOptions }
     );
   }
 

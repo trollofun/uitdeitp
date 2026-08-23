@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { handleApiError } from '@/lib/api/errors';
 import { requireAuth } from '@/lib/api/middleware';
 import { notifyHub } from '@/lib/services/notifyhub';
+import { logSms } from '@/lib/services/notification-log';
 import { z } from 'zod';
 
 // Force dynamic rendering
@@ -75,6 +76,16 @@ export async function POST(req: NextRequest) {
       // Găleată pe minut: un dublu-click sau un retry de rețea nu plătește
       // două SMS-uri; un test nou peste un minut trece.
       idempotencyKey: `test:${user.id}:${Math.floor(Date.now() / 60000)}`,
+      // 'test' = exceptat de la plasa anti-defect per destinatar (unealta
+      // adminului), dar de-acum LOGAT — nimic nu mai pleacă fără urmă (G7).
+      messageType: 'test',
+    });
+
+    await logSms({
+      recipient: phone_number,
+      messageBody: testMessage,
+      result: smsResult,
+      metadata: { kind: 'test', sent_by: user.id, route: 'notifications/test-sms' },
     });
 
     // The canonical client resolves instead of throwing; keep this route's

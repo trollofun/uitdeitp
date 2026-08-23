@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     // Get reminders with phone numbers
     const { data: reminders, error: remindersError } = await supabase
       .from('reminders')
-      .select('id, guest_phone, plate_number, reminder_type, expiry_date, station_id')
+      .select('id, guest_phone, plate_number, reminder_type, expiry_date, station_id, opt_out, deleted_at')
       .in('id', reminder_ids);
 
     if (remindersError) throw remindersError;
@@ -117,6 +117,22 @@ export async function POST(req: NextRequest) {
 
     for (const reminder of reminders) {
       try {
+        // G5 (audit anti-oboseală): userii înregistrați au guest_phone null —
+        // .eq('phone', null) ar fi dat rezultate fără sens și sendSms(null).
+        if (!reminder.guest_phone) {
+          results.failed++;
+          results.errors.push(`${reminder.plate_number}: fără număr de telefon (client înregistrat) — sărit`);
+          continue;
+        }
+
+        // Opt-out-ul de pe reminder (butonul STOP care nu a ajuns încă în
+        // global_opt_outs) se respectă și el — clientul a spus NU o dată.
+        if ((reminder as { opt_out?: boolean }).opt_out || (reminder as { deleted_at?: string | null }).deleted_at) {
+          results.failed++;
+          results.errors.push(`${reminder.plate_number}: client dezabonat sau reminder șters — sărit`);
+          continue;
+        }
+
         // Check opt-out
         const { data: optOut } = await supabase
           .from('global_opt_outs')

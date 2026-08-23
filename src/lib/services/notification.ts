@@ -156,12 +156,17 @@ export function truncateSms(message: string, maxParts: number = 3): string {
  *
  * `tests/unit/template-longest-type.test.ts` verifică toate combinațiile.
  */
+// Ton calm, fără „ATENTIE/URGENT" în majuscule (audit anti-oboseală 23.08):
+// migrarea 007 a scos limbajul alarmist din șabloanele stațiilor, dar
+// default-urile din cod rămăseseră cu el. Un reminder e un serviciu, nu o
+// somație — presiunea crește doar prin conținut („maine", „a expirat"),
+// nu prin țipăt tipografic.
 export const DEFAULT_SMS_TEMPLATES = {
   '7d': 'Buna {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date}).\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
-  '3d': 'ATENTIE {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date})!\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
-  '1d': 'URGENT: {name}, {tip} pentru {plate} expira MAINE ({date})!\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
+  '3d': 'Buna {name}! {tip} pentru {plate} expira in {days_until} zile (pe {date}).\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
+  '1d': '{name}, {tip} pentru {plate} expira maine ({date}). Te asteptam.\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
   expired:
-    'ATENTIE: {name}, {tip} pentru {plate} a EXPIRAT pe {date}.\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
+    '{name}, {tip} pentru {plate} a expirat pe {date}.\n\nProgramare: {station_phone}. Online: {booking_link}\nStop: {opt_out_link}',
 };
 
 /**

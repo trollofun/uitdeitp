@@ -264,14 +264,19 @@ describe('Validation Schemas', () => {
       ).toThrow();
     });
 
-    it('should validate notification intervals', () => {
+    it('should validate notification intervals (max 3 — promisiunea publică)', () => {
       const withIntervals = {
         ...validReminder,
-        notification_intervals: [14, 7, 3, 1],
+        notification_intervals: [7, 3, 1],
       };
 
       const result = createReminderSchema.parse(withIntervals);
-      expect(result.notification_intervals).toEqual([14, 7, 3, 1]);
+      expect(result.notification_intervals).toEqual([7, 3, 1]);
+
+      // Homepage-ul promite „maxim 3 remindere pe vehicul" — al patrulea e refuzat.
+      expect(() =>
+        createReminderSchema.parse({ ...validReminder, notification_intervals: [14, 7, 3, 1] })
+      ).toThrow();
     });
 
     it('should reject negative intervals', () => {

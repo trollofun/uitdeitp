@@ -107,7 +107,7 @@ describe('Notification Service', () => {
 
     it('should render expired template', () => {
       const result = renderSmsTemplate(DEFAULT_SMS_TEMPLATES.expired, mockData);
-      expect(result).toContain('EXPIRAT');
+      expect(result).toContain('a expirat');
       expect(result).toContain('Ion Popescu');
     });
   });
@@ -289,9 +289,13 @@ describe('Notification Service', () => {
       });
     });
 
-    it('should have appropriate urgency levels', () => {
-      expect(DEFAULT_SMS_TEMPLATES['1d']).toContain('URGENT');
-      expect(DEFAULT_SMS_TEMPLATES.expired).toContain('ATENTIE');
+    it('ton calm — fără majuscule alarmiste (politica anti-oboseală 23.08)', () => {
+      // Urgența vine din conținut („maine", „a expirat"), nu din țipăt.
+      for (const template of Object.values(DEFAULT_SMS_TEMPLATES)) {
+        expect(template).not.toMatch(/URGENT|ATENTIE|EXPIRAT|MAINE/);
+      }
+      expect(DEFAULT_SMS_TEMPLATES['1d']).toContain('maine');
+      expect(DEFAULT_SMS_TEMPLATES.expired).toContain('a expirat');
     });
 
     it('should be valid SMS length', () => {

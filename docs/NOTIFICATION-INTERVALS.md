@@ -4,7 +4,7 @@
 
 Users can customize when they receive ITP/RCA/Rovinieta expiry notifications by selecting 1-3 intervals from available options: **1 day, 5 days, or 14 days** before expiry.
 
-**Key Constraint**: Maximum 3 notifications per reminder to prevent notification fatigue and control SMS costs.
+**Key Constraint**: Maximum 3 notifications per reminder to prevent notification fatigue and control SMS costs (aplicat și în validare din 23.08 — max(3) în createReminderSchema; vezi docs/runbooks/anti-oboseala-notificari.md).
 
 ---
 

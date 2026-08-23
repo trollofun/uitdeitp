@@ -188,6 +188,10 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   // văzut confirmarea pe ecran. Un SMS pierdut e mai puțin rău decât o oră
   // pierdută.
   try {
+    // DECIZIE (audit anti-oboseală, 23.08): confirmarea de programare NU
+    // verifică opt-out-ul — e mesaj TRANZACȚIONAL, clientul tocmai a cerut
+    // programarea; a-i ascunde confirmarea ar fi mai rău decât mesajul.
+    // messageType 'booking_confirmation' o exceptează și de la plasa zilnică.
     const message = toGsm7(
       `Programare confirmata la ${station.name}: ${label}. Anulare: ${shortPath(`/a?t=${row.token}`)}`
     );

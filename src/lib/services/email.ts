@@ -21,6 +21,14 @@ export interface SendEmailParams {
    * pe segmente a SMS-ului, deci normalizarea GSM-7 nu are ce căuta aici.
    */
   customBody?: string;
+  /**
+   * Linkul REAL de dezabonare (itp.vin/xxxxxx, legat de telefonul clientului).
+   * Vechiul footer trimitea la uitdeitp.ro/unsubscribe — rută care nu a
+   * existat niciodată: clientul care voia să se dezaboneze primea 404 (G9,
+   * audit anti-oboseală). Fără telefon, fallback-ul e pagina de
+   * confidențialitate, care explică dezabonarea.
+   */
+  optOutLink?: string;
 }
 
 interface EmailResult {
@@ -131,6 +139,10 @@ function customBodyToHtml(customBody: string): string {
  * diacriticele neatinse, fără să trimitem un email real.
  */
 export function buildEmailHTML(params: SendEmailParams, isUrgent: boolean): string {
+  const raw = params.optOutLink ?? 'https://www.uitdeitp.ro/politica-confidentialitate';
+  // Linkul de opt-out din SMS e fără schemă (economie de caractere); într-un
+  // href de email schema e obligatorie.
+  const unsubscribeHref = raw.startsWith('http') ? raw : `https://${raw}`;
   const typeColor =
     params.type === 'ITP' ? '#3B82F6' :
     params.type === 'RCA' ? '#10B981' :
@@ -223,7 +235,7 @@ export function buildEmailHTML(params: SendEmailParams, isUrgent: boolean): stri
         Acest email a fost trimis automat de platforma <strong>uitdeITP.ro</strong>
       </p>
       <p style="color: #94a3b8; font-size: 12px; line-height: 18px;">
-        Nu dorești să primești aceste notificări? <a href="https://uitdeitp.ro/unsubscribe" style="color: #3B82F6;">Dezabonare</a>
+        Nu dorești să primești aceste notificări? <a href="${unsubscribeHref}" style="color: #3B82F6;">Dezabonare</a>
       </p>
     </div>
   </div>
