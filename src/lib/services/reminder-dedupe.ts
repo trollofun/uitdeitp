@@ -295,3 +295,128 @@ export async function linkSupersededBy(
     console.warn('[Dedupe] failed to link superseded_by', { code: error.code });
   }
 }
+
+// ==============================================================================
+// EUR-117: New deduplication logic for many-to-many contacts
+// ==============================================================================
+
+/**
+ * EUR-117: Plate-based deduplication with contact merging
+ *
+ * REGULA 1: Un singur reminder activ per mașină (plate_number UNIQUE)
+ * REGULA 4: Data nouă înlocuiește data veche (UPDATE expiry, not INSERT)
+ * REGULA 5: Importul ADAUGĂ contacte, nu înlocuiește
+ */
+
+export interface ResolveDuplicateParamsV2 {
+  supabase: SupabaseClient<any, any, any>;
+  plateNumber: string;
+  expiryDate: string;
+  /** Contacts to add/merge (nu înlocuiește existing) */
+  contacts: string[]; // Array of phone numbers
+}
+
+export interface ResolveDuplicateResultV2 {
+  /** Existing reminder that will be updated (or null if new) */
+  existingReminder: { id: string; expiry_date: string } | null;
+  /** Rows superseded by update (if expiry changed) */
+  supersededIds: string[];
+  /** Contacts added (new ones only) */
+  contactsAdded: string[];
+  /** Contacts already existed (skipped) */
+  contactsExisting: string[];
+}
+
+export async function resolveDuplicateV2({
+  supabase,
+  plateNumber,
+  expiryDate,
+  contacts,
+}: ResolveDuplicateParamsV2): Promise<ResolveDuplicateResultV2> {
+  const now = new Date().toISOString();
+
+  // REGULA 1: Find existing reminder for this plate (UNIQUE constraint)
+  const { data: existing } = await supabase
+    .from('reminders')
+    .select('id, expiry_date')
+    .eq('plate_number', plateNumber)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (!existing) {
+    // No existing reminder → caller will INSERT new
+    return {
+      existingReminder: null,
+      supersededIds: [],
+      contactsAdded: [],
+      contactsExisting: [],
+    };
+  }
+
+  // REGULA 4: Data nouă înlocuiește data veche
+  const supersededIds: string[] = [];
+  if (expiryDate > existing.expiry_date) {
+    // New expiry is later → UPDATE existing reminder
+    await supabase
+      .from('reminders')
+      .update({
+        expiry_date: expiryDate,
+        updated_at: now,
+        // Trigger will recalculate next_notification_date
+      })
+      .eq('id', existing.id);
+  } else if (expiryDate < existing.expiry_date) {
+    // Existing expiry is later → keep existing, mark incoming as superseded
+    // Caller should NOT insert
+    return {
+      existingReminder: existing,
+      supersededIds: [],
+      contactsAdded: [],
+      contactsExisting: [],
+    };
+  }
+
+  // REGULA 5: Merge contacts (add new, keep existing)
+  const { data: existingContacts } = await supabase
+    .from('reminder_contacts')
+    .select('phone_number')
+    .eq('reminder_id', existing.id);
+
+  const existingPhones = new Set(
+    (existingContacts || []).map((c: any) => c.phone_number)
+  );
+
+  const contactsAdded: string[] = [];
+  const contactsExisting: string[] = [];
+
+  for (const phone of contacts) {
+    // Normalize phone
+    let normalized = phone;
+    if (/^0[7-9]\d{8}$/.test(normalized)) {
+      normalized = '+4' + normalized;
+    }
+
+    if (existingPhones.has(normalized)) {
+      contactsExisting.push(normalized);
+    } else {
+      // Add new contact
+      const { error } = await supabase
+        .rpc('add_reminder_contact', {
+          p_reminder_id: existing.id,
+          p_phone_number: normalized,
+          p_source: 'import',
+        });
+
+      if (!error) {
+        contactsAdded.push(normalized);
+      }
+    }
+  }
+
+  return {
+    existingReminder: existing,
+    supersededIds,
+    contactsAdded,
+    contactsExisting,
+  };
+}

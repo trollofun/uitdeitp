@@ -76,9 +76,12 @@ UNIQUE: (plate_number, expiry_date, days_until_expiry, phone_number)
 ### ✅ Phase 1: Database Schema (COMPLETED)
 
 **Commit:** `f63dadb` - feat(reminders): many-to-many contacts + deduplication
+**Renamed:** `20261009_reminder_contacts_dedup.sql` (owner request - YYYYMMDD convention)
+**Rollback:** `20261009_reminder_contacts_dedup_rollback.sql` (CREATED)
 
 **Files:**
-- `supabase/migrations/020_reminder_contacts_deduplication.sql` (324 lines)
+- `supabase/migrations/20261009_reminder_contacts_dedup.sql` (324 lines)
+- `supabase/migrations/20261009_reminder_contacts_dedup_rollback.sql` (77 lines)
 
 **What it does:**
 1. Creates `reminder_contacts` table
@@ -126,11 +129,18 @@ GROUP BY r.id
 LIMIT 10;
 ```
 
-### 🔄 Phase 2: TypeScript Types & Business Logic (IN PROGRESS)
+### 🔄 Phase 2: TypeScript Types & Business Logic (PARTIALLY COMPLETED)
+
+**Status:** Service layer created, processor refactoring needed
+
+**Completed:**
+- ✅ `src/lib/services/reminder-contacts.ts` - Contact management service
+- ✅ `src/lib/services/reminder-dedupe.ts` - resolveDuplicateV2() function
+- ⏸️ `src/lib/services/reminder-processor.ts` - Needs SMS iteration update (see below)
 
 **Prerequisites:**
-- Migration 020 applied on dev DB ✓ (pending)
-- Types regenerated from Supabase ✓ (pending)
+- Migration applied on dev DB ⏸️ (blocked - no dev DB, only production)
+- Types regenerated from Supabase ⏸️ (blocked - migration not applied)
 
 **Files to create/update:**
 
@@ -422,9 +432,9 @@ for (const reminder of reminders) {
 }
 ```
 
-### 🚧 Phase 3: Dry-Run Endpoint (PENDING)
+### ✅ Phase 3: Dry-Run Endpoint (COMPLETED)
 
-**File:** `src/app/api/integrations/reminders/dry-run/route.ts`
+**File:** `src/app/api/integrations/reminders/dry-run/route.ts` (CREATED)
 
 **Purpose:** Preview import without making changes (REGULA 7)
 
@@ -459,13 +469,28 @@ export async function POST(req: Request) {
 }
 ```
 
-### 🧪 Phase 4: Testing (PENDING)
+### 🧪 Phase 4: Testing (READY FOR OWNER)
 
-**Test scenarios:**
+**Production Duplicate Report (Read-Only):**
 
-1. **3 surse + 2 telefoane → 1 reminder, 2 contacte, 2 SMS**
-2. **Reluare job → 0 duplicate**
-3. **3 mașini duplicate din producție → unificate**
+**Scripts created:**
+- `scripts/eur-117-production-report.ts` - TypeScript report generator
+- SQL script available in commit message (see below)
+
+**To run report:**
+```bash
+# Option 1: TypeScript script (requires .env.local)
+npx tsx scripts/eur-117-production-report.ts
+
+# Option 2: SQL in Supabase SQL Editor (recommended)
+# Copy SQL from /tmp/production-duplicates-dry-run.sql
+```
+
+**Test scenarios (blocked - awaiting migration apply):**
+
+1. **3 surse + 2 telefoane → 1 reminder, 2 contacte, 2 SMS** ⏸️
+2. **Reluare job → 0 duplicate** ⏸️
+3. **3 mașini duplicate din producție → unificate** (dry-run ready)
 
 ## Deployment Steps
 
@@ -543,12 +568,76 @@ DROP INDEX IF EXISTS idx_unique_notification_per_stage_phone;
 - [ ] .env.example (new variables)
 - [ ] Deployment steps
 
+## Implementation Notes
+
+### Remaining Work (Faza 2 - reminder-processor.ts)
+
+**The `processReminder()` function needs updates around line 380-450:**
+
+Current code sends SMS to ONE phone (registered user OR guest):
+```typescript
+const phoneNumber = (isRegisteredUser ? profile?.phone : null) || reminder.guest_phone;
+```
+
+**Required change:**
+```typescript
+// Query ALL contacts for this reminder
+const { data: contacts } = await supabase
+  .from('reminder_contacts')
+  .select('phone_number')
+  .eq('reminder_id', reminder.id);
+
+// Iterate through each contact
+for (const contact of contacts || []) {
+  // Check duplicate per phone (REGULA 3)
+  const { data: alreadySent } = await supabase
+    .from('notification_log')
+    .select('id')
+    .eq('plate_number', reminder.plate_number)
+    .eq('expiry_date', reminder.expiry_date)
+    .eq('days_until_expiry', daysUntilExpiry)
+    .eq('phone_number', contact.phone_number)
+    .gte('sent_at', todayInRomania())
+    .maybeSingle();
+
+  if (alreadySent) {
+    console.log(`[Processor] Already sent to ${contact.phone_number}`);
+    continue;
+  }
+
+  // Send SMS to this contact
+  smsResult = await sendSms({
+    to: contact.phone_number,
+    message: renderedMessage,
+    // ... rest of params
+  });
+
+  // Log per phone
+  await supabase.from('notification_log').insert({
+    reminder_id: reminder.id,
+    phone_number: contact.phone_number,
+    plate_number: reminder.plate_number,
+    expiry_date: reminder.expiry_date,
+    days_until_expiry: daysUntilExpiry,
+    // ... rest
+  });
+}
+```
+
+**Why not completed:**
+- reminder-processor.ts is ~800 lines with complex logic
+- SMS sending is intertwined with credit checking, quiet hours, templates
+- Full refactoring needs careful testing of all edge cases
+- Safer to apply migration first, then refactor with integration tests
+
 ## Commits
 
 - `f63dadb` - feat(reminders): many-to-many contacts + deduplication (EUR-117 Faza 1)
+- `b696e15` - docs(eur-117): ghid complet implementare deduplicare + many-to-many
+- [PENDING] - feat(eur-117): reminder contacts service + dry-run + production report
 
 ---
 
-**Status:** Phase 1 complete, Phase 2 blocked pending migration apply on dev DB  
-**Next:** Apply migration, regenerate types, continue with business logic  
-**Owner approval required before production deployment**
+**Status:** Phase 1 ✅, Phase 2 🔄 (70% - service layer done, processor pending), Phase 3 ✅, Phase 4 ⏸️  
+**Next:** Owner applies migration on production, then complete reminder-processor.ts refactoring  
+**Production deployment:** ONLY with owner approval after testing
