@@ -5,6 +5,7 @@ import { resolvePhoneFromToken } from '@/lib/utils/opt-out';
 import { formatPhoneNumber, displayPhoneNumber } from '@/lib/services/phone';
 import { checkDurableRateLimit } from '@/lib/api/rate-limit';
 import { getClientIp } from '@/lib/api/middleware';
+import { syncOptOutToEam } from '@/lib/services/eam-sync';
 
 const optOutSchema = z.object({
   token: z.string().min(1).max(32),
@@ -133,6 +134,18 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[OptOut] Successfully opted out: ${formattedPhone}`);
+
+    // ===== CONTRACT B: Sync to EAM =====
+    // Client's opt-out must propagate to EAM's consents.revoked_at
+    // This stops ALL channels (Google Ads audiences, other campaigns, etc.)
+    try {
+      await syncOptOutToEam(formattedPhone);
+    } catch (eamError) {
+      // Don't fail the request - local opt-out succeeded
+      // Log error for monitoring (will be visible in Vercel logs)
+      console.error('[OptOut] ⚠️ Failed to sync to EAM (local opt-out succeeded):', eamError);
+    }
+    // ==================================
 
     // Also mark all reminders for this phone as opted-out (soft-delete)
     const { error: reminderError } = await supabase
