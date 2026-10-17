@@ -28,7 +28,7 @@ import { verifySignature } from '@/lib/integrations/hmac';
 import { toReminderInsert } from '@/lib/integrations/mapping';
 import { resolveDuplicate, linkSupersededBy } from '@/lib/services/reminder-dedupe';
 import { plateNumberSchema } from '@/lib/validation';
-import { recordServiceVisit } from '@/lib/services/service-visits';
+import { recordServiceVisit, linkVisitToReminder } from '@/lib/services/service-visits';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
         ? payload.plate_number
         : (payload.vehicul.numar_inmatriculare ?? payload.vehicul.placa)!;
 
-    await recordServiceVisit({
+    const visitId = await recordServiceVisit({
       supabase,
       payload: payload as unknown as Record<string, unknown>,
       stationId: auth.station.id,
@@ -322,6 +322,9 @@ export async function POST(req: NextRequest) {
     }
 
     await linkSupersededBy(supabase, dedupe.supersededIds, created.id);
+
+    // Vizita s-a scris înainte să existe reminderul (reminder_id NULL); acum o legăm.
+    await linkVisitToReminder(supabase, visitId, created.id);
 
     await audit({
       station_id: auth.station.id,
