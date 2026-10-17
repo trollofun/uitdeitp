@@ -73,7 +73,18 @@ export interface ServiceVisitInsert {
   external_ref: string;
 }
 
+const ROMANIA_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bucharest' });
+
 const toDateOnly = (value: unknown): string | null => {
+  // Payload-ul ajunge aici deja parsat de Zod (`z.coerce.date()`): data e un
+  // obiect Date, nu text. Fără ramura asta, visited_at cădea pe ziua ingestului
+  // și expires_at rămânea NULL pentru ORICE inspecție primită.
+  if (value instanceof Date) {
+    // `z.coerce.date()` transformă și `true` / 0 în 1970-01-01: o dată din
+    // epoca Unix nu e o inspecție, e un câmp greșit — mai bine NULL decât 1970.
+    if (Number.isNaN(value.getTime()) || value.getUTCFullYear() < 2000) return null;
+    return ROMANIA_DAY.format(value);
+  }
   if (typeof value !== 'string' || !value) return null;
   const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
   return match ? match[1] : null;

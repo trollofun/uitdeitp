@@ -107,6 +107,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     const daysUntilExpiry = getDaysUntilExpiry(reminder.expiry_date);
+
+    // Șabloanele de reminder spun „expiră în N zile": pe un ITP deja expirat
+    // devin un mesaj fals (și `<= 1` ar alege șablonul „mâine"). Cu text scris
+    // de om, trimiterea rămâne permisă.
+    if (daysUntilExpiry < 0 && !parsed.data.message) {
+      throw new ApiError(
+        ApiErrorCode.VALIDATION_ERROR,
+        'ITP-ul a expirat deja — scrie un mesaj personalizat sau creează un reminder nou',
+        400
+      );
+    }
+
     const templateKey = getTemplateForDays(daysUntilExpiry);
     const stationTemplate =
       daysUntilExpiry <= 1

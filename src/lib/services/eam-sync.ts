@@ -6,7 +6,7 @@
  * Flow:
  * 1. Client clicks STOP in SMS → POST /api/opt-out in uitdeitp
  * 2. uitdeitp saves to global_opt_outs.opted_out_at (local record)
- * 3. uitdeitp calls syncOptOutToEam() → PATCH /api/clients/{phone}/consents in EAM
+ * 3. uitdeitp calls syncOptOutToEam() → PATCH /api/v1/clients/{phone}/consents in EAM
  * 4. EAM updates consents.revoked_at (canonical source of truth for all channels)
  *
  * GDPR Compliance:
@@ -32,7 +32,10 @@ export async function syncOptOutToEam(phone: string): Promise<void> {
     return;
   }
 
-  const endpoint = `${eamUrl}/api/clients/${encodeURIComponent(phone)}/consents`;
+  // EAM montează API-ul sub /api/v1 (altfel 404). Acceptăm și EAM_API_URL cu
+  // /api/v1 la capăt, ca să nu rezulte /api/v1/api/v1.
+  const base = eamUrl.replace(/\/+$/, '').replace(/\/api\/v1$/, '');
+  const endpoint = `${base}/api/v1/clients/${encodeURIComponent(phone)}/consents`;
 
   try {
     const response = await fetch(endpoint, {
