@@ -29,6 +29,15 @@ describe('syncOptOutToEam — calea spre EAM', () => {
     );
   });
 
+  it('trimite un User-Agent propriu și cheia Bearer', async () => {
+    process.env.EAM_API_URL = 'https://eam.example.ro/api/v1';
+    await syncOptOutToEam('+40712000000');
+    const init = fetchMock.mock.calls[0][1];
+    expect(init.method).toBe('PATCH');
+    expect(init.headers['User-Agent']).toBe('uitdeITP-ContractB/1.0');
+    expect(init.headers['Authorization']).toBe('Bearer test-key');
+  });
+
   it('fără variabile nu apelează EAM', async () => {
     delete process.env.EAM_API_KEY;
     await syncOptOutToEam('+40712000000');

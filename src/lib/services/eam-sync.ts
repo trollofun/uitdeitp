@@ -43,6 +43,8 @@ export async function syncOptOutToEam(phone: string): Promise<void> {
       headers: {
         'Authorization': `Bearer ${eamKey}`,
         'Content-Type': 'application/json',
+        // Cloudflare din fața EAM blochează (403/1010) clienții fără User-Agent.
+        'User-Agent': 'uitdeITP-ContractB/1.0',
       },
       body: JSON.stringify({
         marketing: {
