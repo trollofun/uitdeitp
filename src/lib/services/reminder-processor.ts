@@ -64,6 +64,17 @@ export interface ProcessReminderResult {
   success: boolean;
   channel: 'email' | 'sms' | 'email+sms';
   error?: string;
+  /** Set when nothing was attempted on purpose (e.g. the ITP already expired) */
+  skipped?: 'expired';
+}
+
+/**
+ * Un reminder cu `expiry_date` în trecut nu mai are ce anunța: „expiră în 5 zile"
+ * trimis după expirare e un mesaj greșit, nu o întârziere recuperabilă. Compară
+ * șiruri YYYY-MM-DD (data locală RO), fără aritmetică pe ore.
+ */
+export function isExpired(expiryDate: string, today: string): boolean {
+  return expiryDate.slice(0, 10) < today;
 }
 
 /**
@@ -74,6 +85,20 @@ export async function processReminder(
   supabase: SupabaseClient
 ): Promise<ProcessReminderResult> {
   const daysUntilExpiry = getDaysUntilExpiry(reminder.expiry_date);
+
+  // Oprire: niciun SMS/email pentru un ITP deja expirat. Plasă și pentru alți
+  // apelanți ai lui processReminder; cronul îi exclude oricum din interogare.
+  if (isExpired(reminder.expiry_date, todayInRomania())) {
+    console.warn(`[Processor] Skipping ${reminder.id}: expired ${reminder.expiry_date} (${daysUntilExpiry} days) — nothing sent`);
+    return {
+      reminderId: reminder.id,
+      plate: reminder.plate_number,
+      type: reminder.reminder_type ?? reminder.type ?? 'itp',
+      success: false,
+      channel: 'email',
+      skipped: 'expired',
+    };
+  }
 
   console.log(`[Processor] Processing reminder ${reminder.id} for ${reminder.plate_number} (${daysUntilExpiry} days until expiry)`);
   console.log(`[Processor] User intervals: ${JSON.stringify(reminder.notification_intervals)}, channels: ${JSON.stringify(reminder.notification_channels)}`);
@@ -673,6 +698,7 @@ export async function processRemindersForToday() {
     .from('reminders')
     .select('*')
     .lte('next_notification_date', today)
+    .gte('expiry_date', today)
     .not('next_notification_date', 'is', null)
     .is('deleted_at', null)
     .or('opt_out.is.null,opt_out.eq.false');
@@ -704,7 +730,8 @@ export async function processRemindersForToday() {
     total: reminders.length,
     processed: results.length,
     sent: results.filter((r) => r.success).length,
-    failed: results.filter((r) => !r.success).length,
+    failed: results.filter((r) => !r.success && !r.skipped).length,
+    skippedExpired: results.filter((r) => r.skipped === 'expired').length,
     emailOnly: results.filter((r) => r.channel === 'email' && r.success).length,
     smsOnly: results.filter((r) => r.channel === 'sms' && r.success).length,
     emailAndSms: results.filter((r) => r.channel === 'email+sms' && r.success).length,

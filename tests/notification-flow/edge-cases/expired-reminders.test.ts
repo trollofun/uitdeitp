@@ -64,21 +64,19 @@ describeWithBackend('Edge Case: Expired Reminders', () => {
     // Process the reminder
     const result = await processReminder(inserted, supabase);
 
-    // Should process but might set next_notification_date to null
+    // Expirat = nu se trimite nimic și nu se scrie nimic în baza de date
     expect(result).toMatchObject({
       reminderId: inserted.id,
       plate: 'B-TEST-EXP1',
+      success: false,
+      skipped: 'expired',
     });
 
-    // Check updated reminder
-    const { data: updated } = await supabase
-      .from('reminders')
-      .select('next_notification_date')
-      .eq('id', inserted.id)
-      .single();
-
-    // For expired reminders, next_notification_date should be null
-    expect(updated?.next_notification_date).toBeNull();
+    const { data: logs } = await supabase
+      .from('notification_log')
+      .select('id')
+      .eq('reminder_id', inserted.id);
+    expect(logs ?? []).toHaveLength(0);
 
     // Clean up
     await supabase.from('notification_log').delete().eq('reminder_id', inserted.id);
@@ -137,16 +135,10 @@ describeWithBackend('Edge Case: Expired Reminders', () => {
       .single();
 
     // Process the reminder
-    await processReminder(inserted, supabase);
+    const result = await processReminder(inserted, supabase);
 
-    // Check that no future notification is scheduled
-    const { data: updated } = await supabase
-      .from('reminders')
-      .select('next_notification_date')
-      .eq('id', inserted.id)
-      .single();
-
-    expect(updated?.next_notification_date).toBeNull();
+    // Nimic trimis, nimic programat: reminderul expirat e doar sărit
+    expect(result.skipped).toBe('expired');
 
     // Clean up
     await supabase.from('notification_log').delete().eq('reminder_id', inserted.id);
